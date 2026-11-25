@@ -90,6 +90,7 @@ class CreatorProfile extends Model
         return [
             ...$this->only('handle', 'display_name', 'bio', 'price_monthly', 'adult_content'),
             'avatar_url' => $this->avatarUrl(),
+            'cover_url' => $this->coverUrl(),
             'posts_count' => (int) ($this->posts_count ?? $this->posts()->count()),
             'followers_count' => (int) ($this->followers_count ?? $this->followers()->count()),
             'following' => $viewer ? $this->followers()->whereKey($viewer->id)->exists() : false,

@@ -8,6 +8,7 @@ import { BadgeCheck } from 'lucide-react';
 
 export type CreatorCardData = {
     avatar_url: string | null;
+    cover_url: string | null;
     handle: string;
     display_name: string;
     bio: string | null;

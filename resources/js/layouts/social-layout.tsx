@@ -352,13 +352,21 @@ function RightRail() {
     );
 }
 
-/** A banner-style creator tile: colour cover, avatar, name and price. */
+/** A banner-style creator tile: cover photo (or a colour), avatar, name and price. */
 function SuggestionCard({ c }: { c: CreatorCardData }) {
     const { t } = useT();
     const g = avatarGradient(c.handle);
 
     return (
         <Link href={route('creator.show', c.handle)} className={`group relative block h-28 overflow-hidden rounded-xl bg-gradient-to-br ${g}`}>
+            {c.cover_url && (
+                <img
+                    src={c.cover_url}
+                    alt=""
+                    loading="lazy"
+                    className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-105"
+                />
+            )}
             <span className="absolute inset-0 bg-black/15 transition group-hover:bg-black/25" />
             <span className="absolute top-2 left-2 rounded-md bg-black/40 px-1.5 py-0.5 text-[11px] font-semibold text-white">
                 {c.price_monthly === 0 ? t('rail.free') : t('cp.monthly', { price: mnt(c.price_monthly) })}
