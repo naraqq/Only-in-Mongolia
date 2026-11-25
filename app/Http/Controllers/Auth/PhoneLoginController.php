@@ -73,6 +73,12 @@ class PhoneLoginController extends Controller
             $verification->delete();
 
             return back()->withErrors(['phone' => __('Could not start phone verification. Please try again.')]);
+        } catch (\RuntimeException $e) {
+            // Not configured (no VERIFY_MN_API_KEY): say so instead of crashing.
+            Log::error('verify.mn: '.$e->getMessage());
+            $verification->delete();
+
+            return back()->withErrors(['phone' => __('Phone login isn’t set up yet. Please try again later.')]);
         }
 
         $verification->update([

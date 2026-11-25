@@ -9,5 +9,6 @@
     "Enter a valid register number, e.g. УБ99031512.": "Зөв регистрийн дугаар оруулна уу, жишээ нь УБ99031512.",
     "Creators must be at least 18 years old.": "Бүтээгч 18 нас хүрсэн байх ёстой.",
     "This register number doesn’t match the date of birth on your account.": "Регистрийн дугаар таны бүртгэл дээрх төрсөн огноотой таарахгүй байна.",
-    "This register number is already used by another creator account.": "Энэ регистрийн дугаар өөр бүтээгчийн бүртгэлд ашиглагдсан байна."
+    "This register number is already used by another creator account.": "Энэ регистрийн дугаар өөр бүтээгчийн бүртгэлд ашиглагдсан байна.",
+    "Phone login isn’t set up yet. Please try again later.": "Утсаар нэвтрэх үйлчилгээ хараахан тохируулагдаагүй байна. Дараа дахин оролдоно уу."
 }

@@ -55,4 +55,14 @@ class DevPhoneBypassTest extends TestCase
         $this->post('/login/phone', ['phone' => '80105376'])->assertSessionHasErrors('phone');
         $this->assertDatabaseCount('phone_verifications', 0);
     }
+
+    public function test_missing_api_key_shows_a_message_instead_of_crashing(): void
+    {
+        config(['services.verify_mn.dev_phones' => [], 'services.verify_mn.key' => '']);
+
+        $this->from('/login')->post('/login/phone', ['phone' => '99112233'])
+            ->assertRedirect('/login')
+            ->assertSessionHasErrors('phone');
+        $this->assertDatabaseCount('phone_verifications', 0);
+    }
 }
