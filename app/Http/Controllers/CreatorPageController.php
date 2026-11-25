@@ -24,7 +24,10 @@ class CreatorPageController extends Controller
         // Pages with 18+ content are only for signed-in adults (their age was checked at sign-up).
         $gated = $creator->adult_content && ! $viewer;
 
-        $posts = $gated ? collect() : $creator->posts()->with('media')->take(50)->get()->map(fn (Post $p) => self::present($p, $viewer));
+        $sort = $request->query('sort') === 'popular' ? 'popular' : 'new';
+        $posts = $gated ? collect() : $creator->posts()->with('media')->withEngagement($viewer)
+            ->when($sort === 'popular', fn ($q) => $q->reorder()->orderByDesc('likes_count')->latest())
+            ->take(50)->get()->map(fn (Post $p) => self::present($p, $viewer));
 
         return Inertia::render('creator/show', [
             'creator' => [
@@ -38,6 +41,7 @@ class CreatorPageController extends Controller
             'following' => $viewer ? $creator->followers()->whereKey($viewer->id)->exists() : false,
             'posts' => $posts,
             'gated' => $gated,
+            'sort' => $sort,
             'isOwner' => $isOwner,
             'subscribed' => $creator->hasActiveSubscriber($viewer),
             // Why the Message button is disabled (null = can message): login | follow | subscribe | self ...
@@ -60,6 +64,10 @@ class CreatorPageController extends Controller
             'locked' => $lock,
             'body' => $lock ? null : $post->body,
             'media' => $lock ? [] : $post->media->map(fn ($m) => ['id' => $m->id, 'type' => $m->type, 'url' => route('media.show', $m)])->all(),
+            'likes_count' => (int) ($post->likes_count ?? $post->likes()->count()),
+            'comments_count' => (int) ($post->comments_count ?? $post->comments()->count()),
+            'liked' => (bool) ($post->liked ?? false),
+            'bookmarked' => (bool) ($post->bookmarked ?? false),
             'counts' => ['image' => $post->media->where('type', 'image')->count(), 'video' => $post->media->where('type', 'video')->count()],
         ];
     }

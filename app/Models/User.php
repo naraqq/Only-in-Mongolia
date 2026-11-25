@@ -66,6 +66,12 @@ class User extends Authenticatable
         return $this->belongsToMany(CreatorProfile::class, 'follows')->withTimestamps();
     }
 
+    /** Saved posts. */
+    public function bookmarks(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Post::class, 'bookmarks')->withTimestamps();
+    }
+
     public function subscriptions(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Subscription::class);

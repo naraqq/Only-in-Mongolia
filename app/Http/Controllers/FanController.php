@@ -67,7 +67,7 @@ class FanController extends Controller
 
         $own = $viewer->creatorProfile()->where('status', CreatorProfile::APPROVED)->value('id');
 
-        $posts = Post::whereIn('creator_profile_id', $ids->when($own, fn ($c) => $c->merge([$own])))->with(['media', 'creator.user:id,avatar_path'])->latest()->latest('id')->take(50)->get()
+        $posts = Post::whereIn('creator_profile_id', $ids->when($own, fn ($c) => $c->merge([$own])))->with(['media', 'creator.user:id,avatar_path'])->withEngagement($viewer)->latest()->latest('id')->take(50)->get()
             ->map(fn (Post $p) => [
                 ...CreatorPageController::present($p, $viewer),
                 'author' => ['name' => $p->creator->display_name, 'handle' => $p->creator->handle, 'price' => $p->creator->price_monthly, 'avatar_url' => $p->creator->avatarUrl()],

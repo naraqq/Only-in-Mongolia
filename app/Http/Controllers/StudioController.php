@@ -40,7 +40,7 @@ class StudioController extends Controller
                 'feePercent' => (int) config('creators.platform_fee_percent'),
             ],
             'creator' => [...$creator->only('handle', 'display_name', 'price_monthly', 'adult_content'), 'avatar_url' => $creator->avatarUrl()],
-            'posts' => $creator->posts()->with('media')->take(100)->get()
+            'posts' => $creator->posts()->with('media')->withEngagement($request->user())->take(100)->get()
                 ->map(fn (Post $p) => CreatorPageController::present($p, $request->user())),
         ]);
     }

@@ -21,6 +21,30 @@ class Post extends Model
         return $this->belongsTo(CreatorProfile::class, 'creator_profile_id');
     }
 
+    public function likes(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'post_likes')->withTimestamps();
+    }
+
+    public function bookmarkedBy(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'bookmarks')->withTimestamps();
+    }
+
+    public function comments(): HasMany
+    {
+        return $this->hasMany(PostComment::class);
+    }
+
+    /** Like/comment counts, and whether $viewer liked or saved each post, in the same query. */
+    public function scopeWithEngagement(\Illuminate\Database\Eloquent\Builder $q, ?User $viewer): \Illuminate\Database\Eloquent\Builder
+    {
+        return $q->withCount(['likes', 'comments'])->when($viewer, fn ($w) => $w->withExists([
+            'likes as liked' => fn ($l) => $l->where('users.id', $viewer->id),
+            'bookmarkedBy as bookmarked' => fn ($b) => $b->where('users.id', $viewer->id),
+        ]));
+    }
+
     public function media(): HasMany
     {
         return $this->hasMany(PostMedia::class)->orderBy('position');

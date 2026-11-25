@@ -37,6 +37,7 @@ export default function CreatorPage({
     subscribedUntil,
     following,
     messageBlock,
+    sort,
 }: {
     creator: Creator;
     posts: PostItem[];
@@ -45,6 +46,7 @@ export default function CreatorPage({
     subscribed: boolean;
     subscribedUntil: string | null;
     messageBlock: string | null;
+    sort: 'new' | 'popular';
     following: boolean;
 }) {
     const { t } = useT();
@@ -119,6 +121,21 @@ export default function CreatorPage({
             </div>
 
             <div className="mt-6 border-t">
+                {!gated && posts.length > 1 && (
+                    <div className="flex gap-1 px-4 pt-3" role="group">
+                        {(['new', 'popular'] as const).map((s) => (
+                            <Link
+                                key={s}
+                                href={route('creator.show', { handle: creator.handle, ...(s === 'popular' ? { sort: s } : {}) })}
+                                preserveScroll
+                                preserveState
+                                className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${sort === s ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted'}`}
+                            >
+                                {t(s === 'new' ? 'fan.sortNew' : 'cp.mostLiked')}
+                            </Link>
+                        ))}
+                    </div>
+                )}
                 {gated ? (
                     <div className="flex flex-col items-center gap-3 p-10 text-center">
                         <Lock className="text-muted-foreground size-8" aria-hidden />

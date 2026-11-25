@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\CreatorReviewController;
 use App\Http\Controllers\Admin\PayoutController;
 use App\Http\Controllers\EarningsController;
+use App\Http\Controllers\EngagementController;
 use App\Http\Controllers\CreatorApplicationController;
 use App\Http\Controllers\CreatorPageController;
 use App\Http\Controllers\FanController;
@@ -41,6 +42,14 @@ Route::middleware(['auth'])->group(function () {
     Route::get('payments/{payment}', [PaymentController::class, 'show'])->name('payments.show');
     Route::get('payments/{payment}/status', [PaymentController::class, 'status'])->middleware('throttle:60,1')->name('payments.status');
     Route::post('payments/{payment}/fake-pay', [PaymentController::class, 'fakePay'])->name('payments.fake-pay');
+
+    // Likes, comments, saved posts.
+    Route::post('posts/{post}/like', [EngagementController::class, 'like'])->middleware('throttle:120,1')->name('posts.like');
+    Route::post('posts/{post}/bookmark', [EngagementController::class, 'bookmark'])->middleware('throttle:120,1')->name('posts.bookmark');
+    Route::get('posts/{post}/comments', [EngagementController::class, 'comments'])->name('posts.comments');
+    Route::post('posts/{post}/comments', [EngagementController::class, 'comment'])->middleware('throttle:20,1')->name('posts.comment');
+    Route::delete('comments/{comment}', [EngagementController::class, 'deleteComment'])->name('comments.destroy');
+    Route::get('saved', [EngagementController::class, 'saved'])->name('saved');
 
     // Notifications (the bell). Opening the page marks them read.
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications');

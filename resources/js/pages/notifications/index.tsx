@@ -3,9 +3,9 @@ import SocialLayout from '@/layouts/social-layout';
 import { mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { Link } from '@inertiajs/react';
-import { Banknote, Bell, CalendarClock, HandCoins, ImagePlus, LockOpen, Star, UserPlus, type LucideIcon } from 'lucide-react';
+import { Banknote, Bell, CalendarClock, HandCoins, ImagePlus, LockOpen, MessageCircle, Star, UserPlus, type LucideIcon } from 'lucide-react';
 
-type Kind = 'followed' | 'subscribed' | 'tipped' | 'purchased' | 'new_post' | 'expiring' | 'payout_paid' | 'payout_rejected';
+type Kind = 'followed' | 'subscribed' | 'tipped' | 'purchased' | 'new_post' | 'commented' | 'expiring' | 'payout_paid' | 'payout_rejected';
 type Item = {
     id: string;
     kind: Kind;
@@ -24,6 +24,7 @@ const ICONS: Record<Kind, [LucideIcon, string]> = {
     tipped: [HandCoins, 'bg-amber-500'],
     purchased: [LockOpen, 'bg-orange-500'],
     new_post: [ImagePlus, 'bg-violet-500'],
+    commented: [MessageCircle, 'bg-sky-500'],
     expiring: [CalendarClock, 'bg-zinc-700'],
 };
 
@@ -43,6 +44,8 @@ export default function Notifications({ notifications }: { notifications: Item[]
                 return t('nt.tipped', { name, amount });
             case 'purchased':
                 return t('nt.purchased', { name, amount });
+            case 'commented':
+                return t('nt.commented', { name });
             case 'new_post':
                 return t('nt.newPost', { name });
             case 'payout_paid':

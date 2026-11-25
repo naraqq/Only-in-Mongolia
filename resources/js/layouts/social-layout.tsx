@@ -13,6 +13,7 @@ import {
     BadgeCheck,
     Banknote,
     Bell,
+    Bookmark,
     Compass,
     House,
     LogIn,
@@ -77,6 +78,7 @@ export default function SocialLayout({
                       badge: unreadMessages,
                   } as NavLink,
                   { label: 'fan.followingTitle', href: route('dashboard'), icon: Users, match: (u: string) => u === '/dashboard' } as NavLink,
+                  { label: 'nav.saved', href: route('saved'), icon: Bookmark, match: (u: string) => u === '/saved' } as NavLink,
                   ...(creator
                       ? [
                             { label: 'nav.studio', href: route('studio'), icon: PenSquare, match: (u: string) => u === '/studio' } as NavLink,

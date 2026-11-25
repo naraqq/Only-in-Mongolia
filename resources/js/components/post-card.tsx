@@ -1,10 +1,13 @@
+import PostComments from '@/components/post-comments';
 import TipButton from '@/components/tip-button';
 import UserAvatar from '@/components/user-avatar';
 import { mnt } from '@/lib/format';
+import { sendJson } from '@/lib/http';
 import { useT } from '@/lib/i18n';
 import { type SharedData } from '@/types';
-import { Link, usePage } from '@inertiajs/react';
-import { Globe, Image as ImageIcon, Lock, Trash2, Video } from 'lucide-react';
+import { Link, router, usePage } from '@inertiajs/react';
+import { Bookmark, Globe, Heart, Image as ImageIcon, Lock, MessageCircle, Trash2, Video } from 'lucide-react';
+import { useState } from 'react';
 
 export type PostItem = {
     id: number;
@@ -16,6 +19,10 @@ export type PostItem = {
     body: string | null;
     media: { id: number; type: 'image' | 'video'; url: string }[];
     counts: { image: number; video: number };
+    likes_count: number;
+    comments_count: number;
+    liked: boolean;
+    bookmarked: boolean;
 };
 
 const day = (iso: string) => iso.slice(0, 10).replaceAll('-', '.');
@@ -108,17 +115,101 @@ export default function PostCard({
                     {post.media.length === 0 && <div className="h-1" />}
                 </>
             )}
-            {!mine && (
-                <footer className="flex items-center gap-1 px-2 py-1.5">
+            <Actions post={post} author={author} mine={mine} />
+        </article>
+    );
+}
+
+/** Like, comment, save (on posts you can see) and tip (on other people's posts). Likes and saves update instantly. */
+function Actions({ post, author, mine }: { post: PostItem; author: { name: string; handle: string }; mine: boolean }) {
+    const { t } = useT();
+    const { auth } = usePage<SharedData>().props;
+    const [liked, setLiked] = useState(post.liked);
+    const [likes, setLikes] = useState(post.likes_count);
+    const [saved, setSaved] = useState(post.bookmarked);
+    const [comments, setComments] = useState(post.comments_count);
+    const [open, setOpen] = useState(false);
+    const canEngage = !post.locked;
+    const btn = 'text-muted-foreground inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold transition';
+
+    async function toggleLike() {
+        if (!auth.user) return router.visit(route('login'));
+        const was = liked;
+        setLiked(!was);
+        setLikes((n) => n + (was ? -1 : 1));
+        try {
+            const r = await sendJson<{ liked: boolean; likes_count: number }>('POST', route('posts.like', post.id));
+            setLiked(r.liked);
+            setLikes(r.likes_count);
+        } catch {
+            setLiked(was);
+            setLikes((n) => n + (was ? 1 : -1));
+        }
+    }
+
+    async function toggleSave() {
+        if (!auth.user) return router.visit(route('login'));
+        const was = saved;
+        setSaved(!was);
+        try {
+            setSaved((await sendJson<{ bookmarked: boolean }>('POST', route('posts.bookmark', post.id))).bookmarked);
+        } catch {
+            setSaved(was);
+        }
+    }
+
+    if (!canEngage && mine) return null;
+
+    return (
+        <>
+            <footer className="flex items-center gap-0.5 px-2 py-1.5">
+                {canEngage && (
+                    <>
+                        <button
+                            type="button"
+                            onClick={toggleLike}
+                            className={`${btn} hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 ${liked ? 'text-rose-600' : ''}`}
+                            aria-pressed={liked}
+                            aria-label={t('po.like')}
+                        >
+                            <Heart className={`size-[18px] transition ${liked ? 'scale-110 fill-current' : ''}`} />
+                            {likes > 0 && <span className="tabular-nums">{likes}</span>}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setOpen(!open)}
+                            className={`${btn} hover:bg-sky-50 hover:text-sky-600 dark:hover:bg-sky-950/40 ${open ? 'text-sky-600' : ''}`}
+                            aria-expanded={open}
+                            aria-label={t('po.comments')}
+                        >
+                            <MessageCircle className="size-[18px]" />
+                            {comments > 0 && <span className="tabular-nums">{comments}</span>}
+                        </button>
+                    </>
+                )}
+                {!mine && (
                     <TipButton
                         handle={author.handle}
                         name={author.name}
                         postId={post.id}
-                        className="text-muted-foreground inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold transition hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950/40"
+                        className={`${btn} hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950/40`}
                     />
-                </footer>
-            )}
-        </article>
+                )}
+                {canEngage && (
+                    <button
+                        type="button"
+                        onClick={toggleSave}
+                        className={`${btn} ml-auto hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-950/40 ${saved ? 'text-violet-600' : ''}`}
+                        aria-pressed={saved}
+                        aria-label={t('po.save')}
+                        title={t('po.save')}
+                    >
+                        <Bookmark className={`size-[18px] ${saved ? 'fill-current' : ''}`} />
+                    </button>
+                )}
+            </footer>
+            {open && <PostComments postId={post.id} onCount={setComments} />}
+        </>
     );
 }
 
