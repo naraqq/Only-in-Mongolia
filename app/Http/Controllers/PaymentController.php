@@ -35,6 +35,30 @@ class PaymentController extends Controller
         return to_route('payments.show', $payment);
     }
 
+    /** Tip a creator any amount within limits, optionally for one of their posts and with a short note. */
+    public function tip(Request $request, string $handle): RedirectResponse
+    {
+        $creator = CreatorProfile::listableFor($request->user())->where('handle', mb_strtolower($handle))->firstOrFail();
+        abort_if($creator->user_id === $request->user()->id, 422, 'You can’t tip yourself.');
+
+        $data = $request->validate([
+            'amount' => ['required', 'integer', 'min:'.config('creators.min_tip'), 'max:'.config('creators.max_tip')],
+            'note' => ['nullable', 'string', 'max:200'],
+            'post_id' => ['nullable', 'integer'],
+        ]);
+        $post = isset($data['post_id']) ? $creator->posts()->whereKey($data['post_id'])->firstOrFail() : null;
+
+        try {
+            $payment = $this->payments->startTip($request->user(), $creator, (int) $data['amount'], $post, trim((string) ($data['note'] ?? '')) ?: null);
+        } catch (PaymentException $e) {
+            report($e);
+
+            return back()->withErrors(['payment' => __('Payment is unavailable right now. Please try again in a moment.')]);
+        }
+
+        return to_route('payments.show', $payment);
+    }
+
     public function show(Request $request, Payment $payment): Response|RedirectResponse
     {
         $this->authorizeOwner($request, $payment);
@@ -48,6 +72,8 @@ class PaymentController extends Controller
                 'qr_image' => $payment->qr_image,
                 'bank_links' => $payment->bank_links ?? [],
                 'fake' => $payment->provider === 'fake',
+                'purpose' => $payment->purpose,
+                'note' => $payment->note,
             ],
             'creator' => [...$creator->only('handle', 'display_name', 'bio', 'price_monthly'), 'avatar_url' => $creator->avatarUrl()],
             'days' => (int) config('creators.subscription_days'),
@@ -78,7 +104,7 @@ class PaymentController extends Controller
         FakeGateway::markPaid($payment);
         $this->payments->settle($payment);
 
-        return to_route('creator.show', $payment->creator->handle)->with('status', 'subscribed');
+        return to_route('creator.show', $payment->creator->handle)->with('status', $payment->purpose === Payment::TIP ? 'tipped' : 'subscribed');
     }
 
     /** QPay's notification. We never trust it: it only makes us ask QPay for the real status. */

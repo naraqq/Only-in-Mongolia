@@ -8,7 +8,16 @@ import { ArrowLeft, BadgeCheck, CircleCheck, FlaskConical, LoaderCircle, ShieldC
 import { useEffect, useState } from 'react';
 
 type BankLink = { name: string; description: string; logo: string; link: string };
-type Payment = { id: string; amount: number; status: 'pending' | 'paid'; qr_image: string | null; bank_links: BankLink[]; fake: boolean };
+type Payment = {
+    id: string;
+    amount: number;
+    status: 'pending' | 'paid';
+    qr_image: string | null;
+    bank_links: BankLink[];
+    fake: boolean;
+    purpose: 'subscription' | 'tip';
+    note: string | null;
+};
 type Creator = { handle: string; display_name: string; bio: string | null; price_monthly: number; avatar_url: string | null };
 
 const POLL_MS = 3000;
@@ -67,7 +76,8 @@ export default function PaymentShow({ payment, creator, days }: { payment: Payme
                             <span className="truncate">{creator.display_name}</span>
                             <BadgeCheck className="size-4 shrink-0 text-sky-500" />
                         </p>
-                        <p className="text-muted-foreground text-sm">{t('pay.what', { days })}</p>
+                        <p className="text-muted-foreground text-sm">{payment.purpose === 'tip' ? t('tip.for') : t('pay.what', { days })}</p>
+                        {payment.note && <p className="text-muted-foreground mt-0.5 truncate text-xs italic">“{payment.note}”</p>}
                     </div>
                     <p className="text-2xl font-extrabold tracking-tight">{mnt(payment.amount)}</p>
                 </div>
@@ -75,7 +85,9 @@ export default function PaymentShow({ payment, creator, days }: { payment: Payme
                 {status === 'paid' ? (
                     <div className="flex flex-col items-center gap-3 rounded-2xl bg-emerald-50 p-10 text-center dark:bg-emerald-950/40">
                         <CircleCheck className="size-14 text-emerald-600" />
-                        <p className="text-xl font-bold text-emerald-800 dark:text-emerald-300">{t('pay.done')}</p>
+                        <p className="text-xl font-bold text-emerald-800 dark:text-emerald-300">
+                            {payment.purpose === 'tip' ? t('tip.done') : t('pay.done')}
+                        </p>
                         <p className="text-sm text-emerald-700/80">{t('pay.redirect')}</p>
                     </div>
                 ) : (

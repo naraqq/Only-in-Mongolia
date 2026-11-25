@@ -11,6 +11,10 @@ return [
     // A subscription buys this many days of access; fans renew by paying again (QPay has no recurring billing).
     'subscription_days' => 30,
 
+    // Tip limits (₮).
+    'min_tip' => (int) env('MIN_TIP', 1_000),
+    'max_tip' => (int) env('MAX_TIP', 1_000_000),
+
     // The platform's share of each payment, in percent. Creators see their earnings after this.
     'platform_fee_percent' => (int) env('PLATFORM_FEE_PERCENT', 20),
 

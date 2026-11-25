@@ -1,13 +1,22 @@
+import TipButton from '@/components/tip-button';
 import UserAvatar from '@/components/user-avatar';
 import SocialLayout from '@/layouts/social-layout';
+import { mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
 import { Link, useForm, usePoll } from '@inertiajs/react';
-import { ArrowLeft, BadgeCheck, ImageIcon, ImagePlus, LoaderCircle, MessageCircle, SendHorizontal, X } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, HandCoins, ImageIcon, ImagePlus, LoaderCircle, MessageCircle, SendHorizontal, X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, type FormEvent, type KeyboardEvent } from 'react';
 
 type Person = { id: number; name: string; handle: string | null; avatar_url: string | null };
 type Item = { id: number; other: Person; last: { mine: boolean; body: string | null; has_media: boolean; at: string } | null; unread: number };
-type Msg = { id: number; sender_id: number; body: string | null; created_at: string; media: { id: number; type: 'image' | 'video'; url: string }[] };
+type Msg = {
+    id: number;
+    sender_id: number;
+    body: string | null;
+    tip_amount: number | null;
+    created_at: string;
+    media: { id: number; type: 'image' | 'video'; url: string }[];
+};
 type Thread = { id: number; other: Person; messages: Msg[]; cannotSend: string | null };
 
 const REASONS: Record<string, TKey> = {
@@ -132,6 +141,13 @@ function Conversation({ thread, me }: { thread: Thread; me: number }) {
                     )}
                     {o.handle && <p className="text-muted-foreground text-xs">@{o.handle}</p>}
                 </div>
+                {o.handle && (
+                    <TipButton
+                        handle={o.handle}
+                        name={o.name}
+                        className="ml-auto inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold text-amber-600 transition hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                    />
+                )}
             </header>
 
             <div ref={scroller} className="flex-1 overflow-y-auto px-4 py-4">
@@ -167,6 +183,17 @@ function Conversation({ thread, me }: { thread: Thread; me: number }) {
                                                         </a>
                                                     ),
                                                 )}
+                                            </div>
+                                        )}
+                                        {m.tip_amount && (
+                                            <div className="flex items-center gap-2 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 px-4 py-3 text-white shadow-md">
+                                                <HandCoins className="size-6" />
+                                                <span>
+                                                    <span className="block text-[11px] font-semibold tracking-wider uppercase opacity-90">
+                                                        {mine ? t('tip.youTipped') : t('tip.theyTipped')}
+                                                    </span>
+                                                    <span className="block text-xl font-extrabold">{mnt(m.tip_amount)}</span>
+                                                </span>
                                             </div>
                                         )}
                                         {m.body && (

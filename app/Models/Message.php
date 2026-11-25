@@ -8,9 +8,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Message extends Model
 {
-    protected $fillable = ['conversation_id', 'sender_id', 'body', 'is_mass'];
+    protected $fillable = ['conversation_id', 'sender_id', 'body', 'is_mass', 'tip_amount'];
 
-    protected $casts = ['is_mass' => 'boolean'];
+    protected $casts = ['is_mass' => 'boolean', 'tip_amount' => 'integer'];
 
     public function conversation(): BelongsTo
     {
@@ -34,6 +34,7 @@ class Message extends Model
             'id' => $this->id,
             'sender_id' => $this->sender_id,
             'body' => $this->body,
+            'tip_amount' => $this->tip_amount,
             'created_at' => $this->created_at->toIso8601String(),
             'media' => $this->media->map(fn (MessageMedia $m) => ['id' => $m->id, 'type' => $m->type, 'url' => route('messages.media', $m)])->all(),
         ];

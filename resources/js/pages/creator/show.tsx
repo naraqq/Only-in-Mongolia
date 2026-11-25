@@ -1,6 +1,7 @@
 import FollowButton from '@/components/follow-button';
 import InputError from '@/components/input-error';
 import PostCard, { type PostItem } from '@/components/post-card';
+import TipButton from '@/components/tip-button';
 import { Button } from '@/components/ui/button';
 import UserAvatar from '@/components/user-avatar';
 import SocialLayout from '@/layouts/social-layout';
@@ -8,7 +9,7 @@ import { avatarGradient, mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
-import { BadgeCheck, CalendarCheck, Image as ImageIcon, LoaderCircle, Lock, MessageCircle, PenSquare, Users } from 'lucide-react';
+import { BadgeCheck, CalendarCheck, HandCoins, Image as ImageIcon, LoaderCircle, Lock, MessageCircle, PenSquare, Users } from 'lucide-react';
 import { useState } from 'react';
 
 type Creator = {
@@ -83,6 +84,13 @@ export default function CreatorPage({
                             </div>
                         ) : (
                             <div className="flex gap-2">
+                                <TipButton
+                                    handle={creator.handle}
+                                    name={creator.display_name}
+                                    className="hover:bg-muted grid size-9 place-items-center rounded-full border text-amber-600 transition"
+                                >
+                                    <HandCoins className="size-4" />
+                                </TipButton>
                                 <MessageButton handle={creator.handle} block={messageBlock} />
                                 <FollowButton handle={creator.handle} initial={following} />
                             </div>

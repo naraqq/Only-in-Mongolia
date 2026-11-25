@@ -1,3 +1,4 @@
+import TipButton from '@/components/tip-button';
 import UserAvatar from '@/components/user-avatar';
 import { useT } from '@/lib/i18n';
 import { type SharedData } from '@/types';
@@ -32,6 +33,8 @@ export default function PostCard({
     linkAuthor?: boolean;
 }) {
     const { t } = useT();
+    const { auth } = usePage<SharedData>().props;
+    const mine = auth.creator?.handle === author.handle;
 
     return (
         <article className="bg-card overflow-hidden rounded-2xl border shadow-xs">
@@ -94,8 +97,18 @@ export default function PostCard({
                             )}
                         </div>
                     )}
-                    {post.media.length === 0 && <div className="h-4" />}
+                    {post.media.length === 0 && <div className="h-1" />}
                 </>
+            )}
+            {!mine && (
+                <footer className="flex items-center gap-1 px-2 py-1.5">
+                    <TipButton
+                        handle={author.handle}
+                        name={author.name}
+                        postId={post.id}
+                        className="text-muted-foreground inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold transition hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950/40"
+                    />
+                </footer>
             )}
         </article>
     );

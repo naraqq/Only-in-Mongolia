@@ -32,6 +32,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Subscriptions: subscribe -> QPay checkout -> paid (status is polled; QPay also calls back).
     Route::post('@{handle}/subscribe', [PaymentController::class, 'subscribe'])->middleware('throttle:10,1')->name('creator.subscribe');
+    Route::post('@{handle}/tip', [PaymentController::class, 'tip'])->middleware('throttle:10,1')->name('creator.tip');
     Route::get('payments/{payment}', [PaymentController::class, 'show'])->name('payments.show');
     Route::get('payments/{payment}/status', [PaymentController::class, 'status'])->middleware('throttle:60,1')->name('payments.status');
     Route::post('payments/{payment}/fake-pay', [PaymentController::class, 'fakePay'])->name('payments.fake-pay');
