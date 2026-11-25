@@ -9,7 +9,7 @@ import { type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import { Rss } from 'lucide-react';
 
-type FeedPost = PostItem & { author: { name: string; handle: string; price: number } };
+type FeedPost = PostItem & { author: { name: string; handle: string; price: number; avatar_url: string | null } };
 
 /** Home for signed-in users: a composer (creators), then the newest posts from everyone they follow. */
 export default function Feed({ posts, followingCount }: { posts: FeedPost[]; followingCount: number }) {

@@ -2,6 +2,7 @@ import FollowButton from '@/components/follow-button';
 import InputError from '@/components/input-error';
 import PostCard, { type PostItem } from '@/components/post-card';
 import { Button } from '@/components/ui/button';
+import UserAvatar from '@/components/user-avatar';
 import SocialLayout from '@/layouts/social-layout';
 import { avatarGradient, mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
@@ -11,6 +12,8 @@ import { BadgeCheck, CalendarCheck, Image as ImageIcon, LoaderCircle, Lock, PenS
 import { useState } from 'react';
 
 type Creator = {
+    avatar_url: string | null;
+    cover_url: string | null;
     handle: string;
     display_name: string;
     bio: string | null;
@@ -43,29 +46,39 @@ export default function CreatorPage({
 }) {
     const { t } = useT();
     const price = mnt(creator.price_monthly);
-    const author = { name: creator.display_name, handle: creator.handle };
+    const author = { name: creator.display_name, handle: creator.handle, avatar_url: creator.avatar_url };
     const g = avatarGradient(creator.handle);
 
     return (
         <SocialLayout title={`${creator.display_name} (@${creator.handle})`}>
             {/* Cover + avatar */}
-            <div className={`relative h-36 bg-gradient-to-br sm:h-44 ${g}`}>
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,.35),transparent_45%)]" />
+            <div className={`relative h-36 overflow-hidden bg-gradient-to-br sm:h-44 ${g}`}>
+                {creator.cover_url ? (
+                    <img src={creator.cover_url} alt="" className="size-full object-cover" />
+                ) : (
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,.35),transparent_45%)]" />
+                )}
             </div>
             <div className="px-4">
                 <div className="relative z-10 -mt-12 flex items-end justify-between gap-3">
-                    <span
-                        className={`grid size-24 place-items-center rounded-full bg-gradient-to-br text-4xl font-bold text-white shadow-lg ring-4 ring-white dark:ring-zinc-950 ${g}`}
-                    >
-                        {creator.display_name.charAt(0)}
-                    </span>
+                    <UserAvatar
+                        name={creator.display_name}
+                        src={creator.avatar_url}
+                        seed={creator.handle}
+                        className="size-24 text-4xl shadow-lg ring-4 ring-white dark:ring-zinc-950"
+                    />
                     <div className="pb-1">
                         {isOwner ? (
-                            <Button asChild variant="outline" className="rounded-full">
-                                <Link href={route('studio')}>
-                                    <PenSquare className="size-4" /> {t('nav.studio')}
-                                </Link>
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button asChild variant="outline" className="rounded-full">
+                                    <Link href={route('me.edit')}>{t('nav.editProfile')}</Link>
+                                </Button>
+                                <Button asChild variant="outline" className="rounded-full">
+                                    <Link href={route('studio')}>
+                                        <PenSquare className="size-4" /> {t('nav.studio')}
+                                    </Link>
+                                </Button>
+                            </div>
                         ) : (
                             <FollowButton handle={creator.handle} initial={following} />
                         )}

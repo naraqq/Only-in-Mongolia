@@ -6,6 +6,7 @@ use App\Http\Controllers\CreatorPageController;
 use App\Http\Controllers\FanController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\ProfileEditController;
 use App\Http\Controllers\StudioController;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\SetLocale;
@@ -33,6 +34,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('payments/{payment}', [PaymentController::class, 'show'])->name('payments.show');
     Route::get('payments/{payment}/status', [PaymentController::class, 'status'])->middleware('throttle:60,1')->name('payments.status');
     Route::post('payments/{payment}/fake-pay', [PaymentController::class, 'fakePay'])->name('payments.fake-pay');
+
+    // Edit profile: name, photo, and for creators the cover, bio, price and who may message them.
+    Route::get('profile', [ProfileEditController::class, 'edit'])->name('me.edit');
+    Route::patch('profile', [ProfileEditController::class, 'update'])->name('me.update');
+    Route::post('profile/photo/{kind}', [ProfileEditController::class, 'photo'])->whereIn('kind', ['avatar', 'cover'])->middleware('throttle:20,60')->name('me.photo');
+    Route::delete('profile/photo/{kind}', [ProfileEditController::class, 'removePhoto'])->whereIn('kind', ['avatar', 'cover'])->name('me.photo.destroy');
 
     // Become a creator: apply, then wait for admin review.
     Route::get('creator/apply', [CreatorApplicationController::class, 'show'])->name('creator.apply');

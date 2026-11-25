@@ -63,10 +63,10 @@ class FanController extends Controller
 
         $own = $viewer->creatorProfile()->where('status', CreatorProfile::APPROVED)->value('id');
 
-        $posts = Post::whereIn('creator_profile_id', $ids->when($own, fn ($c) => $c->merge([$own])))->with(['media', 'creator'])->latest()->latest('id')->take(50)->get()
+        $posts = Post::whereIn('creator_profile_id', $ids->when($own, fn ($c) => $c->merge([$own])))->with(['media', 'creator.user:id,avatar_path'])->latest()->latest('id')->take(50)->get()
             ->map(fn (Post $p) => [
                 ...CreatorPageController::present($p, $viewer),
-                'author' => ['name' => $p->creator->display_name, 'handle' => $p->creator->handle, 'price' => $p->creator->price_monthly],
+                'author' => ['name' => $p->creator->display_name, 'handle' => $p->creator->handle, 'price' => $p->creator->price_monthly, 'avatar_url' => $p->creator->avatarUrl()],
             ]);
 
         return Inertia::render('feed', [
@@ -80,11 +80,12 @@ class FanController extends Controller
         $viewer = $request->user();
 
         return Inertia::render('dashboard', [
-            'subscriptions' => $viewer->subscriptions()->active()->with('creator')->orderBy('expires_at')->get()
+            'subscriptions' => $viewer->subscriptions()->active()->with('creator.user:id,avatar_path')->orderBy('expires_at')->get()
                 ->map(fn ($s) => [
                     'handle' => $s->creator->handle,
                     'display_name' => $s->creator->display_name,
                     'price_monthly' => $s->creator->price_monthly,
+                    'avatar_url' => $s->creator->avatarUrl(),
                     'expires_at' => $s->expires_at->toIso8601String(),
                 ]),
             'creatorStatus' => $viewer->creatorProfile()->value('status'),

@@ -1,7 +1,7 @@
 import CreatorCard, { type CreatorCardData } from '@/components/creator-card';
 import { Button } from '@/components/ui/button';
+import UserAvatar from '@/components/user-avatar';
 import SocialLayout from '@/layouts/social-layout';
-import { avatarGradient } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { Link } from '@inertiajs/react';
 import { Sparkles } from 'lucide-react';
@@ -14,7 +14,7 @@ export default function Dashboard({
 }: {
     creatorStatus: 'pending' | 'approved' | 'rejected' | null;
     following: CreatorCardData[];
-    subscriptions: { handle: string; display_name: string; price_monthly: number; expires_at: string }[];
+    subscriptions: { handle: string; display_name: string; price_monthly: number; expires_at: string; avatar_url: string | null }[];
 }) {
     const { t } = useT();
     const statusLabel = { pending: t('cr.pendingT'), approved: t('cr.approvedT'), rejected: t('cr.rejectedT') };
@@ -37,11 +37,7 @@ export default function Dashboard({
                                     href={route('creator.show', s.handle)}
                                     className="hover:bg-muted/50 flex items-center gap-3 p-3 transition"
                                 >
-                                    <span
-                                        className={`grid size-11 shrink-0 place-items-center rounded-full bg-gradient-to-br font-bold text-white ${avatarGradient(s.handle)}`}
-                                    >
-                                        {s.display_name.charAt(0)}
-                                    </span>
+                                    <UserAvatar name={s.display_name} src={s.avatar_url} seed={s.handle} className="size-11" />
                                     <span className="min-w-0 flex-1">
                                         <span className="block truncate font-semibold">{s.display_name}</span>
                                         <span className="text-muted-foreground block text-xs">

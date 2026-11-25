@@ -38,7 +38,7 @@ class StudioController extends Controller
                 'earnedThisMonth' => (int) (clone $paidThisMonth)->sum('amount') - (int) (clone $paidThisMonth)->sum('platform_fee'),
                 'feePercent' => (int) config('creators.platform_fee_percent'),
             ],
-            'creator' => $creator->only('handle', 'display_name', 'price_monthly', 'adult_content'),
+            'creator' => [...$creator->only('handle', 'display_name', 'price_monthly', 'adult_content'), 'avatar_url' => $creator->avatarUrl()],
             'posts' => $creator->posts()->with('media')->take(100)->get()
                 ->map(fn (Post $p) => CreatorPageController::present($p, $request->user())),
         ]);

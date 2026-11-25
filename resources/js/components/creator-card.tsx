@@ -1,11 +1,13 @@
 import FollowButton from '@/components/follow-button';
-import { avatarGradient, mnt } from '@/lib/format';
+import UserAvatar from '@/components/user-avatar';
+import { mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import { BadgeCheck } from 'lucide-react';
 
 export type CreatorCardData = {
+    avatar_url: string | null;
     handle: string;
     display_name: string;
     bio: string | null;
@@ -25,11 +27,7 @@ export default function CreatorCard({ c }: { c: CreatorCardData }) {
     return (
         <article className="flex flex-col rounded-xl border p-4 transition hover:shadow-sm">
             <Link href={route('creator.show', c.handle)} className="flex items-center gap-3">
-                <span
-                    className={`grid size-12 shrink-0 place-items-center rounded-full bg-gradient-to-br text-lg font-semibold text-white ${avatarGradient(c.handle)}`}
-                >
-                    {c.display_name.charAt(0)}
-                </span>
+                <UserAvatar name={c.display_name} src={c.avatar_url} seed={c.handle} className="size-12 text-lg" />
                 <span className="min-w-0">
                     <span className="flex items-center gap-1.5 font-semibold">
                         <span className="truncate">{c.display_name}</span>

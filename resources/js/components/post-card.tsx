@@ -1,4 +1,4 @@
-import { avatarGradient } from '@/lib/format';
+import UserAvatar from '@/components/user-avatar';
 import { useT } from '@/lib/i18n';
 import { type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
@@ -26,7 +26,7 @@ export default function PostCard({
     linkAuthor = false,
 }: {
     post: PostItem;
-    author: { name: string; handle: string };
+    author: { name: string; handle: string; avatar_url?: string | null };
     price?: string;
     onDelete?: () => void;
     linkAuthor?: boolean;
@@ -36,11 +36,7 @@ export default function PostCard({
     return (
         <article className="bg-card overflow-hidden rounded-2xl border shadow-xs">
             <header className="flex items-center gap-3 px-4 pt-4">
-                <span
-                    className={`grid size-10 shrink-0 place-items-center rounded-full bg-gradient-to-br font-bold text-white ${avatarGradient(author.handle)}`}
-                >
-                    {author.name.charAt(0)}
-                </span>
+                <UserAvatar name={author.name} src={author.avatar_url} seed={author.handle} />
                 <div className="min-w-0 flex-1">
                     {linkAuthor ? (
                         <Link href={route('creator.show', author.handle)} className="block truncate text-[15px] font-bold hover:underline">

@@ -1,0 +1,107 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Support\Images;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
+use Inertia\Inertia;
+use Inertia\Response;
+use RuntimeException;
+
+/** "Edit profile": everyone has a name and photo; approved creators also a cover, bio, price and message settings. */
+class ProfileEditController extends Controller
+{
+    public const DM_POLICIES = ['everyone', 'followers', 'subscribers'];
+
+    public function edit(Request $request): Response
+    {
+        $user = $request->user();
+        $creator = $user->creatorProfile()->where('status', 'approved')->first();
+
+        return Inertia::render('profile/edit', [
+            'profile' => [
+                'name' => $user->name,
+                'avatar_url' => $user->avatar_url,
+            ],
+            'creator' => $creator ? [
+                ...$creator->only('handle', 'display_name', 'bio', 'price_monthly', 'dm_policy'),
+                'cover_url' => $creator->coverUrl(),
+            ] : null,
+            'limits' => ['min_price' => config('creators.min_price'), 'max_price' => config('creators.max_price')],
+        ]);
+    }
+
+    public function update(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        $creator = $user->creatorProfile()->where('status', 'approved')->first();
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:60'],
+            ...($creator ? [
+                'display_name' => ['required', 'string', 'max:60'],
+                'bio' => ['nullable', 'string', 'max:500'],
+                'price_monthly' => ['required', 'integer', 'min:'.config('creators.min_price'), 'max:'.config('creators.max_price')],
+                'dm_policy' => ['required', Rule::in(self::DM_POLICIES)],
+            ] : []),
+        ]);
+
+        $user->update(['name' => trim($data['name'])]);
+        // A new price applies to new payments; current subscribers keep what they paid for.
+        $creator?->update([
+            'display_name' => trim($data['display_name']),
+            'bio' => trim((string) ($data['bio'] ?? '')) ?: null,
+            'price_monthly' => $data['price_monthly'],
+            'dm_policy' => $data['dm_policy'],
+        ]);
+
+        return back()->with('status', 'saved');
+    }
+
+    /** Upload a profile photo (square) or cover (3:1). Old file is deleted. */
+    public function photo(Request $request, string $kind): RedirectResponse
+    {
+        $request->validate(['photo' => ['required', 'file', 'mimetypes:image/jpeg,image/png,image/webp', 'max:10240']]);
+        [$model, $column, $w, $h] = $this->target($request, $kind);
+
+        try {
+            $path = Images::storeCropped($request->file('photo'), $kind === 'avatar' ? 'avatars' : 'covers', $w, $h);
+        } catch (RuntimeException) {
+            return back()->withErrors(['photo' => __('This image could not be read. Try a JPG or PNG.')]);
+        }
+
+        $old = $model->{$column};
+        $model->forceFill([$column => $path])->save();
+        if ($old) {
+            Storage::disk('public')->delete($old);
+        }
+
+        return back();
+    }
+
+    public function removePhoto(Request $request, string $kind): RedirectResponse
+    {
+        [$model, $column] = $this->target($request, $kind);
+        if ($model->{$column}) {
+            Storage::disk('public')->delete($model->{$column});
+            $model->forceFill([$column => null])->save();
+        }
+
+        return back();
+    }
+
+    /** @return array{0: \Illuminate\Database\Eloquent\Model, 1: string, 2: int, 3: int} */
+    private function target(Request $request, string $kind): array
+    {
+        if ($kind === 'avatar') {
+            return [$request->user(), 'avatar_path', 400, 400];
+        }
+        $creator = $request->user()->creatorProfile()->where('status', 'approved')->first();
+        abort_unless($creator, 403);
+
+        return [$creator, 'cover_path', 1500, 500];
+    }
+}

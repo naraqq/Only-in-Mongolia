@@ -49,7 +49,7 @@ class PaymentController extends Controller
                 'bank_links' => $payment->bank_links ?? [],
                 'fake' => $payment->provider === 'fake',
             ],
-            'creator' => $creator->only('handle', 'display_name', 'bio', 'price_monthly'),
+            'creator' => [...$creator->only('handle', 'display_name', 'bio', 'price_monthly'), 'avatar_url' => $creator->avatarUrl()],
             'days' => (int) config('creators.subscription_days'),
             'expiresAt' => $request->user()->subscriptions()->where('creator_profile_id', $creator->id)->value('expires_at'),
         ]);

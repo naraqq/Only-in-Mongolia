@@ -7,14 +7,14 @@ import { useT } from '@/lib/i18n';
 import { Link, router } from '@inertiajs/react';
 import { ExternalLink } from 'lucide-react';
 
-type StudioCreator = { handle: string; display_name: string; price_monthly: number; adult_content: boolean };
+type StudioCreator = { handle: string; display_name: string; price_monthly: number; adult_content: boolean; avatar_url: string | null };
 
 /** Write posts (text + photos/videos), pick who sees them, and manage what's already up. */
 type Stats = { subscribers: number; followers: number; earnedThisMonth: number; feePercent: number };
 
 export default function Studio({ creator, posts, stats }: { creator: StudioCreator; posts: PostItem[]; stats: Stats }) {
     const { t } = useT();
-    const author = { name: creator.display_name, handle: creator.handle };
+    const author = { name: creator.display_name, handle: creator.handle, avatar_url: creator.avatar_url };
 
     return (
         <SocialLayout title={t('nav.studio')}>

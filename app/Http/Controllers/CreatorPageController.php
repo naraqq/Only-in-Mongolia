@@ -14,7 +14,7 @@ class CreatorPageController extends Controller
 {
     public function show(Request $request, string $handle): Response
     {
-        $creator = CreatorProfile::with('user:id,name')
+        $creator = CreatorProfile::with('user:id,name,avatar_path')
             ->where('handle', mb_strtolower($handle))
             ->where('status', CreatorProfile::APPROVED)
             ->firstOrFail();
@@ -30,6 +30,8 @@ class CreatorPageController extends Controller
             'creator' => [
                 ...$creator->only('handle', 'display_name', 'bio', 'price_monthly', 'adult_content'),
                 'joined' => $creator->created_at->toIso8601String(),
+                'avatar_url' => $creator->avatarUrl(),
+                'cover_url' => $creator->coverUrl(),
                 'posts_count' => $creator->posts()->count(),
                 'followers_count' => $creator->followers()->count(),
             ],

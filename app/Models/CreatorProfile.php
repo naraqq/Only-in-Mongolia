@@ -15,7 +15,7 @@ class CreatorProfile extends Model
     public const REJECTED = 'rejected';
 
     protected $fillable = [
-        'user_id', 'handle', 'display_name', 'bio', 'price_monthly', 'adult_content',
+        'user_id', 'handle', 'display_name', 'bio', 'price_monthly', 'adult_content', 'dm_policy',
         'legal_name', 'register_number', 'id_front_path', 'id_back_path', 'selfie_path',
         'bank_name', 'bank_account', 'account_holder', 'consented_at', 'consent_ip',
         'status', 'review_note', 'reviewed_at', 'reviewed_by',
@@ -64,9 +64,21 @@ class CreatorProfile extends Model
     }
 
     /** Approved creators the viewer may see listed: 18+ pages only for signed-in adults. */
+    /** The creator's photo is their account's avatar. */
+    public function avatarUrl(): ?string
+    {
+        return $this->user?->avatar_url;
+    }
+
+    public function coverUrl(): ?string
+    {
+        return $this->cover_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->cover_path) : null;
+    }
+
     public function scopeListableFor(\Illuminate\Database\Eloquent\Builder $q, ?User $viewer): \Illuminate\Database\Eloquent\Builder
     {
-        return $q->where('status', self::APPROVED)->when(! $viewer, fn ($w) => $w->where('adult_content', false));
+        return $q->where('status', self::APPROVED)->when(! $viewer, fn ($w) => $w->where('adult_content', false))
+            ->with('user:id,avatar_path'); // cards show the avatar
     }
 
     /** What a creator card shows (public information only). */
@@ -74,6 +86,7 @@ class CreatorProfile extends Model
     {
         return [
             ...$this->only('handle', 'display_name', 'bio', 'price_monthly', 'adult_content'),
+            'avatar_url' => $this->avatarUrl(),
             'posts_count' => (int) ($this->posts_count ?? $this->posts()->count()),
             'followers_count' => (int) ($this->followers_count ?? $this->followers()->count()),
             'following' => $viewer ? $this->followers()->whereKey($viewer->id)->exists() : false,

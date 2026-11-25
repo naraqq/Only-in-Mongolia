@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
+import UserAvatar from '@/components/user-avatar';
 import SocialLayout from '@/layouts/social-layout';
-import { avatarGradient, mnt } from '@/lib/format';
+import { mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { Link, router } from '@inertiajs/react';
 import { ArrowLeft, BadgeCheck, CircleCheck, FlaskConical, LoaderCircle, ShieldCheck, Smartphone } from 'lucide-react';
@@ -8,7 +9,7 @@ import { useEffect, useState } from 'react';
 
 type BankLink = { name: string; description: string; logo: string; link: string };
 type Payment = { id: string; amount: number; status: 'pending' | 'paid'; qr_image: string | null; bank_links: BankLink[]; fake: boolean };
-type Creator = { handle: string; display_name: string; bio: string | null; price_monthly: number };
+type Creator = { handle: string; display_name: string; bio: string | null; price_monthly: number; avatar_url: string | null };
 
 const POLL_MS = 3000;
 
@@ -16,7 +17,6 @@ const POLL_MS = 3000;
 export default function PaymentShow({ payment, creator, days }: { payment: Payment; creator: Creator; days: number }) {
     const { t } = useT();
     const [status, setStatus] = useState(payment.status);
-    const g = avatarGradient(creator.handle);
 
     // Poll until paid, then go back to the creator's page.
     useEffect(() => {
@@ -61,9 +61,7 @@ export default function PaymentShow({ payment, creator, days }: { payment: Payme
             <div className="flex flex-col gap-5 p-4 md:p-6">
                 {/* What you're buying */}
                 <div className="flex items-center gap-4 rounded-2xl border p-4">
-                    <span className={`grid size-14 shrink-0 place-items-center rounded-full bg-gradient-to-br text-xl font-bold text-white ${g}`}>
-                        {creator.display_name.charAt(0)}
-                    </span>
+                    <UserAvatar name={creator.display_name} src={creator.avatar_url} seed={creator.handle} className="size-14 text-xl" />
                     <div className="min-w-0 flex-1">
                         <p className="flex items-center gap-1 font-bold">
                             <span className="truncate">{creator.display_name}</span>

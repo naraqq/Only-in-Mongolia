@@ -4,6 +4,7 @@ import { type CreatorCardData } from '@/components/creator-card';
 import LangSwitch from '@/components/lang-switch';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import UserAvatar from '@/components/user-avatar';
 import { avatarGradient, mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
 import { type SharedData } from '@/types';
@@ -21,6 +22,7 @@ import {
     Settings,
     ShieldCheck,
     Sparkles,
+    UserPen,
     UserRound,
     Users,
     type LucideIcon,
@@ -28,14 +30,6 @@ import {
 import { useState, type FormEvent, type ReactNode } from 'react';
 
 type NavLink = { label: TKey; href: string; icon: LucideIcon; match: (url: string) => boolean };
-
-const initials = (name: string) =>
-    name
-        .split(/\s+/)
-        .map((w) => w.charAt(0))
-        .join('')
-        .slice(0, 2)
-        .toUpperCase();
 
 /**
  * The main app shell: navigation on the left, the page in a narrow centre column, and search plus suggested
@@ -208,18 +202,12 @@ function AccountMenu({ compact = false }: { compact?: boolean }) {
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 {compact ? (
-                    <button
-                        className={`grid size-8 place-items-center rounded-full bg-gradient-to-br text-xs font-semibold text-white ${avatarGradient(auth.user.name)}`}
-                    >
-                        {initials(auth.user.name)}
+                    <button className="rounded-full">
+                        <UserAvatar name={auth.user.name} src={auth.user.avatar_url} letters={2} className="size-8 text-xs" />
                     </button>
                 ) : (
                     <button className="hover:bg-muted flex w-full items-center gap-3 rounded-2xl p-2 text-left transition" title={t('nav.more')}>
-                        <span
-                            className={`grid size-10 shrink-0 place-items-center rounded-full bg-gradient-to-br text-sm font-bold text-white ${avatarGradient(auth.user.name)}`}
-                        >
-                            {initials(auth.user.name)}
-                        </span>
+                        <UserAvatar name={auth.user.name} src={auth.user.avatar_url} letters={2} className="size-10 text-sm" />
                         <span className="hidden min-w-0 flex-1 xl:block">
                             <span className="block truncate text-sm font-semibold">{auth.user.name}</span>
                             <span className="text-muted-foreground block truncate text-xs">
@@ -236,6 +224,11 @@ function AccountMenu({ compact = false }: { compact?: boolean }) {
                     {auth.creator?.status === 'approved' && <p className="text-muted-foreground truncate">@{auth.creator.handle}</p>}
                 </div>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                    <Link href={route('me.edit')} className="w-full">
+                        <UserPen className="mr-2 size-4" /> {t('nav.editProfile')}
+                    </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                     <Link href={route('profile.edit')} className="w-full">
                         <Settings className="mr-2 size-4" /> {t('nav.settings')}
@@ -311,11 +304,7 @@ function SuggestionCard({ c }: { c: CreatorCardData }) {
                 <span className="absolute top-2 right-2 rounded-md bg-rose-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">18+</span>
             )}
             <span className="absolute inset-x-0 bottom-0 flex items-center gap-3 bg-gradient-to-t from-black/60 to-transparent p-3 text-white">
-                <span
-                    className={`grid size-12 shrink-0 place-items-center rounded-full border-2 border-white bg-gradient-to-br text-lg font-semibold ${g}`}
-                >
-                    {c.display_name.charAt(0)}
-                </span>
+                <UserAvatar name={c.display_name} src={c.avatar_url} seed={c.handle} className="size-12 border-2 border-white text-lg" />
                 <span className="min-w-0">
                     <span className="flex items-center gap-1 font-semibold">
                         <span className="truncate">{c.display_name}</span>
