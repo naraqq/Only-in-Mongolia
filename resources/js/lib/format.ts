@@ -12,6 +12,16 @@ const GRADIENTS = [
 export const avatarGradient = (key: string) => GRADIENTS[[...key].reduce((a, c) => a + c.charCodeAt(0), 0) % GRADIENTS.length];
 
 /** 9900 → "₮9,900" */
+/** "now", "5m", "3h", "2d", then the date. `t` is the translator from useT(). */
+export const timeAgo = (iso: string, t: (key: 'ago.now' | 'ago.m' | 'ago.h' | 'ago.d', vars?: Record<string, number>) => string) => {
+    const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return t('ago.now');
+    if (s < 3600) return t('ago.m', { n: Math.floor(s / 60) });
+    if (s < 86400) return t('ago.h', { n: Math.floor(s / 3600) });
+    if (s < 7 * 86400) return t('ago.d', { n: Math.floor(s / 86400) });
+    return iso.slice(0, 10).replaceAll('-', '.');
+};
+
 export const mnt = (n: number) => '₮' + n.toLocaleString('en-US');
 
 /** Is a pay-per-view (or tip) amount within the allowed range? */

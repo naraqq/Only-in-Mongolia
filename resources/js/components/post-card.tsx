@@ -1,14 +1,17 @@
 import MoreMenu from '@/components/more-menu';
 import PostComments from '@/components/post-comments';
+import PostMedia from '@/components/post-media';
+import RichText from '@/components/rich-text';
 import TipButton from '@/components/tip-button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import UserAvatar from '@/components/user-avatar';
-import { mnt } from '@/lib/format';
+import { mnt, timeAgo } from '@/lib/format';
 import { sendJson } from '@/lib/http';
 import { useT } from '@/lib/i18n';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
 import {
+    BadgeCheck,
     Bookmark,
     CalendarClock,
     Globe,
@@ -42,7 +45,6 @@ export type PostItem = {
     pinned?: boolean;
 };
 
-const day = (iso: string) => iso.slice(0, 10).replaceAll('-', '.');
 const when = (iso: string) => new Date(iso).toLocaleString('sv-SE', { dateStyle: 'short', timeStyle: 'short' }).replaceAll('-', '.');
 
 /** One post: text and media if the viewer may see it, otherwise a locked tile that reveals only what's inside. */
@@ -66,6 +68,8 @@ export default function PostCard({
     const { t } = useT();
     const { auth } = usePage<SharedData>().props;
     const mine = auth.creator?.handle === author.handle;
+    const like = useLike(post);
+    const avatar = <UserAvatar name={author.name} src={author.avatar_url} seed={author.handle} className="size-11" />;
 
     return (
         <article
@@ -87,17 +91,29 @@ export default function PostCard({
                 </div>
             )}
             <header className="flex items-center gap-3 px-4 pt-4">
-                <UserAvatar name={author.name} src={author.avatar_url} seed={author.handle} />
+                {linkAuthor ? (
+                    <Link href={route('creator.show', author.handle)} className="shrink-0">
+                        {avatar}
+                    </Link>
+                ) : (
+                    avatar
+                )}
                 <div className="min-w-0 flex-1">
-                    {linkAuthor ? (
-                        <Link href={route('creator.show', author.handle)} className="block truncate text-[15px] font-bold hover:underline">
-                            {author.name}
-                        </Link>
-                    ) : (
-                        <div className="truncate text-[15px] font-bold">{author.name}</div>
-                    )}
-                    <div className="text-muted-foreground text-xs">
-                        @{author.handle} · {day(post.created_at)}
+                    <div className="flex min-w-0 items-center gap-1">
+                        {linkAuthor ? (
+                            <Link href={route('creator.show', author.handle)} className="truncate text-[15px] font-bold hover:underline">
+                                {author.name}
+                            </Link>
+                        ) : (
+                            <span className="truncate text-[15px] font-bold">{author.name}</span>
+                        )}
+                        <BadgeCheck className="size-4 shrink-0 text-sky-500" aria-label={t('po.verified')} />
+                    </div>
+                    <div className="text-muted-foreground truncate text-[13px]">
+                        @{author.handle} ·{' '}
+                        <time dateTime={post.created_at} title={new Date(post.created_at).toLocaleString('sv-SE').replaceAll('-', '.')}>
+                            {timeAgo(post.created_at, t)}
+                        </time>
                     </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
@@ -153,47 +169,26 @@ export default function PostCard({
                 <Locked post={post} price={price} handle={author.handle} />
             ) : (
                 <>
-                    {post.body && <p className="px-4 pt-3 text-[15px] leading-relaxed break-words whitespace-pre-line">{post.body}</p>}
-                    {post.media.length > 0 && (
-                        <div className={`mt-3 grid gap-0.5 overflow-hidden ${post.media.length > 1 ? 'grid-cols-2' : ''}`}>
-                            {post.media.map((m) =>
-                                m.type === 'video' ? (
-                                    <video
-                                        key={m.id}
-                                        src={m.url}
-                                        controls
-                                        preload="metadata"
-                                        className="aspect-square w-full bg-black object-contain"
-                                    />
-                                ) : (
-                                    <img key={m.id} src={m.url} alt="" loading="lazy" className="aspect-square w-full object-cover" />
-                                ),
-                            )}
-                        </div>
-                    )}
-                    {post.media.length === 0 && <div className="h-1" />}
+                    {post.body && <RichText text={post.body} className="px-4 pt-3" />}
+                    {post.media.length > 0 && <PostMedia media={post.media} onDoubleLike={like.likeOnce} />}
+                    <div className="h-1.5" />
                 </>
             )}
-            <Actions post={post} author={author} mine={mine} />
+            <Actions post={post} author={author} mine={mine} like={like} />
         </article>
     );
 }
 
-/** Like, comment, save (on posts you can see) and tip (on other people's posts). Likes and saves update instantly. */
-function Actions({ post, author, mine }: { post: PostItem; author: { name: string; handle: string }; mine: boolean }) {
-    const { t } = useT();
+/** Like state for one post. Updates at once and rolls back if the server says no. */
+function useLike(post: PostItem) {
     const { auth } = usePage<SharedData>().props;
     const [liked, setLiked] = useState(post.liked);
     const [likes, setLikes] = useState(post.likes_count);
-    const [saved, setSaved] = useState(post.bookmarked);
-    const [comments, setComments] = useState(post.comments_count);
-    const [open, setOpen] = useState(false);
-    const canEngage = !post.locked;
-    const btn = 'text-muted-foreground inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold transition';
 
-    async function toggleLike() {
+    async function toggle(want?: boolean) {
         if (!auth.user) return router.visit(route('login'));
         const was = liked;
+        if (want !== undefined && want === was) return;
         setLiked(!was);
         setLikes((n) => n + (was ? -1 : 1));
         try {
@@ -205,6 +200,30 @@ function Actions({ post, author, mine }: { post: PostItem; author: { name: strin
             setLikes((n) => n + (was ? 1 : -1));
         }
     }
+
+    return { liked, likes, toggle: () => toggle(), likeOnce: () => toggle(true) };
+}
+
+/** Like, comment, save (on posts you can see) and tip (on other people's posts). Likes and saves update instantly. */
+function Actions({
+    post,
+    author,
+    mine,
+    like,
+}: {
+    post: PostItem;
+    author: { name: string; handle: string };
+    mine: boolean;
+    like: ReturnType<typeof useLike>;
+}) {
+    const { t } = useT();
+    const { auth } = usePage<SharedData>().props;
+    const { liked, likes } = like;
+    const [saved, setSaved] = useState(post.bookmarked);
+    const [comments, setComments] = useState(post.comments_count);
+    const [open, setOpen] = useState(false);
+    const canEngage = !post.locked;
+    const btn = 'text-muted-foreground inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold transition';
 
     async function toggleSave() {
         if (!auth.user) return router.visit(route('login'));
@@ -221,12 +240,12 @@ function Actions({ post, author, mine }: { post: PostItem; author: { name: strin
 
     return (
         <>
-            <footer className="flex items-center gap-0.5 px-2 py-1.5">
+            <footer className="flex items-center gap-0.5 px-2 pt-1 pb-1.5">
                 {canEngage && (
                     <>
                         <button
                             type="button"
-                            onClick={toggleLike}
+                            onClick={like.toggle}
                             className={`${btn} hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 ${liked ? 'text-rose-600' : ''}`}
                             aria-pressed={liked}
                             aria-label={t('po.like')}
