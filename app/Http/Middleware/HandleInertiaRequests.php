@@ -50,6 +50,8 @@ class HandleInertiaRequests extends Middleware
             ],
             // Right-hand column of the social layout: a few creators the viewer doesn't follow yet.
             'suggestions' => fn () => $this->suggestions($request),
+            'flash' => ['status' => fn () => $request->session()->get('status')],
+            'unreadMessages' => fn () => $request->user() ? \App\Models\Conversation::unreadCountFor($request->user()) : 0,
         ]);
     }
 

@@ -15,6 +15,7 @@ import {
     House,
     LogIn,
     LogOut,
+    MessageCircle,
     MoreHorizontal,
     PenSquare,
     Plus,
@@ -29,16 +30,27 @@ import {
 } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 
-type NavLink = { label: TKey; href: string; icon: LucideIcon; match: (url: string) => boolean };
+type NavLink = { label: TKey; href: string; icon: LucideIcon; match: (url: string) => boolean; badge?: number };
 
 /**
  * The main app shell: navigation on the left, the page in a narrow centre column, and search plus suggested
  * creators on the right. On phones the left column becomes a bottom tab bar and the right column is hidden.
  */
-export default function SocialLayout({ title, header, children }: { title: string; header?: ReactNode; children: ReactNode }) {
+export default function SocialLayout({
+    title,
+    header,
+    children,
+    wide = false,
+}: {
+    title: string;
+    header?: ReactNode;
+    children: ReactNode;
+    /** Wide centre column without the right-hand column (e.g. messages). */
+    wide?: boolean;
+}) {
     const { t } = useT();
-    const page = usePage<SharedData>();
-    const { auth } = page.props;
+    const page = usePage<SharedData & { unreadMessages: number }>();
+    const { auth, unreadMessages } = page.props;
     const user = auth.user;
     const creator = auth.creator?.status === 'approved' ? auth.creator : null;
     const path = page.url.split('?')[0];
@@ -48,6 +60,13 @@ export default function SocialLayout({ title, header, children }: { title: strin
         { label: 'nav.discover', href: route('creators'), icon: Compass, match: (u) => u.startsWith('/creators') },
         ...(user
             ? [
+                  {
+                      label: 'nav.messages',
+                      href: route('messages.index'),
+                      icon: MessageCircle,
+                      match: (u: string) => u.startsWith('/messages'),
+                      badge: unreadMessages,
+                  } as NavLink,
                   { label: 'fan.followingTitle', href: route('dashboard'), icon: Users, match: (u: string) => u === '/dashboard' } as NavLink,
                   ...(creator
                       ? [
@@ -123,7 +142,10 @@ export default function SocialLayout({ title, header, children }: { title: strin
                                     aria-current={active ? 'page' : undefined}
                                     title={t(l.label)}
                                 >
-                                    <l.icon className="size-6 shrink-0" strokeWidth={active ? 2.4 : 1.8} />
+                                    <span className="relative">
+                                        <l.icon className="size-6 shrink-0" strokeWidth={active ? 2.4 : 1.8} />
+                                        {!!l.badge && <Badge n={l.badge} />}
+                                    </span>
                                     <span className="hidden truncate xl:inline">{t(l.label)}</span>
                                 </Link>
                             );
@@ -149,7 +171,7 @@ export default function SocialLayout({ title, header, children }: { title: strin
                 </aside>
 
                 {/* Centre: the page */}
-                <main className="min-h-svh w-full max-w-[620px] min-w-0 pb-20 md:border-x md:pb-0">
+                <main className={`min-h-svh w-full min-w-0 pb-20 md:border-x md:pb-0 ${wide ? 'max-w-[960px]' : 'max-w-[620px]'}`}>
                     {header !== undefined && (
                         <div className="bg-background/85 sticky top-14 z-20 flex h-14 items-center gap-3 border-b px-5 backdrop-blur-md md:top-0">
                             {header}
@@ -159,9 +181,11 @@ export default function SocialLayout({ title, header, children }: { title: strin
                 </main>
 
                 {/* Right: search and suggestions */}
-                <aside className="sticky top-0 hidden h-svh w-80 shrink-0 overflow-y-auto px-6 py-4 lg:block">
-                    <RightRail />
-                </aside>
+                {!wide && (
+                    <aside className="sticky top-0 hidden h-svh w-80 shrink-0 overflow-y-auto px-6 py-4 lg:block">
+                        <RightRail />
+                    </aside>
+                )}
             </div>
 
             {/* Phone bottom tabs */}
@@ -177,18 +201,32 @@ export default function SocialLayout({ title, header, children }: { title: strin
                     <Plus className="size-6" />
                 </Link>
                 {links.slice(2, 4).map((l) => (
-                    <TabLink key={l.href} href={l.href} icon={l.icon} label={t(l.label)} active={l.match(path)} />
+                    <TabLink key={l.href} href={l.href} icon={l.icon} label={t(l.label)} active={l.match(path)} badge={l.badge} />
                 ))}
             </nav>
         </div>
     );
 }
 
-function TabLink({ href, icon: Icon, label, active }: { href: string; icon: LucideIcon; label: string; active: boolean }) {
+function TabLink({ href, icon: Icon, label, active, badge }: { href: string; icon: LucideIcon; label: string; active: boolean; badge?: number }) {
     return (
-        <Link href={href} className={`grid size-11 place-items-center ${active ? 'text-primary' : 'text-muted-foreground'}`} aria-label={label}>
+        <Link
+            href={href}
+            className={`relative grid size-11 place-items-center ${active ? 'text-primary' : 'text-muted-foreground'}`}
+            aria-label={label}
+        >
             <Icon className="size-6" strokeWidth={active ? 2.4 : 1.8} />
+            {!!badge && <Badge n={badge} />}
         </Link>
+    );
+}
+
+/** Unread count on a nav icon. */
+function Badge({ n }: { n: number }) {
+    return (
+        <span className="bg-primary ring-background absolute -top-1.5 -right-2 grid h-[18px] min-w-[18px] place-items-center rounded-full px-1 text-[10px] font-bold text-white ring-2">
+            {n > 99 ? '99+' : n}
+        </span>
     );
 }
 

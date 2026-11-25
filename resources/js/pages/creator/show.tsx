@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 import UserAvatar from '@/components/user-avatar';
 import SocialLayout from '@/layouts/social-layout';
 import { avatarGradient, mnt } from '@/lib/format';
-import { useT } from '@/lib/i18n';
+import { useT, type TKey } from '@/lib/i18n';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
-import { BadgeCheck, CalendarCheck, Image as ImageIcon, LoaderCircle, Lock, PenSquare, Users } from 'lucide-react';
+import { BadgeCheck, CalendarCheck, Image as ImageIcon, LoaderCircle, Lock, MessageCircle, PenSquare, Users } from 'lucide-react';
 import { useState } from 'react';
 
 type Creator = {
@@ -35,6 +35,7 @@ export default function CreatorPage({
     subscribed,
     subscribedUntil,
     following,
+    messageBlock,
 }: {
     creator: Creator;
     posts: PostItem[];
@@ -42,6 +43,7 @@ export default function CreatorPage({
     isOwner: boolean;
     subscribed: boolean;
     subscribedUntil: string | null;
+    messageBlock: string | null;
     following: boolean;
 }) {
     const { t } = useT();
@@ -80,7 +82,10 @@ export default function CreatorPage({
                                 </Button>
                             </div>
                         ) : (
-                            <FollowButton handle={creator.handle} initial={following} />
+                            <div className="flex gap-2">
+                                <MessageButton handle={creator.handle} block={messageBlock} />
+                                <FollowButton handle={creator.handle} initial={following} />
+                            </div>
                         )}
                     </div>
                 </div>
@@ -125,6 +130,37 @@ export default function CreatorPage({
                 )}
             </div>
         </SocialLayout>
+    );
+}
+
+/** Opens the conversation; if the creator's settings don't allow it yet, says what's needed. */
+function MessageButton({ handle, block }: { handle: string; block: string | null }) {
+    const { t } = useT();
+    const { errors } = usePage<{ errors: Record<string, string> }>().props;
+    const why: Record<string, TKey> = { follow: 'dm.needFollow', subscribe: 'dm.needSubscribe', closed: 'dm.closed', self: 'dm.closed' };
+    const cls = 'grid size-9 place-items-center rounded-full border transition hover:bg-muted';
+
+    if (block === 'login') {
+        return (
+            <Link href={route('login')} className={cls} aria-label={t('dm.message')} title={t('dm.message')}>
+                <MessageCircle className="size-4" />
+            </Link>
+        );
+    }
+    const reason = block ? t(why[block] ?? 'dm.closed') : errors.message ? t(why[errors.message.replace('cannot.', '')] ?? 'dm.closed') : null;
+
+    return (
+        <Link
+            href={route('creator.message', handle)}
+            method="post"
+            as="button"
+            preserveScroll
+            className={`${cls} ${block ? 'opacity-50' : ''}`}
+            aria-label={reason ?? t('dm.message')}
+            title={reason ?? t('dm.message')}
+        >
+            <MessageCircle className="size-4" />
+        </Link>
     );
 }
 

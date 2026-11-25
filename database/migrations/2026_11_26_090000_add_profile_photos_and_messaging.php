@@ -23,8 +23,9 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_low_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('user_high_id')->constrained('users')->cascadeOnDelete();
-            $table->timestamp('low_read_at')->nullable();
-            $table->timestamp('high_read_at')->nullable();
+            // The last message each side has seen (message ids, not times: two messages can share a second).
+            $table->unsignedBigInteger('low_read_id')->default(0);
+            $table->unsignedBigInteger('high_read_id')->default(0);
             $table->timestamp('last_message_at')->nullable()->index();
             $table->timestamps();
             $table->unique(['user_low_id', 'user_high_id']);

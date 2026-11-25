@@ -40,6 +40,8 @@ class CreatorPageController extends Controller
             'gated' => $gated,
             'isOwner' => $isOwner,
             'subscribed' => $creator->hasActiveSubscriber($viewer),
+            // Why the Message button is disabled (null = can message): login | follow | subscribe | self ...
+            'messageBlock' => ! $viewer ? 'login' : (\App\Support\Messaging::whyNot($viewer, $creator->user)),
             'subscribedUntil' => $viewer ? $creator->subscriptions()->active()->where('user_id', $viewer->id)->value('expires_at')?->toIso8601String() : null,
         ]);
     }

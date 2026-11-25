@@ -5,6 +5,7 @@ use App\Http\Controllers\CreatorApplicationController;
 use App\Http\Controllers\CreatorPageController;
 use App\Http\Controllers\FanController;
 use App\Http\Controllers\MediaController;
+use App\Http\Controllers\MessageController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileEditController;
 use App\Http\Controllers\StudioController;
@@ -34,6 +35,14 @@ Route::middleware(['auth'])->group(function () {
     Route::get('payments/{payment}', [PaymentController::class, 'show'])->name('payments.show');
     Route::get('payments/{payment}/status', [PaymentController::class, 'status'])->middleware('throttle:60,1')->name('payments.status');
     Route::post('payments/{payment}/fake-pay', [PaymentController::class, 'fakePay'])->name('payments.fake-pay');
+
+    // Direct messages (the page polls for new ones).
+    Route::get('messages', [MessageController::class, 'index'])->name('messages.index');
+    Route::get('messages/{conversation}', [MessageController::class, 'index'])->name('messages.show');
+    Route::post('messages/{conversation}', [MessageController::class, 'send'])->middleware('throttle:60,1')->name('messages.send');
+    Route::get('message-media/{media}', [MessageController::class, 'media'])->name('messages.media');
+    Route::post('@{handle}/message', [MessageController::class, 'start'])->middleware('throttle:30,1')->name('creator.message');
+    Route::post('studio/mass-message', [MessageController::class, 'mass'])->middleware('throttle:5,60')->name('studio.mass');
 
     // Edit profile: name, photo, and for creators the cover, bio, price and who may message them.
     Route::get('profile', [ProfileEditController::class, 'edit'])->name('me.edit');

@@ -1,3 +1,4 @@
+import MassMessage from '@/components/mass-message';
 import PostCard, { type PostItem } from '@/components/post-card';
 import PostComposer from '@/components/post-composer';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,8 @@ export default function Studio({ creator, posts, stats }: { creator: StudioCreat
 
                 <PostComposer adultAllowed={creator.adult_content} className="mt-6 rounded-xl border p-4" />
                 <p className="text-muted-foreground mt-2 text-xs">{t('st.rules')}</p>
+
+                <MassMessage subscribers={stats.subscribers} followers={stats.followers} />
 
                 {/* Their posts */}
                 <h2 className="mt-8 mb-3 font-medium">
