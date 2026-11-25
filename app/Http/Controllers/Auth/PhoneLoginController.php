@@ -179,6 +179,9 @@ class PhoneLoginController extends Controller
 
     private function login(Request $request, User $user): RedirectResponse
     {
+        if ($user->banned_at) {
+            return to_route('login')->withErrors(['phone' => __('This account has been blocked.')]);
+        }
         Auth::login($user, remember: true);
         $request->session()->regenerate();
 

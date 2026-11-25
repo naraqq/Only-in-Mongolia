@@ -3,9 +3,20 @@ import SocialLayout from '@/layouts/social-layout';
 import { mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { Link } from '@inertiajs/react';
-import { Banknote, Bell, CalendarClock, HandCoins, ImagePlus, LockOpen, MessageCircle, Star, UserPlus, type LucideIcon } from 'lucide-react';
+import { Banknote, Bell, CalendarClock, HandCoins, ImagePlus, LockOpen, MessageCircle, Star, Undo2, UserPlus, type LucideIcon } from 'lucide-react';
 
-type Kind = 'followed' | 'subscribed' | 'tipped' | 'purchased' | 'new_post' | 'commented' | 'expiring' | 'payout_paid' | 'payout_rejected';
+type Kind =
+    | 'followed'
+    | 'subscribed'
+    | 'tipped'
+    | 'purchased'
+    | 'new_post'
+    | 'commented'
+    | 'expiring'
+    | 'payout_paid'
+    | 'payout_rejected'
+    | 'refunded'
+    | 'charge_refunded';
 type Item = {
     id: string;
     kind: Kind;
@@ -20,6 +31,8 @@ const ICONS: Record<Kind, [LucideIcon, string]> = {
     followed: [UserPlus, 'bg-sky-500'],
     payout_paid: [Banknote, 'bg-emerald-600'],
     payout_rejected: [Banknote, 'bg-red-600'],
+    refunded: [Undo2, 'bg-amber-600'],
+    charge_refunded: [Undo2, 'bg-amber-600'],
     subscribed: [Star, 'bg-primary'],
     tipped: [HandCoins, 'bg-amber-500'],
     purchased: [LockOpen, 'bg-orange-500'],
@@ -52,6 +65,10 @@ export default function Notifications({ notifications }: { notifications: Item[]
                 return t('nt.payoutPaid', { amount });
             case 'payout_rejected':
                 return t('nt.payoutRejected', { amount });
+            case 'refunded':
+                return t('nt.refunded', { name, amount });
+            case 'charge_refunded':
+                return t('nt.chargeRefunded', { name, amount });
             case 'expiring':
                 return t('nt.expiring', { name, date: (n.data.expires_at ?? '').slice(0, 10).replaceAll('-', '.') });
         }

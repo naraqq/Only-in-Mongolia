@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureNotBanned;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
@@ -18,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: ['payments/*/callback']);
         $middleware->web(append: [
             SetLocale::class,
+            EnsureNotBanned::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);

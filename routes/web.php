@@ -4,18 +4,19 @@ use App\Http\Controllers\Admin\CreatorReviewController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\PayoutController;
 use App\Http\Controllers\Admin\ReportController as AdminReportController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\BlockController;
-use App\Http\Controllers\ReportController;
-use App\Http\Controllers\EarningsController;
-use App\Http\Controllers\EngagementController;
 use App\Http\Controllers\CreatorApplicationController;
 use App\Http\Controllers\CreatorPageController;
+use App\Http\Controllers\EarningsController;
+use App\Http\Controllers\EngagementController;
 use App\Http\Controllers\FanController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileEditController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\StudioController;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\SetLocale;
@@ -27,7 +28,6 @@ Route::post('locale/{locale}', function (string $locale) {
 
     return back();
 })->whereIn('locale', SetLocale::SUPPORTED)->name('locale');
-
 
 Route::get('/', [FanController::class, 'home'])->name('home');
 Route::get('creators', [FanController::class, 'discover'])->name('creators');
@@ -107,6 +107,12 @@ Route::middleware(['auth', EnsureAdmin::class])->prefix('admin')->name('admin.')
     Route::post('reports/{report}/act', [AdminReportController::class, 'act'])->name('reports.act');
     Route::post('creators/{creator}/reinstate', [AdminReportController::class, 'reinstate'])->name('creators.reinstate');
     Route::post('payouts/{payout}/decide', [PayoutController::class, 'decide'])->name('payouts.decide');
+    Route::get('users', [AdminUserController::class, 'index'])->name('users');
+    Route::get('users/{user}', [AdminUserController::class, 'show'])->name('users.show');
+    Route::post('users/{user}/ban', [AdminUserController::class, 'ban'])->name('users.ban');
+    Route::post('users/{user}/unban', [AdminUserController::class, 'unban'])->name('users.unban');
+    Route::post('users/{user}/admin', [AdminUserController::class, 'toggleAdmin'])->name('users.admin');
+    Route::post('payments/{payment}/refund', [AdminUserController::class, 'refund'])->name('payments.refund');
 });
 
 require __DIR__.'/settings.php';

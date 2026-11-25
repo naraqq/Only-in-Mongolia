@@ -8,6 +8,7 @@ const TABS: { label: TKey; route: string; count?: keyof NonNullable<Counts> }[] 
     { label: 'nav.admin', route: 'admin.creators', count: 'applications' },
     { label: 'nav.payouts', route: 'admin.payouts', count: 'payouts' },
     { label: 'nav.reports', route: 'admin.reports', count: 'reports' },
+    { label: 'au.title', route: 'admin.users*' },
 ];
 
 /** Tabs across the admin pages, with how many items wait in each queue. */
@@ -19,11 +20,12 @@ export default function AdminTabs() {
         <nav className="-mx-4 flex gap-1 overflow-x-auto border-b px-4 pb-px">
             {TABS.map((tab) => {
                 const active = route().current(tab.route);
+                const href = route(tab.route.replace('*', ''));
                 const n = tab.count && adminCounts ? adminCounts[tab.count] : 0;
                 return (
                     <Link
                         key={tab.route}
-                        href={route(tab.route)}
+                        href={href}
                         className={`-mb-px inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-semibold transition ${
                             active ? 'border-primary text-foreground' : 'text-muted-foreground hover:text-foreground border-transparent'
                         }`}

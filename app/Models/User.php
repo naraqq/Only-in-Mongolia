@@ -3,13 +3,18 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
     /**
@@ -41,7 +46,7 @@ class User extends Authenticatable
 
     public function getAvatarUrlAttribute(): ?string
     {
-        return $this->avatar_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->avatar_path) : null;
+        return $this->avatar_path ? Storage::disk('public')->url($this->avatar_path) : null;
     }
 
     /**
@@ -56,28 +61,35 @@ class User extends Authenticatable
             'phone_verified_at' => 'datetime',
             'birthdate' => 'date',
             'is_admin' => 'boolean',
+            'banned_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
 
     /** Creators this user follows (free). */
-    public function following(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    public function following(): BelongsToMany
     {
         return $this->belongsToMany(CreatorProfile::class, 'follows')->withTimestamps();
     }
 
     /** Saved posts. */
-    public function bookmarks(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    public function bookmarks(): BelongsToMany
     {
         return $this->belongsToMany(Post::class, 'bookmarks')->withTimestamps();
     }
 
-    public function subscriptions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    /** Payments this person made (as a fan). */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class);
     }
 
-    public function creatorProfile(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function creatorProfile(): HasOne
     {
         return $this->hasOne(CreatorProfile::class);
     }

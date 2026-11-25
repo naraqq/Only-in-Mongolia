@@ -4,12 +4,13 @@ namespace App\Payments;
 
 use App\Models\Conversation;
 use App\Models\CreatorProfile;
-use App\Models\Payment;
 use App\Models\Message;
+use App\Models\Payment;
 use App\Models\Post;
 use App\Models\Purchase;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Notifications\Activity;
 use App\Support\Notify;
 use Illuminate\Support\Facades\DB;
 
@@ -72,14 +73,14 @@ class Payments
     /** Ask the gateway; if paid, mark the payment and extend the subscription. Safe to call any number of times. */
     public function settle(Payment $payment): Payment
     {
-        if ($payment->isPaid() || ! $payment->invoice_id || ! $this->gateway->isPaid($payment)) {
+        if ($payment->status !== Payment::PENDING || ! $payment->invoice_id || ! $this->gateway->isPaid($payment)) {
             return $payment;
         }
 
         return DB::transaction(function () use ($payment) {
             $fresh = Payment::whereKey($payment->id)->lockForUpdate()->first();
-            if ($fresh->isPaid()) {
-                return $fresh; // another request settled it first
+            if ($fresh->status !== Payment::PENDING) {
+                return $fresh; // another request settled it first (or it was refunded)
             }
             $fresh->update(['status' => Payment::PAID, 'paid_at' => now()]);
 
@@ -105,6 +106,40 @@ class Payments
             $sub->expires_at = $from->copy()->addDays((int) config('creators.subscription_days'));
             $sub->save();
             Notify::paid($fresh, $renewed);
+
+            return $fresh;
+        });
+    }
+
+    /**
+     * Admins: mark a paid payment refunded and take back what it bought (that subscription period, or the unlock).
+     * The money itself goes back to the fan outside the app (QPay merchant panel or a bank transfer).
+     */
+    public function refund(Payment $payment, User $admin, string $reason): Payment
+    {
+        return DB::transaction(function () use ($payment, $admin, $reason) {
+            $fresh = Payment::whereKey($payment->id)->lockForUpdate()->first();
+            abort_unless($fresh->isPaid(), 409, 'Only paid payments can be refunded.');
+            $fresh->update(['status' => Payment::REFUNDED, 'refunded_at' => now(), 'refunded_by' => $admin->id, 'refund_reason' => $reason]);
+
+            if ($fresh->purpose === Payment::SUBSCRIPTION) {
+                $sub = Subscription::where('user_id', $fresh->user_id)->where('creator_profile_id', $fresh->creator_profile_id)->first();
+                if ($sub?->expires_at) {
+                    $end = $sub->expires_at->copy()->subDays((int) config('creators.subscription_days'));
+                    $sub->update(['expires_at' => $end->isFuture() ? $end : now()]);
+                }
+            }
+            if ($fresh->purpose === Payment::PPV) {
+                Purchase::where('payment_id', $fresh->id)->delete();
+            }
+
+            $creator = $fresh->creator;
+            $fresh->user->notify(new Activity('refunded', $creator->user_id, [
+                'amount' => $fresh->amount, 'handle' => $creator->handle, 'note' => $reason,
+            ]));
+            $creator->user->notify(new Activity('charge_refunded', $fresh->user_id, [
+                'amount' => $fresh->amount, 'note' => $reason,
+            ]));
 
             return $fresh;
         });
