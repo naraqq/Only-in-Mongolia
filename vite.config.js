@@ -18,4 +18,11 @@ export default defineConfig({
     esbuild: {
         jsx: 'automatic',
     },
+    server: {
+        watch: {
+            // On Windows the watcher can fire while a file is still being written; Vite then caches an empty
+            // module and serves it until the file changes again. Wait for the write to finish first.
+            awaitWriteFinish: { stabilityThreshold: 150, pollInterval: 25 },
+        },
+    },
 });
