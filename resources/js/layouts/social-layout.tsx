@@ -11,6 +11,7 @@ import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     BadgeCheck,
+    Bell,
     Compass,
     House,
     LogIn,
@@ -49,8 +50,8 @@ export default function SocialLayout({
     wide?: boolean;
 }) {
     const { t } = useT();
-    const page = usePage<SharedData & { unreadMessages: number }>();
-    const { auth, unreadMessages } = page.props;
+    const page = usePage<SharedData & { unreadMessages: number; unreadNotifications: number }>();
+    const { auth, unreadMessages, unreadNotifications } = page.props;
     const user = auth.user;
     const creator = auth.creator?.status === 'approved' ? auth.creator : null;
     const path = page.url.split('?')[0];
@@ -60,6 +61,13 @@ export default function SocialLayout({
         { label: 'nav.discover', href: route('creators'), icon: Compass, match: (u) => u.startsWith('/creators') },
         ...(user
             ? [
+                  {
+                      label: 'nav.notifications',
+                      href: route('notifications'),
+                      icon: Bell,
+                      match: (u: string) => u.startsWith('/notifications'),
+                      badge: unreadNotifications,
+                  } as NavLink,
                   {
                       label: 'nav.messages',
                       href: route('messages.index'),
@@ -262,6 +270,11 @@ function AccountMenu({ compact = false }: { compact?: boolean }) {
                     {auth.creator?.status === 'approved' && <p className="text-muted-foreground truncate">@{auth.creator.handle}</p>}
                 </div>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild className="md:hidden">
+                    <Link href={route('dashboard')} className="w-full">
+                        <Users className="mr-2 size-4" /> {t('fan.followingTitle')}
+                    </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                     <Link href={route('me.edit')} className="w-full">
                         <UserPen className="mr-2 size-4" /> {t('nav.editProfile')}

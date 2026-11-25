@@ -6,6 +6,7 @@ use App\Http\Controllers\CreatorPageController;
 use App\Http\Controllers\FanController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\MessageController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileEditController;
 use App\Http\Controllers\StudioController;
@@ -38,6 +39,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('payments/{payment}', [PaymentController::class, 'show'])->name('payments.show');
     Route::get('payments/{payment}/status', [PaymentController::class, 'status'])->middleware('throttle:60,1')->name('payments.status');
     Route::post('payments/{payment}/fake-pay', [PaymentController::class, 'fakePay'])->name('payments.fake-pay');
+
+    // Notifications (the bell). Opening the page marks them read.
+    Route::get('notifications', [NotificationController::class, 'index'])->name('notifications');
 
     // Direct messages (the page polls for new ones).
     Route::get('messages', [MessageController::class, 'index'])->name('messages.index');

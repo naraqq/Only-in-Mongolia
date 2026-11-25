@@ -53,6 +53,7 @@ class HandleInertiaRequests extends Middleware
             'flash' => ['status' => fn () => $request->session()->get('status')],
             'ppvLimits' => ['min' => (int) config('creators.min_ppv'), 'max' => (int) config('creators.max_ppv')],
             'tipLimits' => ['min' => (int) config('creators.min_tip'), 'max' => (int) config('creators.max_tip')],
+            'unreadNotifications' => fn () => $request->user()?->unreadNotifications()->count() ?? 0,
             'unreadMessages' => fn () => $request->user() ? \App\Models\Conversation::unreadCountFor($request->user()) : 0,
         ]);
     }

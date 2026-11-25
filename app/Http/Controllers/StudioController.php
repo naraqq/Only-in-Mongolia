@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CreatorProfile;
 use App\Models\Payment;
 use App\Models\Post;
+use App\Support\Notify;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -72,7 +73,7 @@ class StudioController extends Controller
             return back()->withErrors(['is_adult' => __('Turn on 18+ content for your page first.')]);
         }
 
-        DB::transaction(function () use ($creator, $data, $adult, $request) {
+        $post = DB::transaction(function () use ($creator, $data, $adult, $request) {
             $post = $creator->posts()->create([
                 'body' => trim((string) ($data['body'] ?? '')) ?: null,
                 'visibility' => $data['visibility'],
@@ -87,7 +88,10 @@ class StudioController extends Controller
                     'position' => $i,
                 ]);
             }
+
+            return $post;
         });
+        Notify::newPost($post);
 
         return back()->with('status', 'posted'); // posts are written from the studio or the home feed
     }

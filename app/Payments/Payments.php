@@ -10,6 +10,7 @@ use App\Models\Post;
 use App\Models\Purchase;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Support\Notify;
 use Illuminate\Support\Facades\DB;
 
 /** Starting and settling payments. Settling is idempotent: a payment extends a subscription exactly once. */
@@ -84,6 +85,7 @@ class Payments
 
             if ($fresh->purpose === Payment::TIP) {
                 $this->deliverTip($fresh);
+                Notify::paid($fresh);
 
                 return $fresh;
             }
@@ -92,14 +94,17 @@ class Payments
                     ['user_id' => $fresh->user_id, 'post_id' => $fresh->post_id, 'message_id' => $fresh->message_id],
                     ['payment_id' => $fresh->id],
                 );
+                Notify::paid($fresh);
 
                 return $fresh;
             }
 
             $sub = Subscription::firstOrNew(['user_id' => $fresh->user_id, 'creator_profile_id' => $fresh->creator_profile_id]);
-            $from = $sub->expires_at && $sub->expires_at->isFuture() ? $sub->expires_at : now(); // renewals add on to the current period
+            $renewed = $sub->expires_at && $sub->expires_at->isFuture();
+            $from = $renewed ? $sub->expires_at : now(); // renewals add on to the current period
             $sub->expires_at = $from->copy()->addDays((int) config('creators.subscription_days'));
             $sub->save();
+            Notify::paid($fresh, $renewed);
 
             return $fresh;
         });
