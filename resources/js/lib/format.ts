@@ -16,3 +16,11 @@ export const mnt = (n: number) => '₮' + n.toLocaleString('en-US');
 
 /** Is a pay-per-view (or tip) amount within the allowed range? */
 export const priceOk = (value: number, limits: { min: number; max: number }) => value >= limits.min && value <= limits.max;
+
+/** "2026-11-27T14:30:00+08:00" → "2026-11-27T14:30" for <input type="datetime-local">, in the browser's time zone. */
+export const toLocalInput = (iso: string | null) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};

@@ -30,3 +30,19 @@ Artisan::command('subscriptions:remind', function () {
 })->purpose('Remind fans whose subscriptions end within 3 days');
 
 Schedule::command('subscriptions:remind')->dailyAt('10:00');
+
+// Scheduled posts: once their time comes, tell subscribers (exactly once per post).
+Artisan::command('posts:announce', function () {
+    $n = 0;
+    \App\Models\Post::with('creator')->whereNull('announced_at')->whereNotNull('publish_at')->where('publish_at', '<=', now())
+        ->chunkById(100, function ($posts) use (&$n) {
+            foreach ($posts as $post) {
+                $post->forceFill(['announced_at' => now()])->saveQuietly();
+                Notify::newPost($post);
+                $n++;
+            }
+        });
+    $this->info("Announced {$n} posts.");
+})->purpose('Notify subscribers about scheduled posts that just went out');
+
+Schedule::command('posts:announce')->everyMinute();

@@ -12,9 +12,20 @@ class Post extends Model
 
     public const SUBSCRIBERS = 'subscribers';
 
-    protected $fillable = ['creator_profile_id', 'body', 'visibility', 'is_adult', 'price'];
+    protected $fillable = ['creator_profile_id', 'body', 'visibility', 'is_adult', 'price', 'publish_at', 'announced_at'];
 
-    protected $casts = ['is_adult' => 'boolean', 'price' => 'integer'];
+    protected $casts = ['is_adult' => 'boolean', 'price' => 'integer', 'publish_at' => 'datetime', 'announced_at' => 'datetime'];
+
+    /** Posts that are out (not scheduled for later). */
+    public function scopePublished(\Illuminate\Database\Eloquent\Builder $q): \Illuminate\Database\Eloquent\Builder
+    {
+        return $q->where(fn ($w) => $w->whereNull('publish_at')->orWhere('publish_at', '<=', now()));
+    }
+
+    public function isScheduled(): bool
+    {
+        return $this->publish_at !== null && $this->publish_at->isFuture();
+    }
 
     public function creator(): BelongsTo
     {
@@ -62,6 +73,9 @@ class Post extends Model
     {
         if ($viewer && ($viewer->is_admin || $viewer->id === $this->creator->user_id)) {
             return true;
+        }
+        if ($this->isScheduled()) {
+            return false; // nobody else sees it before it's published
         }
         if ($this->is_adult && ! $viewer) {
             return false;

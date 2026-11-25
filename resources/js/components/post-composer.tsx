@@ -1,10 +1,10 @@
 import InputError from '@/components/input-error';
 import PriceField from '@/components/price-field';
 import { Button } from '@/components/ui/button';
-import { priceOk } from '@/lib/format';
+import { priceOk, toLocalInput } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { useForm, usePage } from '@inertiajs/react';
-import { ImagePlus, LoaderCircle, X } from 'lucide-react';
+import { CalendarClock, ImagePlus, LoaderCircle, X } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 
 /** Write a post: text, photos/videos, who sees it, and (for 18+ pages) the 18+ flag. Used in the studio and on home. */
@@ -16,20 +16,27 @@ export default function PostComposer({ adultAllowed, className = '' }: { adultAl
         is_adult: false as boolean,
         media: [] as File[],
         price: 5000,
+        publish_at: '',
     });
     const [ppv, setPpv] = useState(false);
+    const [schedule, setSchedule] = useState(false);
     const { ppvLimits } = usePage<{ ppvLimits: { min: number; max: number } }>().props;
     const mediaErrors = Object.entries(form.errors).filter(([k]) => k.startsWith('media'));
 
     function submit(e: FormEvent) {
         e.preventDefault();
-        form.transform((d) => ({ ...d, price: ppv ? d.price : null }));
+        form.transform((d) => ({
+            ...d,
+            price: ppv ? d.price : null,
+            publish_at: schedule && d.publish_at ? new Date(d.publish_at).toISOString() : null,
+        }));
         form.post(route('studio.posts.store'), {
             forceFormData: true,
             preserveScroll: true,
             onSuccess: () => {
                 form.reset();
                 setPpv(false);
+                setSchedule(false);
             },
         });
     }
@@ -97,6 +104,23 @@ export default function PostComposer({ adultAllowed, className = '' }: { adultAl
                     <option value="ppv">{t('ppv.option')}</option>
                 </select>
                 {ppv && <PriceField value={form.data.price} onChange={(v) => form.setData('price', v)} />}
+                <button
+                    type="button"
+                    onClick={() => setSchedule(!schedule)}
+                    className={`inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-sm transition ${schedule ? 'text-sky-600' : 'hover:bg-muted'}`}
+                    title={t('sch.later')}
+                >
+                    <CalendarClock className="size-4" /> {!schedule && t('sch.later')}
+                </button>
+                {schedule && (
+                    <input
+                        type="datetime-local"
+                        value={form.data.publish_at}
+                        min={toLocalInput(new Date().toISOString())}
+                        onChange={(e) => form.setData('publish_at', e.target.value)}
+                        className="border-input h-8 rounded-md border bg-transparent px-2 text-sm"
+                    />
+                )}
                 {adultAllowed && (
                     <label className="inline-flex items-center gap-1.5 text-sm">
                         <input type="checkbox" checked={form.data.is_adult} onChange={(e) => form.setData('is_adult', e.target.checked)} /> 18+

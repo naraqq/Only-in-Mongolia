@@ -1,12 +1,14 @@
 import MassMessage from '@/components/mass-message';
 import PostCard, { type PostItem } from '@/components/post-card';
 import PostComposer from '@/components/post-composer';
+import PostEditor from '@/components/post-editor';
 import { Button } from '@/components/ui/button';
 import SocialLayout from '@/layouts/social-layout';
 import { mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { Link, router } from '@inertiajs/react';
 import { ExternalLink } from 'lucide-react';
+import { useState } from 'react';
 
 type StudioCreator = { handle: string; display_name: string; price_monthly: number; adult_content: boolean; avatar_url: string | null };
 
@@ -15,6 +17,7 @@ type Stats = { subscribers: number; followers: number; earnedThisMonth: number; 
 
 export default function Studio({ creator, posts, stats }: { creator: StudioCreator; posts: PostItem[]; stats: Stats }) {
     const { t } = useT();
+    const [editing, setEditing] = useState<number | null>(null);
     const author = { name: creator.display_name, handle: creator.handle, avatar_url: creator.avatar_url };
 
     return (
@@ -66,16 +69,22 @@ export default function Studio({ creator, posts, stats }: { creator: StudioCreat
                     <p className="text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">{t('st.empty')}</p>
                 ) : (
                     <div className="flex flex-col gap-4">
-                        {posts.map((p) => (
-                            <PostCard
-                                key={p.id}
-                                post={p}
-                                author={author}
-                                onDelete={() =>
-                                    confirm(t('st.confirmDelete')) && router.delete(route('studio.posts.destroy', p.id), { preserveScroll: true })
-                                }
-                            />
-                        ))}
+                        {posts.map((p) =>
+                            editing === p.id ? (
+                                <PostEditor key={p.id} post={p} onDone={() => setEditing(null)} />
+                            ) : (
+                                <PostCard
+                                    key={p.id}
+                                    post={p}
+                                    author={author}
+                                    onEdit={() => setEditing(p.id)}
+                                    onPin={() => router.post(route('studio.posts.pin', p.id), {}, { preserveScroll: true })}
+                                    onDelete={() =>
+                                        confirm(t('st.confirmDelete')) && router.delete(route('studio.posts.destroy', p.id), { preserveScroll: true })
+                                    }
+                                />
+                            ),
+                        )}
                     </div>
                 )}
             </div>

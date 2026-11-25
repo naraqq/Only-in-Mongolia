@@ -10,7 +10,19 @@ import { avatarGradient, mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
-import { BadgeCheck, CalendarCheck, HandCoins, Image as ImageIcon, LoaderCircle, Lock, MessageCircle, PenSquare, Users } from 'lucide-react';
+import {
+    BadgeCheck,
+    CalendarCheck,
+    Copy,
+    HandCoins,
+    Image as ImageIcon,
+    LoaderCircle,
+    Lock,
+    MessageCircle,
+    PenSquare,
+    Play,
+    Users,
+} from 'lucide-react';
 import { useState } from 'react';
 
 type Creator = {
@@ -23,6 +35,7 @@ type Creator = {
     adult_content: boolean;
     joined: string;
     posts_count: number;
+    media_count: number;
     followers_count: number;
 };
 
@@ -39,6 +52,7 @@ export default function CreatorPage({
     following,
     messageBlock,
     sort,
+    tab,
     creatorId,
     creatorUserId,
     blocked,
@@ -51,6 +65,7 @@ export default function CreatorPage({
     subscribedUntil: string | null;
     messageBlock: string | null;
     sort: 'new' | 'popular';
+    tab: 'posts' | 'media';
     creatorId: number;
     creatorUserId: number;
     blocked: boolean;
@@ -134,7 +149,23 @@ export default function CreatorPage({
             </div>
 
             <div className="mt-6 border-t">
-                {!gated && posts.length > 1 && (
+                {!gated && (
+                    <div className="flex border-b" role="tablist">
+                        {(['posts', 'media'] as const).map((k) => (
+                            <Link
+                                key={k}
+                                href={route('creator.show', { handle: creator.handle, ...(k === 'media' ? { tab: k } : {}) })}
+                                preserveScroll
+                                className={`-mb-px flex-1 border-b-2 py-3 text-center text-sm font-bold transition ${tab === k ? 'border-primary text-foreground' : 'text-muted-foreground hover:text-foreground border-transparent'}`}
+                                role="tab"
+                                aria-selected={tab === k}
+                            >
+                                {t(k === 'posts' ? 'cp.tabPosts' : 'cp.tabMedia', { n: k === 'posts' ? creator.posts_count : creator.media_count })}
+                            </Link>
+                        ))}
+                    </div>
+                )}
+                {!gated && tab === 'posts' && posts.length > 1 && (
                     <div className="flex gap-1 px-4 pt-3" role="group">
                         {(['new', 'popular'] as const).map((s) => (
                             <Link
@@ -159,6 +190,8 @@ export default function CreatorPage({
                     </div>
                 ) : posts.length === 0 ? (
                     <p className="text-muted-foreground p-10 text-center text-sm">{t('cp.noPosts')}</p>
+                ) : tab === 'media' ? (
+                    <MediaGrid posts={posts} handle={creator.handle} />
                 ) : (
                     <div className="flex flex-col gap-4 p-4">
                         {posts.map((p) => (
@@ -168,6 +201,44 @@ export default function CreatorPage({
                 )}
             </div>
         </SocialLayout>
+    );
+}
+
+/** Photos and videos as a square grid. Locked ones show a lock (and the price for pay-per-view). */
+function MediaGrid({ posts, handle }: { posts: PostItem[]; handle: string }) {
+    return (
+        <div className="grid grid-cols-3 gap-0.5 p-0.5">
+            {posts.map((p) => {
+                const first = p.media[0];
+                const many = p.counts.image + p.counts.video > 1;
+                return (
+                    <Link
+                        key={p.id}
+                        href={`${route('creator.show', handle)}#post-${p.id}`}
+                        className="group relative aspect-square overflow-hidden bg-zinc-900"
+                    >
+                        {first ? (
+                            first.type === 'video' ? (
+                                <video src={first.url} muted preload="metadata" className="size-full object-cover" />
+                            ) : (
+                                <img src={first.url} alt="" loading="lazy" className="size-full object-cover transition group-hover:scale-105" />
+                            )
+                        ) : (
+                            <span className="absolute inset-0 grid place-items-center bg-gradient-to-br from-zinc-800 to-black text-white">
+                                <span className="flex flex-col items-center gap-1 text-xs font-bold">
+                                    <Lock className="size-5" />
+                                    {p.price ? mnt(p.price) : null}
+                                </span>
+                            </span>
+                        )}
+                        {many && <Copy className="absolute top-1.5 right-1.5 size-4 text-white drop-shadow" />}
+                        {(first?.type === 'video' || (!first && p.counts.video > 0)) && (
+                            <Play className="absolute bottom-1.5 left-1.5 size-4 fill-white text-white drop-shadow" />
+                        )}
+                    </Link>
+                );
+            })}
+        </div>
     );
 }
 

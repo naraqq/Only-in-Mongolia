@@ -75,7 +75,7 @@ class EngagementController extends Controller
     public function saved(Request $request): Response
     {
         $viewer = $request->user();
-        $posts = $viewer->bookmarks()->with(['media', 'creator.user:id,avatar_path'])->withEngagement($viewer)
+        $posts = $viewer->bookmarks()->published()->with(['media', 'creator.user:id,avatar_path'])->withEngagement($viewer)
             ->orderByDesc('bookmarks.created_at')->take(100)->get()
             ->filter(fn (Post $p) => $p->creator->status === CreatorProfile::APPROVED)
             ->map(fn (Post $p) => [

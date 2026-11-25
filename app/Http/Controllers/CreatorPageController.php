@@ -27,9 +27,17 @@ class CreatorPageController extends Controller
         $gated = $creator->adult_content && ! $viewer;
 
         $sort = $request->query('sort') === 'popular' ? 'popular' : 'new';
-        $posts = $gated ? collect() : $creator->posts()->with('media')->withEngagement($viewer)
+        $tab = $request->query('tab') === 'media' ? 'media' : 'posts';
+        $pinned = $tab === 'posts' && $sort === 'new' && $creator->pinned_post_id
+            ? $creator->posts()->published()->with('media')->withEngagement($viewer)->find($creator->pinned_post_id)
+            : null;
+        $posts = $gated ? collect() : $creator->posts()->published()->with('media')->withEngagement($viewer)
+            ->when($tab === 'media', fn ($q) => $q->has('media'))
+            ->when($pinned, fn ($q) => $q->whereKeyNot($pinned->id))
             ->when($sort === 'popular', fn ($q) => $q->reorder()->orderByDesc('likes_count')->latest())
-            ->take(50)->get()->map(fn (Post $p) => self::present($p, $viewer));
+            ->take(60)->get()
+            ->when($pinned && ! $gated, fn ($c) => $c->prepend($pinned))
+            ->map(fn (Post $p) => [...self::present($p, $viewer), 'pinned' => $p->id === $creator->pinned_post_id]);
 
         return Inertia::render('creator/show', [
             'creator' => [
@@ -37,13 +45,15 @@ class CreatorPageController extends Controller
                 'joined' => $creator->created_at->toIso8601String(),
                 'avatar_url' => $creator->avatarUrl(),
                 'cover_url' => $creator->coverUrl(),
-                'posts_count' => $creator->posts()->count(),
+                'posts_count' => $creator->posts()->published()->count(),
+                'media_count' => $creator->posts()->published()->has('media')->count(),
                 'followers_count' => $creator->followers()->count(),
             ],
             'following' => $viewer ? $creator->followers()->whereKey($viewer->id)->exists() : false,
             'posts' => $posts,
             'gated' => $gated,
             'sort' => $sort,
+            'tab' => $tab,
             'isOwner' => $isOwner,
             'subscribed' => $creator->hasActiveSubscriber($viewer),
             'creatorUserId' => $creator->user_id,
@@ -65,6 +75,7 @@ class CreatorPageController extends Controller
             'visibility' => $post->visibility,
             'is_adult' => $post->is_adult,
             'price' => $post->price,
+            'publish_at' => $post->isScheduled() ? $post->publish_at->toIso8601String() : null,
             'created_at' => $post->created_at->toIso8601String(),
             'locked' => $lock,
             'body' => $lock ? null : $post->body,

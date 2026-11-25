@@ -1,13 +1,27 @@
 import MoreMenu from '@/components/more-menu';
 import PostComments from '@/components/post-comments';
 import TipButton from '@/components/tip-button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import UserAvatar from '@/components/user-avatar';
 import { mnt } from '@/lib/format';
 import { sendJson } from '@/lib/http';
 import { useT } from '@/lib/i18n';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
-import { Bookmark, Globe, Heart, Image as ImageIcon, Lock, MessageCircle, Trash2, Video } from 'lucide-react';
+import {
+    Bookmark,
+    CalendarClock,
+    Globe,
+    Heart,
+    Image as ImageIcon,
+    Lock,
+    MessageCircle,
+    MoreHorizontal,
+    Pencil,
+    Pin,
+    Trash2,
+    Video,
+} from 'lucide-react';
 import { useState } from 'react';
 
 export type PostItem = {
@@ -24,9 +38,12 @@ export type PostItem = {
     comments_count: number;
     liked: boolean;
     bookmarked: boolean;
+    publish_at: string | null; // set while scheduled
+    pinned?: boolean;
 };
 
 const day = (iso: string) => iso.slice(0, 10).replaceAll('-', '.');
+const when = (iso: string) => new Date(iso).toLocaleString('sv-SE', { dateStyle: 'short', timeStyle: 'short' }).replaceAll('-', '.');
 
 /** One post: text and media if the viewer may see it, otherwise a locked tile that reveals only what's inside. */
 export default function PostCard({
@@ -34,12 +51,16 @@ export default function PostCard({
     author,
     price,
     onDelete,
+    onEdit,
+    onPin,
     linkAuthor = false,
 }: {
     post: PostItem;
     author: { name: string; handle: string; avatar_url?: string | null };
     price?: string;
     onDelete?: () => void;
+    onEdit?: () => void;
+    onPin?: () => void;
     linkAuthor?: boolean;
 }) {
     const { t } = useT();
@@ -47,7 +68,24 @@ export default function PostCard({
     const mine = auth.creator?.handle === author.handle;
 
     return (
-        <article className="bg-card overflow-hidden rounded-2xl border shadow-xs">
+        <article
+            id={`post-${post.id}`}
+            className={`bg-card scroll-mt-20 overflow-hidden rounded-2xl border shadow-xs ${post.publish_at ? 'border-dashed border-sky-400' : ''}`}
+        >
+            {(post.pinned || post.publish_at) && (
+                <div className="flex items-center gap-3 px-4 pt-3 text-xs font-semibold">
+                    {post.pinned && (
+                        <span className="text-primary inline-flex items-center gap-1">
+                            <Pin className="size-3.5" /> {t('po.pinned')}
+                        </span>
+                    )}
+                    {post.publish_at && (
+                        <span className="inline-flex items-center gap-1 text-sky-600">
+                            <CalendarClock className="size-3.5" /> {t('sch.at', { date: when(post.publish_at) })}
+                        </span>
+                    )}
+                </div>
+            )}
             <header className="flex items-center gap-3 px-4 pt-4">
                 <UserAvatar name={author.name} src={author.avatar_url} seed={author.handle} />
                 <div className="min-w-0 flex-1">
@@ -78,16 +116,35 @@ export default function PostCard({
                         </span>
                     )}
                     {!mine && !post.locked && <MoreMenu report={{ type: 'post', id: post.id }} className="-mr-1" />}
-                    {onDelete && (
-                        <button
-                            type="button"
-                            onClick={onDelete}
-                            className="text-muted-foreground ml-1 hover:text-rose-600"
-                            aria-label={t('po.delete')}
-                            title={t('po.delete')}
-                        >
-                            <Trash2 className="size-4" />
-                        </button>
+                    {(onDelete || onEdit || onPin) && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button
+                                    type="button"
+                                    className="text-muted-foreground hover:bg-muted -mr-1 grid size-8 place-items-center rounded-full"
+                                    aria-label={t('rp.more')}
+                                >
+                                    <MoreHorizontal className="size-5" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                                {onEdit && (
+                                    <DropdownMenuItem onSelect={onEdit}>
+                                        <Pencil className="mr-2 size-4" /> {t('po.edit')}
+                                    </DropdownMenuItem>
+                                )}
+                                {onPin && !post.publish_at && (
+                                    <DropdownMenuItem onSelect={onPin}>
+                                        <Pin className="mr-2 size-4" /> {t(post.pinned ? 'po.unpin' : 'po.pin')}
+                                    </DropdownMenuItem>
+                                )}
+                                {onDelete && (
+                                    <DropdownMenuItem onSelect={onDelete} className="text-red-600 focus:text-red-600">
+                                        <Trash2 className="mr-2 size-4" /> {t('po.delete')}
+                                    </DropdownMenuItem>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     )}
                 </div>
             </header>

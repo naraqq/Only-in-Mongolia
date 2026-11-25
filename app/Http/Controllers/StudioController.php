@@ -40,8 +40,11 @@ class StudioController extends Controller
                 'feePercent' => (int) config('creators.platform_fee_percent'),
             ],
             'creator' => [...$creator->only('handle', 'display_name', 'price_monthly', 'adult_content'), 'avatar_url' => $creator->avatarUrl()],
-            'posts' => $creator->posts()->with('media')->withEngagement($request->user())->take(100)->get()
-                ->map(fn (Post $p) => CreatorPageController::present($p, $request->user())),
+            // Scheduled posts first (soonest at the top), then everything published.
+            'posts' => $creator->posts()->with('media')->withEngagement($request->user())->reorder()
+                ->orderByRaw('case when publish_at > ? then 0 else 1 end', [now()])->orderBy('publish_at')->latest()->latest('id')
+                ->take(100)->get()
+                ->map(fn (Post $p) => [...CreatorPageController::present($p, $request->user()), 'pinned' => $p->id === $creator->pinned_post_id]),
         ]);
     }
 
@@ -54,6 +57,7 @@ class StudioController extends Controller
             'visibility' => ['required', Rule::in([Post::PUBLIC, Post::SUBSCRIBERS])],
             'is_adult' => ['boolean'],
             'price' => ['nullable', 'integer', 'min:'.config('creators.min_ppv'), 'max:'.config('creators.max_ppv')],
+            'publish_at' => ['nullable', 'date', 'after:now', 'before:+1 year'],
             'media' => ['nullable', 'array', 'max:10'],
             // Photos up to 20 MB, videos up to 40 MB (raise upload_max_filesize/post_max_size in production).
             'media.*' => ['file', 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm', 'max:40960'],
@@ -79,6 +83,7 @@ class StudioController extends Controller
                 'visibility' => $data['visibility'],
                 'is_adult' => $adult,
                 'price' => $data['price'] ?? null,
+                'publish_at' => $data['publish_at'] ?? null,
             ]);
             foreach ($request->file('media', []) as $i => $file) {
                 $post->media()->create([
@@ -91,9 +96,50 @@ class StudioController extends Controller
 
             return $post;
         });
-        Notify::newPost($post);
+        if (! $post->isScheduled()) {
+            Notify::newPost($post);
+            $post->forceFill(['announced_at' => now()])->saveQuietly();
+        }
 
-        return back()->with('status', 'posted'); // posts are written from the studio or the home feed
+        return back()->with('status', $post->isScheduled() ? 'scheduled' : 'posted'); // posts are written from the studio or the home feed
+    }
+
+    /** Change the text, who sees it (incl. pay-per-view price), or when a scheduled post goes out. Media stays. */
+    public function update(Request $request, Post $post): RedirectResponse
+    {
+        $creator = $this->creator($request);
+        abort_unless($post->creator_profile_id === $creator->id, 403);
+
+        $data = $request->validate([
+            'body' => [$post->media()->exists() ? 'nullable' : 'required', 'string', 'max:5000'],
+            'visibility' => ['required', Rule::in([Post::PUBLIC, Post::SUBSCRIBERS])],
+            'price' => ['nullable', 'integer', 'min:'.config('creators.min_ppv'), 'max:'.config('creators.max_ppv')],
+            'publish_at' => ['nullable', 'date', 'after:now', 'before:+1 year'],
+        ]);
+
+        $post->update([
+            'body' => trim((string) ($data['body'] ?? '')) ?: null,
+            'visibility' => $data['visibility'],
+            'price' => $data['price'] ?? null,
+            // Only a post that hasn't gone out yet can be (re)scheduled; clearing the time publishes it now.
+            ...($post->announced_at ? [] : ['publish_at' => $data['publish_at'] ?? null]),
+        ]);
+        if (! $post->announced_at && ! $post->isScheduled()) {
+            Notify::newPost($post);
+            $post->forceFill(['announced_at' => now()])->saveQuietly();
+        }
+
+        return back()->with('status', 'updated');
+    }
+
+    /** Pin a post to the top of the creator page (or unpin it). One pinned post at a time. */
+    public function pin(Request $request, Post $post): RedirectResponse
+    {
+        $creator = $this->creator($request);
+        abort_unless($post->creator_profile_id === $creator->id, 403);
+        $creator->forceFill(['pinned_post_id' => $creator->pinned_post_id === $post->id ? null : $post->id])->save();
+
+        return back();
     }
 
     public function destroy(Request $request, Post $post): RedirectResponse

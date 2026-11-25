@@ -86,6 +86,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('studio/earnings/payout', [EarningsController::class, 'requestPayout'])->middleware('throttle:10,60')->name('studio.payout');
     Route::get('studio/earnings/statement.csv', [EarningsController::class, 'statement'])->name('studio.statement');
     Route::post('studio/posts', [StudioController::class, 'store'])->middleware('throttle:30,60')->name('studio.posts.store');
+    Route::patch('studio/posts/{post}', [StudioController::class, 'update'])->name('studio.posts.update');
+    Route::post('studio/posts/{post}/pin', [StudioController::class, 'pin'])->name('studio.posts.pin');
     Route::delete('studio/posts/{post}', [StudioController::class, 'destroy'])->name('studio.posts.destroy');
 });
 
