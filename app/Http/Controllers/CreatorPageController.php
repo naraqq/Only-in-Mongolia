@@ -38,6 +38,7 @@ class CreatorPageController extends Controller
             'gated' => $gated,
             'isOwner' => $isOwner,
             'subscribed' => $creator->hasActiveSubscriber($viewer),
+            'subscribedUntil' => $viewer ? $creator->subscriptions()->active()->where('user_id', $viewer->id)->value('expires_at')?->toIso8601String() : null,
         ]);
     }
 

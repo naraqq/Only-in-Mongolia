@@ -57,6 +57,11 @@ class User extends Authenticatable
         return $this->belongsToMany(CreatorProfile::class, 'follows')->withTimestamps();
     }
 
+    public function subscriptions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
     public function creatorProfile(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(CreatorProfile::class);

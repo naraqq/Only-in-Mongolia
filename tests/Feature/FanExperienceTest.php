@@ -38,7 +38,7 @@ class FanExperienceTest extends TestCase
         $this->creator('waiting', status: CreatorProfile::PENDING);
 
         // Visitors: approved, non-18+ only.
-        $this->get('/')->assertInertia(fn ($p) => $p->component('welcome')->has('creators', 1)->where('creators.0.handle', 'artist')->where('stats.creators', 1));
+        $this->get('/')->assertRedirect('/login'); // visitors log in first
         $this->get('/creators')->assertInertia(fn ($p) => $p->has('creators', 1));
 
         // Signed-in adults also see 18+ creators.
@@ -103,5 +103,31 @@ class FanExperienceTest extends TestCase
         $fan->following()->attach($c->id);
 
         $this->actingAs($fan)->get('/dashboard')->assertInertia(fn ($p) => $p->has('following', 1)->where('following.0.handle', 'artist')->where('creatorStatus', null));
+    }
+
+    public function test_signed_in_home_is_the_feed_including_the_creators_own_posts(): void
+    {
+        $me = $this->creator('me');
+        $followed = $this->creator('artist');
+        $this->creator('other');
+        $me->user->following()->attach($followed->id);
+        $mine = $me->posts()->create(['body' => 'My post', 'visibility' => Post::SUBSCRIBERS]);
+
+        $this->actingAs($me->user)->get('/')->assertInertia(fn ($p) => $p
+            ->component('feed')
+            ->where('posts.0.id', $mine->id)
+            ->where('posts.0.body', 'My post') // creators always see their own posts
+            ->where('followingCount', 1)
+            ->where('auth.creator.adult_content', false)
+            ->has('suggestions', 1) // not themselves, not who they follow
+            ->where('suggestions.0.handle', 'other'));
+    }
+
+    public function test_posting_from_home_returns_to_home(): void
+    {
+        $me = $this->creator('me');
+
+        $this->actingAs($me->user)->from('/')->post('/studio/posts', ['body' => 'Hi', 'visibility' => 'public'])->assertRedirect('/');
+        $this->assertSame(1, $me->posts()->count());
     }
 }

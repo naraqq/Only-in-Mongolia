@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Middleware\EnsureAgeConfirmed;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
@@ -15,9 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // QPay calls this server-to-server; it only triggers a status check with QPay, so it needs no CSRF token.
+        $middleware->validateCsrfTokens(except: ['payments/*/callback']);
         $middleware->web(append: [
             SetLocale::class,
-            EnsureAgeConfirmed::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);

@@ -1,11 +1,10 @@
 import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import AuthLayout from '@/layouts/auth-layout';
 import { useT } from '@/lib/i18n';
 import { Head, router, useForm } from '@inertiajs/react';
-import { CircleCheck, Hourglass, LoaderCircle, MessageSquare, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CircleCheck, Hourglass, LoaderCircle, MessageSquare } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 type Status = 'PENDING' | 'VERIFIED' | 'EXPIRED';
@@ -27,12 +26,9 @@ export default function PhoneLogin({ verification }: { verification: Verificatio
     const { t } = useT();
 
     return (
-        <AuthLayout title={verification ? t('ph.stepTitle') : t('ph.title')} description={verification ? t('ph.stepSub') : t('ph.sub')}>
+        <AuthLayout title={verification ? t('ph.stepTitle') : t('ph.title')} description={verification ? '' : t('ph.sub')}>
             <Head title={t('ph.title')} />
             {verification ? <SmsStep v={verification} /> : <PhoneStep />}
-            <p className="text-muted-foreground flex items-start gap-2 text-xs leading-relaxed">
-                <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden /> {t('ph.why')}
-            </p>
         </AuthLayout>
     );
 }
@@ -47,11 +43,13 @@ function PhoneStep() {
     }
 
     return (
-        <form onSubmit={submit} className="flex flex-col gap-6">
+        <form onSubmit={submit} className="flex flex-col gap-4">
             <div className="grid gap-2">
-                <Label htmlFor="phone">{t('ph.phone')}</Label>
-                <div className="border-input focus-within:border-ring focus-within:ring-ring/50 flex overflow-hidden rounded-md border shadow-xs focus-within:ring-[3px]">
-                    <span className="bg-muted text-muted-foreground border-input grid place-items-center border-r px-3 text-sm font-medium">+976</span>
+                <label htmlFor="phone" className="sr-only">
+                    {t('ph.phone')}
+                </label>
+                <div className="border-input focus-within:border-primary focus-within:ring-primary/15 flex h-14 overflow-hidden rounded-2xl border bg-white shadow-sm transition focus-within:ring-4 dark:bg-zinc-900">
+                    <span className="text-muted-foreground grid place-items-center pr-1 pl-5 text-[17px] font-semibold">+976</span>
                     <input
                         id="phone"
                         type="tel"
@@ -60,30 +58,45 @@ function PhoneStep() {
                         autoFocus
                         required
                         placeholder="9911 2233"
-                        className="placeholder:text-muted-foreground w-full bg-transparent px-3 py-2 text-base tracking-wider outline-none"
+                        className="placeholder:text-muted-foreground/40 w-full bg-transparent px-3 text-[17px] font-semibold tracking-[0.12em] outline-none"
                         value={data.phone}
-                        onChange={(e) => setData('phone', e.target.value.replace(/[^\d\s+]/g, '').slice(0, 16))}
+                        onChange={(e) => setData('phone', formatPhone(e.target.value))}
                     />
                 </div>
                 <InputError message={errors.phone} />
             </div>
 
-            <Button type="submit" className="w-full" disabled={processing || data.phone.replace(/\D/g, '').length < 8}>
-                {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
+            <Button
+                type="submit"
+                className="from-primary shadow-primary/25 group h-14 w-full rounded-2xl bg-gradient-to-r to-rose-500 text-base font-bold shadow-lg transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
+                disabled={processing || data.phone.replace(/\D/g, '').length < 8}
+            >
                 {t('ph.continue')}
+                {processing ? (
+                    <LoaderCircle className="size-5 animate-spin" />
+                ) : (
+                    <ArrowRight className="size-5 transition group-hover:translate-x-0.5" />
+                )}
             </Button>
 
-            <div className="text-muted-foreground text-center text-sm">
-                {t('ph.or')} <TextLink href={route('login.email')}>{t('ph.email')}</TextLink>
-            </div>
+            <TextLink href={route('login.email')} className="text-muted-foreground mx-auto mt-2 text-sm">
+                {t('ph.email')}
+            </TextLink>
         </form>
     );
+}
+
+/** "99112233" -> "9911 2233" (8-digit Mongolian numbers). */
+function formatPhone(raw: string) {
+    const d = raw.replace(/\D/g, '').slice(0, 8);
+    return d.length > 4 ? `${d.slice(0, 4)} ${d.slice(4)}` : d;
 }
 
 function SmsStep({ v }: { v: Verification }) {
     const { t } = useT();
     const [status, setStatus] = useState<Status>(v.status);
     const [left, setLeft] = useState(() => secondsLeft(v.expires_at));
+    const [total] = useState(() => Math.max(1, secondsLeft(v.expires_at)));
     const completing = useRef(false);
 
     // Countdown to expiresAt.
@@ -150,8 +163,8 @@ function SmsStep({ v }: { v: Verification }) {
         return (
             <div className="flex flex-col gap-4 text-center">
                 <Hourglass className="text-muted-foreground mx-auto size-10" aria-hidden />
-                <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">{t('ph.expired')}</p>
-                <Button onClick={newCode} className="w-full">
+                <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{t('ph.expired')}</p>
+                <Button onClick={newCode} className="h-14 w-full rounded-2xl text-base font-bold">
                     {t('ph.newCode')}
                 </Button>
                 <button type="button" onClick={cancel} className="text-muted-foreground hover:text-foreground text-sm">
@@ -163,38 +176,72 @@ function SmsStep({ v }: { v: Verification }) {
 
     return (
         <div className="flex flex-col gap-5">
-            {/* verify.mn's own instruction, verbatim: it names the number the SMS must come from. */}
-            <p className="bg-muted rounded-md p-4 text-sm leading-relaxed whitespace-pre-line">{v.display_instruction}</p>
-
-            <div className="grid grid-cols-2 gap-3 text-center">
-                <div className="rounded-md border p-3">
-                    <div className="text-muted-foreground text-xs">{t('ph.code')}</div>
-                    <div className="font-mono text-2xl font-semibold tracking-[0.2em]">{v.code}</div>
-                </div>
-                <div className="rounded-md border p-3">
-                    <div className="text-muted-foreground text-xs">{t('ph.to')}</div>
-                    <div className="font-mono text-2xl font-semibold">{v.shortcode}</div>
+            {/* The code and where to send it */}
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 to-zinc-800 p-6 text-white shadow-xl">
+                <div
+                    className="from-primary/50 absolute -top-12 -right-12 size-40 rounded-full bg-gradient-to-br to-amber-400/40 blur-2xl"
+                    aria-hidden
+                />
+                <div className="relative flex items-end justify-between gap-4">
+                    <div>
+                        <div className="text-xs font-medium tracking-wider text-white/60 uppercase">{t('ph.code')}</div>
+                        <div className="mt-1 font-mono text-4xl font-bold tracking-[0.25em]">{v.code}</div>
+                    </div>
+                    <div className="text-right">
+                        <div className="text-xs font-medium tracking-wider text-white/60 uppercase">{t('ph.to')}</div>
+                        <div className="mt-1 font-mono text-2xl font-bold">{v.shortcode}</div>
+                    </div>
                 </div>
             </div>
 
-            <Button asChild className="w-full">
+            <Button
+                asChild
+                className="from-primary shadow-primary/25 h-14 w-full rounded-2xl bg-gradient-to-r to-rose-500 text-base font-bold shadow-lg hover:brightness-110"
+            >
                 <a href={v.sms_uri}>
-                    <MessageSquare className="size-4" aria-hidden /> {t('ph.send')}
+                    <MessageSquare className="size-5" aria-hidden /> {t('ph.send')}
                 </a>
             </Button>
-            <p className="text-muted-foreground hidden text-center text-xs sm:block">{t('ph.desktop')}</p>
 
-            <div className="flex items-center justify-between border-t pt-4 text-sm">
-                <span className="text-muted-foreground flex items-center gap-2">
-                    <LoaderCircle className="size-4 animate-spin" aria-hidden />
-                    {t('ph.waiting')}
-                </span>
-                <span className="font-mono text-xs tabular-nums">{t('ph.expiresIn', { time: mmss(left) })}</span>
+            <div className="bg-muted/60 flex items-center gap-3 rounded-2xl p-3">
+                <Countdown left={left} total={total} />
+                <div className="min-w-0 flex-1 text-sm">
+                    <p className="font-semibold">{t('ph.waiting')}</p>
+                    <p className="text-muted-foreground text-xs">{t('ph.cost')}</p>
+                </div>
             </div>
-            <p className="text-muted-foreground text-xs">{t('ph.cost')}</p>
-            <button type="button" onClick={cancel} className="text-muted-foreground hover:text-foreground text-left text-sm">
-                ← {t('ph.change')} ({v.phone})
+
+            {/* verify.mn's own instruction, verbatim: it names the number the SMS must come from. */}
+            <p className="text-muted-foreground text-xs leading-relaxed whitespace-pre-line">{v.display_instruction}</p>
+
+            <button type="button" onClick={cancel} className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm">
+                <ArrowLeft className="size-4" /> {t('ph.change')} · {v.phone}
             </button>
+        </div>
+    );
+}
+
+/** A ring that empties as the code's time runs out, with mm:ss in the middle. */
+function Countdown({ left, total }: { left: number; total: number }) {
+    const r = 20;
+    const c = 2 * Math.PI * r;
+    return (
+        <div className="relative grid size-12 shrink-0 place-items-center">
+            <svg viewBox="0 0 48 48" className="absolute inset-0 -rotate-90">
+                <circle cx="24" cy="24" r={r} fill="none" strokeWidth="4" className="stroke-border" />
+                <circle
+                    cx="24"
+                    cy="24"
+                    r={r}
+                    fill="none"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    className="stroke-primary transition-[stroke-dashoffset] duration-1000 ease-linear"
+                    strokeDasharray={c}
+                    strokeDashoffset={c * (1 - Math.min(1, left / total))}
+                />
+            </svg>
+            <span className="font-mono text-[10px] font-semibold tabular-nums">{mmss(left)}</span>
         </div>
     );
 }

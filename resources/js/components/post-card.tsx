@@ -1,5 +1,7 @@
+import { avatarGradient } from '@/lib/format';
 import { useT } from '@/lib/i18n';
-import { Link } from '@inertiajs/react';
+import { type SharedData } from '@/types';
+import { Link, usePage } from '@inertiajs/react';
 import { Globe, Image as ImageIcon, Lock, Trash2, Video } from 'lucide-react';
 
 export type PostItem = {
@@ -32,18 +34,20 @@ export default function PostCard({
     const { t } = useT();
 
     return (
-        <article className="rounded-xl border">
+        <article className="bg-card overflow-hidden rounded-2xl border shadow-xs">
             <header className="flex items-center gap-3 px-4 pt-4">
-                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-rose-100 font-semibold text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                <span
+                    className={`grid size-10 shrink-0 place-items-center rounded-full bg-gradient-to-br font-bold text-white ${avatarGradient(author.handle)}`}
+                >
                     {author.name.charAt(0)}
                 </span>
                 <div className="min-w-0 flex-1">
                     {linkAuthor ? (
-                        <Link href={route('creator.show', author.handle)} className="block truncate text-sm font-semibold hover:underline">
+                        <Link href={route('creator.show', author.handle)} className="block truncate text-[15px] font-bold hover:underline">
                             {author.name}
                         </Link>
                     ) : (
-                        <div className="truncate text-sm font-semibold">{author.name}</div>
+                        <div className="truncate text-[15px] font-bold">{author.name}</div>
                     )}
                     <div className="text-muted-foreground text-xs">
                         @{author.handle} · {day(post.created_at)}
@@ -73,12 +77,12 @@ export default function PostCard({
             </header>
 
             {post.locked ? (
-                <Locked post={post} price={price} />
+                <Locked post={post} price={price} handle={author.handle} />
             ) : (
                 <>
-                    {post.body && <p className="px-4 pt-3 leading-relaxed break-words whitespace-pre-line">{post.body}</p>}
+                    {post.body && <p className="px-4 pt-3 text-[15px] leading-relaxed break-words whitespace-pre-line">{post.body}</p>}
                     {post.media.length > 0 && (
-                        <div className={`mt-3 grid gap-0.5 overflow-hidden rounded-b-xl ${post.media.length > 1 ? 'grid-cols-2' : ''}`}>
+                        <div className={`mt-3 grid gap-0.5 overflow-hidden ${post.media.length > 1 ? 'grid-cols-2' : ''}`}>
                             {post.media.map((m) =>
                                 m.type === 'video' ? (
                                     <video
@@ -101,12 +105,16 @@ export default function PostCard({
     );
 }
 
-function Locked({ post, price }: { post: PostItem; price?: string }) {
+function Locked({ post, price, handle }: { post: PostItem; price?: string; handle: string }) {
     const { t } = useT();
+    const signedIn = !!usePage<SharedData>().props.auth.user;
     return (
-        <div className="m-4 flex flex-col items-center gap-3 rounded-lg bg-gradient-to-br from-zinc-100 to-zinc-200 px-6 py-10 text-center dark:from-zinc-900 dark:to-zinc-800">
-            <Lock className="text-muted-foreground size-7" aria-hidden />
-            <div className="text-muted-foreground flex items-center gap-3 text-sm">
+        <div className="relative m-4 mt-3 flex flex-col items-center gap-3 overflow-hidden rounded-xl bg-gradient-to-br from-zinc-800 via-zinc-900 to-black px-6 py-14 text-center text-white">
+            <div className="from-primary/40 absolute -top-16 -right-16 size-48 rounded-full bg-gradient-to-br to-amber-400/30 blur-2xl" aria-hidden />
+            <span className="relative grid size-14 place-items-center rounded-full bg-white/10 ring-1 ring-white/20">
+                <Lock className="size-6" aria-hidden />
+            </span>
+            <div className="relative flex items-center gap-3 text-sm text-white/70">
                 {post.counts.image > 0 && (
                     <span className="inline-flex items-center gap-1">
                         <ImageIcon className="size-4" /> {post.counts.image}
@@ -118,12 +126,19 @@ function Locked({ post, price }: { post: PostItem; price?: string }) {
                     </span>
                 )}
             </div>
-            {post.locked === 'login' ? (
-                <Link href={route('login')} className="text-sm font-medium underline">
-                    {t('po.loginToView')}
+            {post.locked === 'login' || !signedIn ? (
+                <Link href={route('login')} className="bg-primary relative rounded-full px-5 py-2 text-sm font-bold">
+                    {post.locked === 'login' ? t('po.loginToView') : price ? t('po.subscribeToView', { price }) : t('po.subscribersOnly')}
                 </Link>
             ) : (
-                <p className="text-sm font-medium">{price ? t('po.subscribeToView', { price }) : t('po.subscribersOnly')}</p>
+                <Link
+                    href={route('creator.subscribe', handle)}
+                    method="post"
+                    as="button"
+                    className="bg-primary relative rounded-full px-5 py-2 text-sm font-bold transition hover:brightness-110"
+                >
+                    {price ? t('po.subscribeToView', { price }) : t('po.subscribersOnly')}
+                </Link>
             )}
         </div>
     );

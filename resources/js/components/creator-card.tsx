@@ -1,4 +1,5 @@
 import FollowButton from '@/components/follow-button';
+import { avatarGradient, mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
@@ -14,16 +15,6 @@ export type CreatorCardData = {
     followers_count: number;
     following: boolean;
 };
-
-const GRADIENTS = [
-    'from-rose-400 to-fuchsia-600',
-    'from-amber-400 to-rose-500',
-    'from-sky-400 to-indigo-600',
-    'from-emerald-400 to-teal-600',
-    'from-violet-400 to-purple-700',
-];
-export const avatarGradient = (handle: string) => GRADIENTS[[...handle].reduce((a, c) => a + c.charCodeAt(0), 0) % GRADIENTS.length];
-export const mnt = (n: number) => '₮' + n.toLocaleString('en-US');
 
 /** A creator in a list: who they are, what it costs, and a follow button. */
 export default function CreatorCard({ c }: { c: CreatorCardData }) {

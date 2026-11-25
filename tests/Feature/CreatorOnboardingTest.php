@@ -59,7 +59,7 @@ class CreatorOnboardingTest extends TestCase
         $this->post('/login/phone/name', ['name' => 'Kid'])->assertSessionHasErrors('birthdate');
         $this->assertGuest();
 
-        $this->post('/login/phone/name', ['name' => 'Adult', 'birthdate' => now()->subYears(18)->toDateString()])->assertRedirect('/dashboard');
+        $this->post('/login/phone/name', ['name' => 'Adult', 'birthdate' => now()->subYears(18)->toDateString()])->assertRedirect('/');
         $this->assertSame(now()->subYears(18)->toDateString(), User::sole()->birthdate->toDateString());
     }
 

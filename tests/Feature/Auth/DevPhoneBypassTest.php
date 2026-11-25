@@ -20,7 +20,7 @@ class DevPhoneBypassTest extends TestCase
 
         $this->getJson('/login/phone/status')->assertJson(['status' => 'VERIFIED']);
         $this->post('/login/phone/complete')->assertRedirect('/login/phone/name');
-        $this->post('/login/phone/name', ['name' => 'Owner', 'birthdate' => '1995-05-05'])->assertRedirect('/dashboard');
+        $this->post('/login/phone/name', ['name' => 'Owner', 'birthdate' => '1995-05-05'])->assertRedirect('/');
 
         $this->assertAuthenticated();
         $this->assertSame('80105376', User::firstOrFail()->phone);

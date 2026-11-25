@@ -143,7 +143,7 @@ class PhoneLoginTest extends TestCase
         $this->post('/login/phone/complete')->assertRedirect('/login/phone/name');
         $this->assertGuest();
 
-        $this->post('/login/phone/name', ['name' => 'Болд', 'birthdate' => '1995-05-05'])->assertRedirect('/dashboard');
+        $this->post('/login/phone/name', ['name' => 'Болд', 'birthdate' => '1995-05-05'])->assertRedirect('/');
         $this->assertAuthenticated();
         $user = User::firstOrFail();
         $this->assertSame('99112233', $user->phone);
@@ -161,7 +161,7 @@ class PhoneLoginTest extends TestCase
         ]);
 
         $this->post('/login/phone', ['phone' => '88001122']);
-        $this->post('/login/phone/complete')->assertRedirect('/dashboard');
+        $this->post('/login/phone/complete')->assertRedirect('/');
         $this->assertAuthenticatedAs($user);
     }
 

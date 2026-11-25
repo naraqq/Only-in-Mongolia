@@ -12,19 +12,10 @@ use Inertia\Response;
 /** The fan side: home, discovering creators, following them, and the feed. */
 class FanController extends Controller
 {
-    public function home(Request $request): Response
+    /** Home is the feed. Visitors log in first (with their phone number); creator pages stay public for sharing. */
+    public function home(Request $request): Response|RedirectResponse
     {
-        $viewer = $request->user();
-        $creators = CreatorProfile::listableFor($viewer)->withCount(['posts', 'followers'])
-            ->latest('reviewed_at')->take(12)->get();
-
-        return Inertia::render('welcome', [
-            'creators' => $creators->map->toCard($viewer),
-            'stats' => [
-                'creators' => CreatorProfile::listableFor($viewer)->count(),
-                'posts' => Post::whereHas('creator', fn ($c) => $c->listableFor($viewer))->count(),
-            ],
-        ]);
+        return $request->user() ? $this->feed($request) : to_route('login');
     }
 
     public function discover(Request $request): Response
@@ -64,13 +55,15 @@ class FanController extends Controller
         return back();
     }
 
-    /** Newest posts from everyone the user follows; ones they can't see yet arrive as locked tiles. */
+    /** Newest posts from everyone the user follows (plus their own, if they're a creator); locked ones arrive as tiles. */
     public function feed(Request $request): Response
     {
         $viewer = $request->user();
         $ids = $viewer->following()->where('status', CreatorProfile::APPROVED)->pluck('creator_profiles.id');
 
-        $posts = Post::whereIn('creator_profile_id', $ids)->with(['media', 'creator'])->latest()->latest('id')->take(50)->get()
+        $own = $viewer->creatorProfile()->where('status', CreatorProfile::APPROVED)->value('id');
+
+        $posts = Post::whereIn('creator_profile_id', $ids->when($own, fn ($c) => $c->merge([$own])))->with(['media', 'creator'])->latest()->latest('id')->take(50)->get()
             ->map(fn (Post $p) => [
                 ...CreatorPageController::present($p, $viewer),
                 'author' => ['name' => $p->creator->display_name, 'handle' => $p->creator->handle, 'price' => $p->creator->price_monthly],
@@ -79,10 +72,6 @@ class FanController extends Controller
         return Inertia::render('feed', [
             'posts' => $posts,
             'followingCount' => $ids->count(),
-            'suggestions' => $ids->count() < 3
-                ? CreatorProfile::listableFor($viewer)->whereNotIn('id', $ids)->where('user_id', '!=', $viewer->id)
-                    ->withCount(['posts', 'followers'])->orderByDesc('followers_count')->take(4)->get()->map->toCard($viewer)
-                : [],
         ]);
     }
 
@@ -91,6 +80,13 @@ class FanController extends Controller
         $viewer = $request->user();
 
         return Inertia::render('dashboard', [
+            'subscriptions' => $viewer->subscriptions()->active()->with('creator')->orderBy('expires_at')->get()
+                ->map(fn ($s) => [
+                    'handle' => $s->creator->handle,
+                    'display_name' => $s->creator->display_name,
+                    'price_monthly' => $s->creator->price_monthly,
+                    'expires_at' => $s->expires_at->toIso8601String(),
+                ]),
             'creatorStatus' => $viewer->creatorProfile()->value('status'),
             'following' => $viewer->following()->where('status', CreatorProfile::APPROVED)->withCount(['posts', 'followers'])
                 ->latest('follows.created_at')->take(20)->get()->map->toCard($viewer),

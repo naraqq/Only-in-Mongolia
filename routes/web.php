@@ -1,11 +1,11 @@
 <?php
 
 use App\Http\Controllers\Admin\CreatorReviewController;
-use App\Http\Controllers\AgeGateController;
 use App\Http\Controllers\CreatorApplicationController;
 use App\Http\Controllers\CreatorPageController;
 use App\Http\Controllers\FanController;
 use App\Http\Controllers\MediaController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\StudioController;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\SetLocale;
@@ -18,9 +18,6 @@ Route::post('locale/{locale}', function (string $locale) {
     return back();
 })->whereIn('locale', SetLocale::SUPPORTED)->name('locale');
 
-// 18+ gate (see EnsureAgeConfirmed).
-Route::get('age-gate', [AgeGateController::class, 'show'])->name('age-gate');
-Route::post('age-gate', [AgeGateController::class, 'confirm'])->name('age-gate.confirm');
 
 Route::get('/', [FanController::class, 'home'])->name('home');
 Route::get('creators', [FanController::class, 'discover'])->name('creators');
@@ -31,6 +28,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('@{handle}/follow', [FanController::class, 'follow'])->middleware('throttle:60,1')->name('creator.follow');
     Route::delete('@{handle}/follow', [FanController::class, 'unfollow'])->middleware('throttle:60,1')->name('creator.unfollow');
 
+    // Subscriptions: subscribe -> QPay checkout -> paid (status is polled; QPay also calls back).
+    Route::post('@{handle}/subscribe', [PaymentController::class, 'subscribe'])->middleware('throttle:10,1')->name('creator.subscribe');
+    Route::get('payments/{payment}', [PaymentController::class, 'show'])->name('payments.show');
+    Route::get('payments/{payment}/status', [PaymentController::class, 'status'])->middleware('throttle:60,1')->name('payments.status');
+    Route::post('payments/{payment}/fake-pay', [PaymentController::class, 'fakePay'])->name('payments.fake-pay');
+
     // Become a creator: apply, then wait for admin review.
     Route::get('creator/apply', [CreatorApplicationController::class, 'show'])->name('creator.apply');
     Route::post('creator/apply', [CreatorApplicationController::class, 'store'])->middleware('throttle:5,60')->name('creator.apply.store');
@@ -40,6 +43,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('studio/posts', [StudioController::class, 'store'])->middleware('throttle:30,60')->name('studio.posts.store');
     Route::delete('studio/posts/{post}', [StudioController::class, 'destroy'])->name('studio.posts.destroy');
 });
+
+// QPay's server-to-server notification. It only makes us ask QPay for the status, so it can be public.
+Route::match(['get', 'post'], 'payments/{payment}/callback', [PaymentController::class, 'callback'])->middleware('throttle:60,1')->name('payments.callback');
 
 // Photos and videos, only after a permission check (see MediaController).
 Route::get('media/{media}', [MediaController::class, 'show'])->name('media.show');

@@ -182,7 +182,7 @@ class PhoneLoginController extends Controller
         Auth::login($user, remember: true);
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        return redirect()->intended(route('home', absolute: false));
     }
 
     private function current(Request $request): ?PhoneVerification

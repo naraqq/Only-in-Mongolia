@@ -1,10 +1,14 @@
 import FollowButton from '@/components/follow-button';
+import InputError from '@/components/input-error';
 import PostCard, { type PostItem } from '@/components/post-card';
 import { Button } from '@/components/ui/button';
-import SiteLayout from '@/layouts/site-layout';
+import SocialLayout from '@/layouts/social-layout';
+import { avatarGradient, mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
-import { Link } from '@inertiajs/react';
-import { BadgeCheck, Lock, PenSquare } from 'lucide-react';
+import { type SharedData } from '@/types';
+import { Link, router, usePage } from '@inertiajs/react';
+import { BadgeCheck, CalendarCheck, Image as ImageIcon, LoaderCircle, Lock, PenSquare, Users } from 'lucide-react';
+import { useState } from 'react';
 
 type Creator = {
     handle: string;
@@ -17,15 +21,16 @@ type Creator = {
     followers_count: number;
 };
 
-const mnt = (n: number) => '₮' + n.toLocaleString('en-US');
+const day = (iso: string) => iso.slice(0, 10).replaceAll('-', '.');
 
-/** /@handle: who the creator is, what a subscription costs, and their posts. */
+/** /@handle: cover, who the creator is, the subscribe card, and their posts. */
 export default function CreatorPage({
     creator,
     posts,
     gated,
     isOwner,
     subscribed,
+    subscribedUntil,
     following,
 }: {
     creator: Creator;
@@ -33,72 +38,127 @@ export default function CreatorPage({
     gated: boolean;
     isOwner: boolean;
     subscribed: boolean;
+    subscribedUntil: string | null;
     following: boolean;
 }) {
     const { t } = useT();
     const price = mnt(creator.price_monthly);
     const author = { name: creator.display_name, handle: creator.handle };
+    const g = avatarGradient(creator.handle);
 
     return (
-        <SiteLayout title={`${creator.display_name} (@${creator.handle})`}>
-            <section className="flex flex-col gap-5 sm:flex-row sm:items-start">
-                <span className="grid size-20 shrink-0 place-items-center rounded-full bg-gradient-to-br from-rose-400 to-fuchsia-600 text-3xl font-semibold text-white">
-                    {creator.display_name.charAt(0)}
-                </span>
-                <div className="min-w-0 flex-1">
-                    <h1 className="flex flex-wrap items-center gap-2 text-2xl font-semibold tracking-tight">
-                        {creator.display_name}
-                        <BadgeCheck className="size-5 text-sky-500" aria-label={t('cp.verified')} />
-                        {creator.adult_content && <span className="rounded bg-rose-100 px-1.5 py-0.5 text-xs font-semibold text-rose-700">18+</span>}
-                    </h1>
-                    <p className="text-muted-foreground text-sm">
-                        @{creator.handle} · {t('fan.counts', { posts: creator.posts_count, followers: creator.followers_count })}
-                    </p>
-                    {creator.bio && <p className="mt-3 leading-relaxed whitespace-pre-line">{creator.bio}</p>}
+        <SocialLayout title={`${creator.display_name} (@${creator.handle})`}>
+            {/* Cover + avatar */}
+            <div className={`relative h-36 bg-gradient-to-br sm:h-44 ${g}`}>
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,.35),transparent_45%)]" />
+            </div>
+            <div className="px-4">
+                <div className="relative z-10 -mt-12 flex items-end justify-between gap-3">
+                    <span
+                        className={`grid size-24 place-items-center rounded-full bg-gradient-to-br text-4xl font-bold text-white shadow-lg ring-4 ring-white dark:ring-zinc-950 ${g}`}
+                    >
+                        {creator.display_name.charAt(0)}
+                    </span>
+                    <div className="pb-1">
+                        {isOwner ? (
+                            <Button asChild variant="outline" className="rounded-full">
+                                <Link href={route('studio')}>
+                                    <PenSquare className="size-4" /> {t('nav.studio')}
+                                </Link>
+                            </Button>
+                        ) : (
+                            <FollowButton handle={creator.handle} initial={following} />
+                        )}
+                    </div>
                 </div>
-                {!isOwner && <FollowButton handle={creator.handle} initial={following} />}
-            </section>
 
-            {/* Subscribe / owner actions */}
-            <div className="mt-6 flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center">
-                <div className="flex-1">
-                    <div className="font-semibold">{t('cp.monthly', { price })}</div>
-                    <div className="text-muted-foreground text-sm">{t('cp.unlock')}</div>
+                <h1 className="mt-3 flex flex-wrap items-center gap-2 text-2xl font-extrabold tracking-tight">
+                    {creator.display_name}
+                    <BadgeCheck className="size-5 text-sky-500" aria-label={t('cp.verified')} />
+                    {creator.adult_content && <span className="rounded bg-rose-100 px-1.5 py-0.5 text-xs font-bold text-rose-700">18+</span>}
+                </h1>
+                <p className="text-muted-foreground text-sm">@{creator.handle}</p>
+                {creator.bio && <p className="mt-3 text-[15px] leading-relaxed whitespace-pre-line">{creator.bio}</p>}
+
+                <div className="text-muted-foreground mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+                    <span className="inline-flex items-center gap-1.5">
+                        <ImageIcon className="size-4" /> <b className="text-foreground">{creator.posts_count}</b> {t('cp.postsLabel')}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                        <Users className="size-4" /> <b className="text-foreground">{creator.followers_count}</b> {t('cp.followers')}
+                    </span>
                 </div>
-                {isOwner ? (
-                    <Button asChild variant="outline">
-                        <Link href={route('studio')}>
-                            <PenSquare className="size-4" /> {t('nav.studio')}
-                        </Link>
-                    </Button>
-                ) : subscribed ? (
-                    <Button disabled variant="outline">
-                        {t('cp.subscribed')}
-                    </Button>
-                ) : (
-                    <Button disabled title={t('cp.soon')}>
-                        {t('cp.subscribe', { price })} · {t('cp.soon')}
-                    </Button>
-                )}
+
+                {!isOwner && <SubscribeCard handle={creator.handle} price={price} subscribed={subscribed} until={subscribedUntil} />}
             </div>
 
-            {gated ? (
-                <div className="mt-8 flex flex-col items-center gap-3 rounded-xl border p-10 text-center">
-                    <Lock className="text-muted-foreground size-8" aria-hidden />
-                    <p className="font-medium">{t('cp.adultLogin')}</p>
-                    <Button asChild>
-                        <Link href={route('login')}>{t('nav.login')}</Link>
-                    </Button>
+            <div className="mt-6 border-t">
+                {gated ? (
+                    <div className="flex flex-col items-center gap-3 p-10 text-center">
+                        <Lock className="text-muted-foreground size-8" aria-hidden />
+                        <p className="font-medium">{t('cp.adultLogin')}</p>
+                        <Button asChild className="rounded-full">
+                            <Link href={route('login')}>{t('nav.login')}</Link>
+                        </Button>
+                    </div>
+                ) : posts.length === 0 ? (
+                    <p className="text-muted-foreground p-10 text-center text-sm">{t('cp.noPosts')}</p>
+                ) : (
+                    <div className="flex flex-col gap-4 p-4">
+                        {posts.map((p) => (
+                            <PostCard key={p.id} post={p} author={author} price={price} />
+                        ))}
+                    </div>
+                )}
+            </div>
+        </SocialLayout>
+    );
+}
+
+/** Subscribe (or renew) for one period; signed-out visitors are sent to log in first. */
+export function SubscribeCard({ handle, price, subscribed, until }: { handle: string; price: string; subscribed: boolean; until: string | null }) {
+    const { t } = useT();
+    const { auth, errors } = usePage<SharedData & { errors: Record<string, string> }>().props;
+    const [busy, setBusy] = useState(false);
+
+    const subscribe = () => {
+        if (!auth.user) return router.visit(route('login'));
+        router.post(route('creator.subscribe', handle), {}, { onStart: () => setBusy(true), onFinish: () => setBusy(false) });
+    };
+
+    if (subscribed && until) {
+        return (
+            <div className="mt-5 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/40">
+                <CalendarCheck className="size-6 shrink-0 text-emerald-600" />
+                <div className="min-w-0 flex-1">
+                    <p className="font-bold text-emerald-800 dark:text-emerald-300">{t('cp.subscribed')}</p>
+                    <p className="text-sm text-emerald-700/80 dark:text-emerald-400/80">{t('cp.until', { date: day(until) })}</p>
                 </div>
-            ) : posts.length === 0 ? (
-                <p className="text-muted-foreground mt-10 text-center text-sm">{t('cp.noPosts')}</p>
-            ) : (
-                <div className="mt-6 flex flex-col gap-4">
-                    {posts.map((p) => (
-                        <PostCard key={p.id} post={p} author={author} price={price} />
-                    ))}
-                </div>
-            )}
-        </SiteLayout>
+                <Button variant="outline" size="sm" className="rounded-full" onClick={subscribe} disabled={busy}>
+                    {t('cp.renew')}
+                </Button>
+            </div>
+        );
+    }
+
+    return (
+        <div className="mt-5">
+            <button
+                type="button"
+                onClick={subscribe}
+                disabled={busy}
+                className="from-primary shadow-primary/25 flex w-full items-center justify-between gap-3 rounded-2xl bg-gradient-to-r to-rose-500 px-5 py-4 text-left text-white shadow-lg transition hover:brightness-110 disabled:opacity-60"
+            >
+                <span>
+                    <span className="block text-xs font-semibold tracking-wider text-white/80 uppercase">{t('cp.subscribeT')}</span>
+                    <span className="block text-sm text-white/90">{t('cp.unlock')}</span>
+                </span>
+                <span className="flex items-center gap-2 text-lg font-extrabold whitespace-nowrap">
+                    {busy && <LoaderCircle className="size-5 animate-spin" />}
+                    {t('cp.perMonth', { price })}
+                </span>
+            </button>
+            <InputError message={errors.payment} className="mt-2" />
+        </div>
     );
 }

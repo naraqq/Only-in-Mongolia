@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CreatorProfile;
+use App\Models\Payment;
 use App\Models\Post;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,7 +28,16 @@ class StudioController extends Controller
     {
         $creator = $this->creator($request);
 
+        $paidThisMonth = $creator->payments()->where('status', Payment::PAID)->where('paid_at', '>=', now()->startOfMonth());
+
         return Inertia::render('studio/index', [
+            'stats' => [
+                'subscribers' => $creator->subscriptions()->active()->count(),
+                'followers' => $creator->followers()->count(),
+                // What the creator earns after the platform fee, this calendar month.
+                'earnedThisMonth' => (int) (clone $paidThisMonth)->sum('amount') - (int) (clone $paidThisMonth)->sum('platform_fee'),
+                'feePercent' => (int) config('creators.platform_fee_percent'),
+            ],
             'creator' => $creator->only('handle', 'display_name', 'price_monthly', 'adult_content'),
             'posts' => $creator->posts()->with('media')->take(100)->get()
                 ->map(fn (Post $p) => CreatorPageController::present($p, $request->user())),
@@ -77,7 +87,7 @@ class StudioController extends Controller
             }
         });
 
-        return to_route('studio')->with('status', 'posted');
+        return back()->with('status', 'posted'); // posts are written from the studio or the home feed
     }
 
     public function destroy(Request $request, Post $post): RedirectResponse

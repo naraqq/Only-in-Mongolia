@@ -85,12 +85,19 @@ class CreatorProfile extends Model
         return $this->hasMany(Post::class)->latest()->latest('id'); // newest first, stable within the same second
     }
 
-    /**
-     * Whether $viewer has a paid, active subscription to this creator.
-     * Subscriptions (QPay) are the next step; until then nobody is subscribed.
-     */
+    /** Whether $viewer has a paid subscription to this creator that hasn't expired. */
     public function hasActiveSubscriber(?User $viewer): bool
     {
-        return false;
+        return $viewer !== null && $this->subscriptions()->active()->where('user_id', $viewer->id)->exists();
+    }
+
+    public function subscriptions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
+    public function payments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Payment::class);
     }
 }

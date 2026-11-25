@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\CreatorProfile;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -45,8 +46,21 @@ class HandleInertiaRequests extends Middleware
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
                 'user' => $request->user(),
-                'creator' => fn () => $request->user()?->creatorProfile()->first(['handle', 'status']),
+                'creator' => fn () => $request->user()?->creatorProfile()->first(['handle', 'status', 'adult_content']),
             ],
+            // Right-hand column of the social layout: a few creators the viewer doesn't follow yet.
+            'suggestions' => fn () => $this->suggestions($request),
         ]);
+    }
+
+    private function suggestions(Request $request): array
+    {
+        $viewer = $request->user();
+
+        return CreatorProfile::listableFor($viewer)
+            ->when($viewer, fn ($q) => $q->where('user_id', '!=', $viewer->id)
+                ->whereDoesntHave('followers', fn ($f) => $f->whereKey($viewer->id)))
+            ->withCount(['posts', 'followers'])->orderByDesc('followers_count')->latest('reviewed_at')
+            ->take(5)->get()->map->toCard($viewer)->all();
     }
 }

@@ -3,7 +3,7 @@ import { LucideIcon } from 'lucide-react';
 export interface Auth {
     user: User;
     /** The signed-in user's creator application, if any. */
-    creator: { handle: string; status: 'pending' | 'approved' | 'rejected' } | null;
+    creator: { handle: string; status: 'pending' | 'approved' | 'rejected'; adult_content: boolean } | null;
 }
 
 export interface BreadcrumbItem {

@@ -44,4 +44,13 @@ return [
         'dev_phones' => env('APP_ENV') === 'production' ? [] : array_filter(array_map('trim', explode(',', (string) env('VERIFY_MN_DEV_PHONES', '')))),
     ],
 
+    // QPay merchant API (https://developer.qpay.mn). Without a username, non-production sites use a fake gateway
+    // with a "pay (dev)" button so the whole subscription flow can be tried locally.
+    'qpay' => [
+        'username' => env('QPAY_USERNAME'),
+        'password' => env('QPAY_PASSWORD'),
+        'invoice_code' => env('QPAY_INVOICE_CODE'),
+        'base_url' => env('QPAY_BASE_URL', 'https://merchant.qpay.mn/v2'),
+    ],
+
 ];
