@@ -5,7 +5,7 @@ import { useT } from '@/lib/i18n';
 import { type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import { LoaderCircle, SendHorizontal, Trash2 } from 'lucide-react';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 type Comment = {
     id: number;
@@ -23,6 +23,15 @@ export default function PostComments({ postId, onCount }: { postId: number; onCo
     const [body, setBody] = useState('');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState(false);
+    const box = useRef<HTMLTextAreaElement>(null);
+
+    // The box grows with the text, up to about six lines, then scrolls.
+    useEffect(() => {
+        const el = box.current;
+        if (!el) return;
+        el.style.height = 'auto';
+        el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+    }, [body]);
 
     useEffect(() => {
         sendJson<{ comments: Comment[] }>('GET', route('posts.comments', postId))
@@ -93,19 +102,28 @@ export default function PostComments({ postId, onCount }: { postId: number; onCo
             )}
 
             {auth.user && (
-                <form onSubmit={submit} className="mt-3 flex items-center gap-2">
-                    <UserAvatar name={auth.user.name} src={auth.user.avatar_url} className="size-8 text-xs" />
-                    <input
+                <form onSubmit={submit} className="mt-3 flex items-end gap-2">
+                    <UserAvatar name={auth.user.name} src={auth.user.avatar_url} className="mb-1 size-8 text-xs" />
+                    <textarea
+                        ref={box}
                         value={body}
                         onChange={(e) => setBody(e.target.value)}
+                        onKeyDown={(e) => {
+                            // Enter sends; Shift+Enter starts a new line.
+                            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                                e.preventDefault();
+                                e.currentTarget.form?.requestSubmit();
+                            }
+                        }}
+                        rows={1}
                         maxLength={1000}
                         placeholder={t('cm.placeholder')}
-                        className="bg-muted focus:ring-primary/20 h-10 min-w-0 flex-1 rounded-full px-4 text-sm outline-none focus:ring-2"
+                        className="bg-muted focus:ring-primary/20 min-h-10 min-w-0 flex-1 resize-none rounded-2xl px-4 py-2.5 text-sm leading-5 outline-none focus:ring-2"
                     />
                     <button
                         type="submit"
                         disabled={!body.trim() || busy}
-                        className="text-primary grid size-10 place-items-center rounded-full transition disabled:opacity-30"
+                        className="text-primary grid size-10 shrink-0 place-items-center rounded-full transition disabled:opacity-30"
                         aria-label={t('dm.send')}
                     >
                         {busy ? <LoaderCircle className="size-5 animate-spin" /> : <SendHorizontal className="size-5" />}
