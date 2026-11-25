@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
-import AppLayout from '@/layouts/app-layout';
+import SocialLayout from '@/layouts/social-layout';
 import { useT } from '@/lib/i18n';
-import { Head, useForm } from '@inertiajs/react';
+import { useForm } from '@inertiajs/react';
 import { AlertTriangle, Check, X } from 'lucide-react';
 
 type Applicant = {
@@ -32,11 +32,9 @@ export default function CreatorReview({ pending, recent }: { pending: Applicant[
     const { t } = useT();
 
     return (
-        <AppLayout breadcrumbs={[{ title: t('ad.title'), href: route('admin.creators') }]}>
-            <Head title={t('ad.title')} />
-            <div className="mx-auto w-full max-w-4xl p-4 md:py-8">
-                <h1 className="text-2xl font-semibold tracking-tight">{t('ad.title')}</h1>
-                <p className="text-muted-foreground mt-1">{t('ad.sub')}</p>
+        <SocialLayout title={t('ad.title')} header={<h1 className="text-lg font-bold tracking-wide uppercase">{t('ad.title')}</h1>} wide>
+            <div className="p-4 md:py-6">
+                <p className="text-muted-foreground">{t('ad.sub')}</p>
 
                 <h2 className="mt-8 mb-3 font-medium">
                     {t('ad.pending')} <span className="text-muted-foreground">({pending.length})</span>
@@ -70,7 +68,7 @@ export default function CreatorReview({ pending, recent }: { pending: Applicant[
                     </>
                 )}
             </div>
-        </AppLayout>
+        </SocialLayout>
     );
 }
 

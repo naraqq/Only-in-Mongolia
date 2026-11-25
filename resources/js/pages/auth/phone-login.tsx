@@ -1,5 +1,4 @@
 import InputError from '@/components/input-error';
-import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import AuthLayout from '@/layouts/auth-layout';
 import { useT } from '@/lib/i18n';
@@ -78,10 +77,6 @@ function PhoneStep() {
                     <ArrowRight className="size-5 transition group-hover:translate-x-0.5" />
                 )}
             </Button>
-
-            <TextLink href={route('login.email')} className="text-muted-foreground mx-auto mt-2 text-sm">
-                {t('ph.email')}
-            </TextLink>
         </form>
     );
 }

@@ -2,9 +2,9 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AppLayout from '@/layouts/app-layout';
+import SocialLayout from '@/layouts/social-layout';
 import { useT } from '@/lib/i18n';
-import { Head, useForm } from '@inertiajs/react';
+import { useForm } from '@inertiajs/react';
 import { CircleCheck, Clock, IdCard, Landmark, LoaderCircle, Lock, ShieldCheck, UserRound, XCircle } from 'lucide-react';
 import { type FormEvent, type ReactNode } from 'react';
 
@@ -35,16 +35,14 @@ export default function CreatorApply({
     const canApply = !application || application.status === 'rejected';
 
     return (
-        <AppLayout breadcrumbs={[{ title: t('cr.title'), href: route('creator.apply') }]}>
-            <Head title={t('cr.title')} />
-            <div className="mx-auto w-full max-w-2xl p-4 md:py-8">
-                <h1 className="text-2xl font-semibold tracking-tight">{t('cr.title')}</h1>
-                <p className="text-muted-foreground mt-1">{t('cr.sub')}</p>
+        <SocialLayout title={t('cr.title')} header={<h1 className="text-lg font-bold tracking-wide uppercase">{t('cr.title')}</h1>}>
+            <div className="p-4 md:py-6">
+                <p className="text-muted-foreground">{t('cr.sub')}</p>
 
                 {application && <Status app={application} />}
                 {canApply && <ApplyForm banks={banks} limits={limits} previous={application} />}
             </div>
-        </AppLayout>
+        </SocialLayout>
     );
 }
 

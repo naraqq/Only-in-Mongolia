@@ -281,7 +281,7 @@ function AccountMenu({ compact = false }: { compact?: boolean }) {
                     </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                    <Link href={route('profile.edit')} className="w-full">
+                    <Link href={route('settings')} className="w-full">
                         <Settings className="mr-2 size-4" /> {t('nav.settings')}
                     </Link>
                 </DropdownMenuItem>

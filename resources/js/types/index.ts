@@ -1,26 +1,7 @@
-import { LucideIcon } from 'lucide-react';
-
 export interface Auth {
     user: User;
     /** The signed-in user's creator application, if any. */
     creator: { handle: string; status: 'pending' | 'approved' | 'rejected'; adult_content: boolean } | null;
-}
-
-export interface BreadcrumbItem {
-    title: string;
-    href: string;
-}
-
-export interface NavGroup {
-    title: string;
-    items: NavItem[];
-}
-
-export interface NavItem {
-    title: string;
-    url: string;
-    icon?: LucideIcon | null;
-    isActive?: boolean;
 }
 
 export interface SharedData {

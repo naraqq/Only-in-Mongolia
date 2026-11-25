@@ -1,0 +1,148 @@
+import InputError from '@/components/input-error';
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useAppearance, type Appearance } from '@/hooks/use-appearance';
+import SocialLayout from '@/layouts/social-layout';
+import { setLocale, useT, type Locale, type TKey } from '@/lib/i18n';
+import { Link, useForm } from '@inertiajs/react';
+import { ChevronRight, Monitor, Moon, Phone, Sun, Trash2, UserPen, type LucideIcon } from 'lucide-react';
+import { type FormEvent, type ReactNode } from 'react';
+
+const THEMES: [Appearance, TKey, LucideIcon][] = [
+    ['light', 'set.light', Sun],
+    ['dark', 'set.dark', Moon],
+    ['system', 'set.system', Monitor],
+];
+
+/** Settings: account (phone, profile), language, appearance, and deleting the account. */
+export default function Settings({ phone, isCreator, deleteWord }: { phone: string | null; isCreator: boolean; deleteWord: string }) {
+    const { t, locale } = useT();
+    const { appearance, updateAppearance } = useAppearance();
+
+    return (
+        <SocialLayout title={t('nav.settings')} header={<h1 className="text-lg font-bold tracking-wide uppercase">{t('nav.settings')}</h1>}>
+            <div className="flex flex-col gap-6 p-4">
+                <Section title={t('set.account')}>
+                    <Row icon={Phone} label={t('set.phone')} value={phone ? `+976 ${phone.slice(0, 4)} ${phone.slice(4)}` : '—'} />
+                    <Link href={route('me.edit')} className="hover:bg-muted/60 block transition">
+                        <Row icon={UserPen} label={t('nav.editProfile')} chevron />
+                    </Link>
+                </Section>
+
+                <Section title={t('lang.label')}>
+                    <Segmented
+                        value={locale}
+                        onChange={(l) => l !== locale && setLocale(l as Locale)}
+                        options={[
+                            ['mn', 'Монгол'],
+                            ['en', 'English'],
+                        ]}
+                    />
+                </Section>
+
+                <Section title={t('set.appearance')}>
+                    <div className="grid grid-cols-3 gap-2 p-2">
+                        {THEMES.map(([value, label, Icon]) => (
+                            <button
+                                key={value}
+                                type="button"
+                                onClick={() => updateAppearance(value)}
+                                className={`flex flex-col items-center gap-2 rounded-xl border py-4 text-sm font-semibold transition ${
+                                    appearance === value ? 'border-primary bg-primary/5 text-primary' : 'hover:bg-muted'
+                                }`}
+                            >
+                                <Icon className="size-5" /> {t(label)}
+                            </button>
+                        ))}
+                    </div>
+                </Section>
+
+                <Section title={t('set.danger')}>
+                    <DeleteAccount word={deleteWord} isCreator={isCreator} />
+                </Section>
+            </div>
+        </SocialLayout>
+    );
+}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+    return (
+        <section>
+            <h2 className="text-muted-foreground mb-2 px-1 text-xs font-semibold tracking-wider uppercase">{title}</h2>
+            <div className="divide-y overflow-hidden rounded-2xl border">{children}</div>
+        </section>
+    );
+}
+
+function Row({ icon: Icon, label, value, chevron }: { icon: LucideIcon; label: string; value?: string; chevron?: boolean }) {
+    return (
+        <div className="flex items-center gap-3 px-4 py-3.5">
+            <Icon className="text-muted-foreground size-5" />
+            <span className="flex-1 font-medium">{label}</span>
+            {value && <span className="text-muted-foreground tabular-nums">{value}</span>}
+            {chevron && <ChevronRight className="text-muted-foreground size-4" />}
+        </div>
+    );
+}
+
+function Segmented({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: [string, string][] }) {
+    return (
+        <div className="grid grid-cols-2 gap-1 p-2">
+            {options.map(([v, label]) => (
+                <button
+                    key={v}
+                    type="button"
+                    onClick={() => onChange(v)}
+                    className={`rounded-xl py-2.5 text-sm font-semibold transition ${value === v ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}`}
+                >
+                    {label}
+                </button>
+            ))}
+        </div>
+    );
+}
+
+function DeleteAccount({ word, isCreator }: { word: string; isCreator: boolean }) {
+    const { t } = useT();
+    const form = useForm({ confirm: '' });
+
+    function submit(e: FormEvent) {
+        e.preventDefault();
+        form.delete(route('settings.destroy'), { preserveScroll: true });
+    }
+
+    return (
+        <Dialog>
+            <DialogTrigger asChild>
+                <button
+                    type="button"
+                    className="flex w-full items-center gap-3 px-4 py-3.5 text-left font-medium text-red-600 transition hover:bg-red-50 dark:hover:bg-red-950/30"
+                >
+                    <Trash2 className="size-5" /> {t('set.delete')}
+                </button>
+            </DialogTrigger>
+            <DialogContent className="rounded-3xl sm:max-w-sm">
+                <form onSubmit={submit} className="flex flex-col gap-4">
+                    <DialogTitle className="text-xl font-extrabold">{t('set.deleteTitle')}</DialogTitle>
+                    <DialogDescription>{t(isCreator ? 'set.deleteCreator' : 'set.deleteFan')}</DialogDescription>
+                    <label className="text-sm font-medium">
+                        {t('set.typeToConfirm', { word })}
+                        <input
+                            value={form.data.confirm}
+                            onChange={(e) => form.setData('confirm', e.target.value)}
+                            autoComplete="off"
+                            className="border-input focus:border-primary mt-1.5 h-12 w-full rounded-xl border px-4 font-mono tracking-wider outline-none"
+                        />
+                    </label>
+                    <InputError message={form.errors.confirm} />
+                    <button
+                        type="submit"
+                        disabled={form.data.confirm !== word || form.processing}
+                        className="h-12 rounded-xl bg-red-600 font-bold text-white transition hover:bg-red-700 disabled:opacity-40"
+                    >
+                        {t('set.deleteForever')}
+                    </button>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
