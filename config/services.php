@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    'verify_mn' => [
+        'key' => env('VERIFY_MN_API_KEY'),
+        'base_url' => env('VERIFY_MN_BASE_URL', 'https://api.verify.mn'),
+        // Only enable on a public https APP_URL — verify.mn retries failed callbacks.
+        'use_callback' => (bool) env('VERIFY_MN_USE_CALLBACK', false),
+        // DEV ONLY: 8-digit numbers that skip SMS. Forced empty in production, so a live site can never bypass.
+        'dev_phones' => env('APP_ENV') === 'production' ? [] : array_filter(array_map('trim', explode(',', (string) env('VERIFY_MN_DEV_PHONES', '')))),
+    ],
+
 ];
