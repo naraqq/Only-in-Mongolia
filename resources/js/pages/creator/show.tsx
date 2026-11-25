@@ -1,5 +1,6 @@
 import FollowButton from '@/components/follow-button';
 import InputError from '@/components/input-error';
+import MoreMenu from '@/components/more-menu';
 import PostCard, { type PostItem } from '@/components/post-card';
 import TipButton from '@/components/tip-button';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,9 @@ export default function CreatorPage({
     following,
     messageBlock,
     sort,
+    creatorId,
+    creatorUserId,
+    blocked,
 }: {
     creator: Creator;
     posts: PostItem[];
@@ -47,6 +51,9 @@ export default function CreatorPage({
     subscribedUntil: string | null;
     messageBlock: string | null;
     sort: 'new' | 'popular';
+    creatorId: number;
+    creatorUserId: number;
+    blocked: boolean;
     following: boolean;
 }) {
     const { t } = useT();
@@ -94,6 +101,12 @@ export default function CreatorPage({
                                     <HandCoins className="size-4" />
                                 </TipButton>
                                 <MessageButton handle={creator.handle} block={messageBlock} />
+                                <MoreMenu
+                                    report={{ type: 'creator', id: creatorId }}
+                                    blockUserId={creatorUserId}
+                                    blocked={blocked}
+                                    className="size-9 border"
+                                />
                                 <FollowButton handle={creator.handle} initial={following} />
                             </div>
                         )}

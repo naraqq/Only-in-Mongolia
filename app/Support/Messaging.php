@@ -21,6 +21,9 @@ class Messaging
         if ($from->id === $to->id) {
             return 'self';
         }
+        if (Blocking::between($from, $to)) {
+            return 'blocked';
+        }
 
         // They wrote to you first: you can always answer.
         $conversation = Conversation::findBetween($from, $to);

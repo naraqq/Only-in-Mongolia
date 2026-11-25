@@ -22,6 +22,9 @@ class SettingsController extends Controller
             'phone' => $user->phone,
             'isCreator' => $user->creatorProfile()->exists(),
             'deleteWord' => self::DELETE_WORD,
+            'blocked' => \App\Models\User::whereIn('id', \Illuminate\Support\Facades\DB::table('blocks')->where('blocker_id', $user->id)->select('blocked_id'))
+                ->with('creatorProfile:id,user_id,handle,display_name,status')->get()
+                ->map(fn ($u) => ['id' => $u->id, 'name' => $u->creatorProfile?->display_name ?? $u->name, 'handle' => $u->creatorProfile?->handle, 'avatar_url' => $u->avatar_url]),
         ]);
     }
 

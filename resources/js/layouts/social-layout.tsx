@@ -15,6 +15,7 @@ import {
     Bell,
     Bookmark,
     Compass,
+    Flag,
     House,
     LogIn,
     LogOut,
@@ -52,8 +53,8 @@ export default function SocialLayout({
     wide?: boolean;
 }) {
     const { t } = useT();
-    const page = usePage<SharedData & { unreadMessages: number; unreadNotifications: number }>();
-    const { auth, unreadMessages, unreadNotifications } = page.props;
+    const page = usePage<SharedData & { unreadMessages: number; unreadNotifications: number; openReports: number }>();
+    const { auth, unreadMessages, unreadNotifications, openReports } = page.props;
     const user = auth.user;
     const creator = auth.creator?.status === 'approved' ? auth.creator : null;
     const path = page.url.split('?')[0];
@@ -110,6 +111,13 @@ export default function SocialLayout({
                                 href: route('admin.payouts'),
                                 icon: Banknote,
                                 match: (u: string) => u.startsWith('/admin/payouts'),
+                            } as NavLink,
+                            {
+                                label: 'nav.reports',
+                                href: route('admin.reports'),
+                                icon: Flag,
+                                match: (u: string) => u.startsWith('/admin/reports'),
+                                badge: openReports,
                             } as NavLink,
                         ]
                       : []),
@@ -188,7 +196,10 @@ export default function SocialLayout({
                 </aside>
 
                 {/* Centre: the page */}
-                <main className={`min-h-svh w-full min-w-0 pb-20 md:border-x md:pb-0 ${wide ? 'max-w-[960px]' : 'max-w-[620px]'}`}>
+                {/* Fixed widths so the sidebar never moves between pages: 620 + 320 (right column) = 940 for wide pages. */}
+                <main
+                    className={`min-h-svh w-full max-w-[620px] min-w-0 pb-20 md:border-x md:pb-0 lg:shrink-0 ${wide ? 'lg:w-[940px] lg:max-w-none' : 'lg:w-[620px]'}`}
+                >
                     {header !== undefined && (
                         <div className="bg-background/85 sticky top-14 z-20 flex h-14 items-center gap-3 border-b px-5 backdrop-blur-md md:top-0">
                             {header}

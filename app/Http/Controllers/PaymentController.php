@@ -10,6 +10,7 @@ use App\Models\Purchase;
 use App\Payments\FakeGateway;
 use App\Payments\PaymentException;
 use App\Payments\Payments;
+use App\Support\Blocking;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,6 +27,7 @@ class PaymentController extends Controller
     {
         $creator = CreatorProfile::listableFor($request->user())->where('handle', mb_strtolower($handle))->firstOrFail();
         abort_if($creator->user_id === $request->user()->id, 422, 'You can’t subscribe to yourself.');
+        abort_if(Blocking::between($creator->user, $request->user()), 404);
 
         try {
             $payment = $this->payments->startSubscription($request->user(), $creator);
@@ -43,6 +45,7 @@ class PaymentController extends Controller
     {
         $creator = CreatorProfile::listableFor($request->user())->where('handle', mb_strtolower($handle))->firstOrFail();
         abort_if($creator->user_id === $request->user()->id, 422, 'You can’t tip yourself.');
+        abort_if(Blocking::between($creator->user, $request->user()), 404);
 
         $data = $request->validate([
             'amount' => ['required', 'integer', 'min:'.config('creators.min_tip'), 'max:'.config('creators.max_tip')],
@@ -68,6 +71,7 @@ class PaymentController extends Controller
         $me = $request->user();
         $post->load('creator');
         abort_unless($post->price && $post->creator->isApproved() && ! ($post->creator->adult_content && ! $me), 404);
+        abort_if(Blocking::between($post->creator->user, $me), 404);
         if ($post->isVisibleTo($me)) {
             return to_route('creator.show', $post->creator->handle); // already unlocked (or it's yours)
         }

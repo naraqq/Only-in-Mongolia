@@ -1,9 +1,11 @@
 import InputError from '@/components/input-error';
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import UserAvatar from '@/components/user-avatar';
 import { useAppearance, type Appearance } from '@/hooks/use-appearance';
 import SocialLayout from '@/layouts/social-layout';
+import { sendJson } from '@/lib/http';
 import { setLocale, useT, type Locale, type TKey } from '@/lib/i18n';
-import { Link, useForm } from '@inertiajs/react';
+import { Link, router, useForm } from '@inertiajs/react';
 import { ChevronRight, Monitor, Moon, Phone, Sun, Trash2, UserPen, type LucideIcon } from 'lucide-react';
 import { type FormEvent, type ReactNode } from 'react';
 
@@ -14,7 +16,19 @@ const THEMES: [Appearance, TKey, LucideIcon][] = [
 ];
 
 /** Settings: account (phone, profile), language, appearance, and deleting the account. */
-export default function Settings({ phone, isCreator, deleteWord }: { phone: string | null; isCreator: boolean; deleteWord: string }) {
+type BlockedPerson = { id: number; name: string; handle: string | null; avatar_url: string | null };
+
+export default function Settings({
+    phone,
+    isCreator,
+    deleteWord,
+    blocked,
+}: {
+    phone: string | null;
+    isCreator: boolean;
+    deleteWord: string;
+    blocked: BlockedPerson[];
+}) {
     const { t, locale } = useT();
     const { appearance, updateAppearance } = useAppearance();
 
@@ -54,6 +68,32 @@ export default function Settings({ phone, isCreator, deleteWord }: { phone: stri
                             </button>
                         ))}
                     </div>
+                </Section>
+
+                <Section title={t('bl.title')}>
+                    {blocked.length === 0 ? (
+                        <p className="text-muted-foreground px-4 py-3.5 text-sm">{t('bl.none')}</p>
+                    ) : (
+                        blocked.map((b) => (
+                            <div key={b.id} className="flex items-center gap-3 px-4 py-3">
+                                <UserAvatar name={b.name} src={b.avatar_url} seed={b.handle ?? b.name} className="size-9" />
+                                <span className="min-w-0 flex-1 truncate font-medium">
+                                    {b.name}
+                                    {b.handle && <span className="text-muted-foreground font-normal"> @{b.handle}</span>}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        await sendJson('POST', route('users.block', b.id));
+                                        router.reload({ only: ['blocked'] });
+                                    }}
+                                    className="hover:bg-muted rounded-full border px-3 py-1 text-xs font-bold"
+                                >
+                                    {t('bl.unblock')}
+                                </button>
+                            </div>
+                        ))
+                    )}
                 </Section>
 
                 <Section title={t('set.danger')}>

@@ -53,6 +53,7 @@ class HandleInertiaRequests extends Middleware
             'flash' => ['status' => fn () => $request->session()->get('status')],
             'ppvLimits' => ['min' => (int) config('creators.min_ppv'), 'max' => (int) config('creators.max_ppv')],
             'tipLimits' => ['min' => (int) config('creators.min_tip'), 'max' => (int) config('creators.max_tip')],
+            'openReports' => fn () => $request->user()?->is_admin ? \App\Models\Report::where('status', 'open')->count() : 0,
             'unreadNotifications' => fn () => $request->user()?->unreadNotifications()->count() ?? 0,
             'unreadMessages' => fn () => $request->user() ? \App\Models\Conversation::unreadCountFor($request->user()) : 0,
         ]);
@@ -63,7 +64,7 @@ class HandleInertiaRequests extends Middleware
         $viewer = $request->user();
 
         return CreatorProfile::listableFor($viewer)
-            ->when($viewer, fn ($q) => $q->where('user_id', '!=', $viewer->id)
+            ->when($viewer, fn ($q) => $q->where('user_id', '!=', $viewer->id)->whereNotIn('user_id', \App\Support\Blocking::idsAround($viewer))
                 ->whereDoesntHave('followers', fn ($f) => $f->whereKey($viewer->id)))
             ->withCount(['posts', 'followers'])->orderByDesc('followers_count')->latest('reviewed_at')
             ->take(5)->get()->map->toCard($viewer)->all();

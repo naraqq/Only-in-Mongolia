@@ -35,6 +35,7 @@ class MessageController extends Controller
                 'other' => $this->person($other),
                 'messages' => $conversation->messages()->with('media')->latest('id')->take(self::PAGE)->get()->reverse()->values()->map(fn (Message $m) => $m->present($me)),
                 'cannotSend' => Messaging::whyNot($me, $other),
+                'iBlocked' => \App\Support\Blocking::hasBlocked($me, $other),
             ];
         }
 

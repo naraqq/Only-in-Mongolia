@@ -2,6 +2,9 @@
 
 use App\Http\Controllers\Admin\CreatorReviewController;
 use App\Http\Controllers\Admin\PayoutController;
+use App\Http\Controllers\Admin\ReportController as AdminReportController;
+use App\Http\Controllers\BlockController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\EarningsController;
 use App\Http\Controllers\EngagementController;
 use App\Http\Controllers\CreatorApplicationController;
@@ -51,6 +54,10 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('comments/{comment}', [EngagementController::class, 'deleteComment'])->name('comments.destroy');
     Route::get('saved', [EngagementController::class, 'saved'])->name('saved');
 
+    // Safety: report something, block someone.
+    Route::post('reports', [ReportController::class, 'store'])->middleware('throttle:20,60')->name('reports.store');
+    Route::post('users/{user}/block', [BlockController::class, 'toggle'])->middleware('throttle:30,1')->name('users.block');
+
     // Notifications (the bell). Opening the page marks them read.
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications');
 
@@ -92,6 +99,9 @@ Route::middleware(['auth', EnsureAdmin::class])->prefix('admin')->name('admin.')
     Route::get('creators/{creator}/document/{kind}', [CreatorReviewController::class, 'document'])->whereIn('kind', ['front', 'back', 'selfie'])->name('creators.document');
     Route::post('creators/{creator}/decide', [CreatorReviewController::class, 'decide'])->name('creators.decide');
     Route::get('payouts', [PayoutController::class, 'index'])->name('payouts');
+    Route::get('reports', [AdminReportController::class, 'index'])->name('reports');
+    Route::post('reports/{report}/act', [AdminReportController::class, 'act'])->name('reports.act');
+    Route::post('creators/{creator}/reinstate', [AdminReportController::class, 'reinstate'])->name('creators.reinstate');
     Route::post('payouts/{payout}/decide', [PayoutController::class, 'decide'])->name('payouts.decide');
 });
 

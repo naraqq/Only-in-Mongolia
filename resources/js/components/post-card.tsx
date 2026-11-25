@@ -1,3 +1,4 @@
+import MoreMenu from '@/components/more-menu';
 import PostComments from '@/components/post-comments';
 import TipButton from '@/components/tip-button';
 import UserAvatar from '@/components/user-avatar';
@@ -76,6 +77,7 @@ export default function PostCard({
                             {t(post.visibility === 'public' ? 'po.public' : 'po.subscribers')}
                         </span>
                     )}
+                    {!mine && !post.locked && <MoreMenu report={{ type: 'post', id: post.id }} className="-mr-1" />}
                     {onDelete && (
                         <button
                             type="button"

@@ -1,3 +1,4 @@
+import MoreMenu from '@/components/more-menu';
 import UserAvatar from '@/components/user-avatar';
 import { sendJson } from '@/lib/http';
 import { useT } from '@/lib/i18n';
@@ -77,6 +78,7 @@ export default function PostComments({ postId, onCount }: { postId: number; onCo
                                 </div>
                                 <div className="text-muted-foreground mt-0.5 flex items-center gap-3 px-2 text-xs">
                                     <span>{c.created_at.slice(0, 10).replaceAll('-', '.')}</span>
+                                    {!c.can_delete && <MoreMenu report={{ type: 'comment', id: c.id }} className="size-6" />}
                                     {c.can_delete && (
                                         <button type="button" onClick={() => remove(c.id)} className="hover:text-red-600" aria-label={t('po.delete')}>
                                             <Trash2 className="size-3.5" />

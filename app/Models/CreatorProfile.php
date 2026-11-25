@@ -14,6 +14,9 @@ class CreatorProfile extends Model
 
     public const REJECTED = 'rejected';
 
+    /** Taken down by moderators: page, posts and studio are hidden until reinstated. */
+    public const SUSPENDED = 'suspended';
+
     protected $fillable = [
         'user_id', 'handle', 'display_name', 'bio', 'price_monthly', 'adult_content', 'dm_policy',
         'legal_name', 'register_number', 'id_front_path', 'id_back_path', 'selfie_path',

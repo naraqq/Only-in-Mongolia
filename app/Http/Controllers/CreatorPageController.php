@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CreatorProfile;
 use App\Models\Post;
 use App\Models\User;
+use App\Support\Blocking;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,6 +20,7 @@ class CreatorPageController extends Controller
             ->where('status', CreatorProfile::APPROVED)
             ->firstOrFail();
         $viewer = $request->user();
+        abort_if(Blocking::hasBlocked($creator->user, $viewer), 404);
         $isOwner = $viewer?->id === $creator->user_id;
 
         // Pages with 18+ content are only for signed-in adults (their age was checked at sign-up).
@@ -44,6 +46,9 @@ class CreatorPageController extends Controller
             'sort' => $sort,
             'isOwner' => $isOwner,
             'subscribed' => $creator->hasActiveSubscriber($viewer),
+            'creatorUserId' => $creator->user_id,
+            'creatorId' => $creator->id,
+            'blocked' => Blocking::hasBlocked($viewer, $creator->user),
             // Why the Message button is disabled (null = can message): login | follow | subscribe | self ...
             'messageBlock' => ! $viewer ? 'login' : (\App\Support\Messaging::whyNot($viewer, $creator->user)),
             'subscribedUntil' => $viewer ? $creator->subscriptions()->active()->where('user_id', $viewer->id)->value('expires_at')?->toIso8601String() : null,

@@ -1,3 +1,4 @@
+import MoreMenu from '@/components/more-menu';
 import PriceField from '@/components/price-field';
 import TipButton from '@/components/tip-button';
 import UserAvatar from '@/components/user-avatar';
@@ -22,13 +23,15 @@ type Msg = {
     created_at: string;
     media: { id: number; type: 'image' | 'video'; url: string }[];
 };
-type Thread = { id: number; other: Person; messages: Msg[]; cannotSend: string | null };
+type Thread = { id: number; other: Person; messages: Msg[]; cannotSend: string | null; iBlocked: boolean };
 
 const REASONS: Record<string, TKey> = {
     'cannot.follow': 'dm.needFollow',
     'cannot.subscribe': 'dm.needSubscribe',
     'cannot.closed': 'dm.closed',
     'cannot.self': 'dm.closed',
+    'cannot.blocked': 'bl.chatBlocked',
+    blocked: 'bl.chatBlocked',
     follow: 'dm.needFollow',
     subscribe: 'dm.needSubscribe',
     closed: 'dm.closed',
@@ -123,6 +126,7 @@ function Conversation({ thread, me }: { thread: Thread; me: number }) {
     }, [lastId, thread.id]);
 
     const o = thread.other;
+    const lastFromThem = [...thread.messages].reverse().find((m) => m.sender_id !== me)?.id;
 
     return (
         <>
@@ -146,6 +150,12 @@ function Conversation({ thread, me }: { thread: Thread; me: number }) {
                     )}
                     {o.handle && <p className="text-muted-foreground text-xs">@{o.handle}</p>}
                 </div>
+                <MoreMenu
+                    report={lastFromThem ? { type: 'message', id: lastFromThem } : undefined}
+                    blockUserId={o.id}
+                    blocked={thread.iBlocked}
+                    className={o.handle ? 'order-last' : 'ml-auto'}
+                />
                 {o.handle && (
                     <TipButton
                         handle={o.handle}
