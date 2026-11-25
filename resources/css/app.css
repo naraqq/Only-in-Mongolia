@@ -71,6 +71,18 @@
 /* Always reserve the scrollbar's space, so pages don't shift sideways when one is longer than the screen. */
 html {
     scrollbar-gutter: stable;
+    overflow-y: scroll;
+}
+
+/*
+ * Dialogs lock scrolling by hiding the body's scrollbar and adding a right margin in its place. With the gutter above
+ * that margin is extra, so the page jumped sideways. Keep the scrollbar and the layout as they are; the dialog still
+ * blocks wheel and touch scrolling behind it.
+ */
+html body[data-scroll-locked] {
+    overflow: visible !important;
+    margin-right: 0 !important;
+    padding-right: 0 !important;
 }
 
 @layer base {
