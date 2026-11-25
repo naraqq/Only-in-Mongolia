@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\CreatorProfile;
+use App\Models\Message;
 use App\Models\Payment;
+use App\Models\Post;
+use App\Models\Purchase;
 use App\Payments\FakeGateway;
 use App\Payments\PaymentException;
 use App\Payments\Payments;
@@ -59,6 +62,54 @@ class PaymentController extends Controller
         return to_route('payments.show', $payment);
     }
 
+    /** Unlock a pay-per-view post (you need to be able to see the creator's page). */
+    public function buyPost(Request $request, Post $post): RedirectResponse
+    {
+        $me = $request->user();
+        $post->load('creator');
+        abort_unless($post->price && $post->creator->isApproved() && ! ($post->creator->adult_content && ! $me), 404);
+        if ($post->isVisibleTo($me)) {
+            return to_route('creator.show', $post->creator->handle); // already unlocked (or it's yours)
+        }
+
+        return $this->checkout(fn () => $this->payments->startPostPurchase($me, $post));
+    }
+
+    /** Unlock a pay-per-view message someone sent you. */
+    public function buyMessage(Request $request, Message $message): RedirectResponse
+    {
+        $me = $request->user();
+        abort_unless($message->price && $message->conversation->includes($me), 404);
+        if ($message->isUnlockedFor($me)) {
+            return to_route('messages.show', $message->conversation_id);
+        }
+        $creator = $message->sender->creatorProfile()->where('status', 'approved')->firstOrFail();
+
+        return $this->checkout(fn () => $this->payments->startMessagePurchase($me, $creator, $message));
+    }
+
+    /** @param  callable(): Payment  $start */
+    private function checkout(callable $start): RedirectResponse
+    {
+        try {
+            return to_route('payments.show', $start());
+        } catch (PaymentException $e) {
+            report($e);
+
+            return back()->withErrors(['payment' => __('Payment is unavailable right now. Please try again in a moment.')]);
+        }
+    }
+
+    /** Where to go once paid: the chat for a message, otherwise the creator's page. */
+    private function returnUrl(Payment $payment): string
+    {
+        if ($payment->message_id && $payment->message) {
+            return route('messages.show', $payment->message->conversation_id);
+        }
+
+        return route('creator.show', $payment->creator->handle);
+    }
+
     public function show(Request $request, Payment $payment): Response|RedirectResponse
     {
         $this->authorizeOwner($request, $payment);
@@ -75,6 +126,7 @@ class PaymentController extends Controller
                 'purpose' => $payment->purpose,
                 'note' => $payment->note,
             ],
+            'returnUrl' => $this->returnUrl($payment),
             'creator' => [...$creator->only('handle', 'display_name', 'bio', 'price_monthly'), 'avatar_url' => $creator->avatarUrl()],
             'days' => (int) config('creators.subscription_days'),
             'expiresAt' => $request->user()->subscriptions()->where('creator_profile_id', $creator->id)->value('expires_at'),
@@ -104,7 +156,11 @@ class PaymentController extends Controller
         FakeGateway::markPaid($payment);
         $this->payments->settle($payment);
 
-        return to_route('creator.show', $payment->creator->handle)->with('status', $payment->purpose === Payment::TIP ? 'tipped' : 'subscribed');
+        return redirect($this->returnUrl($payment))->with('status', match ($payment->purpose) {
+            Payment::TIP => 'tipped',
+            Payment::PPV => 'unlocked',
+            default => 'subscribed',
+        });
     }
 
     /** QPay's notification. We never trust it: it only makes us ask QPay for the real status. */

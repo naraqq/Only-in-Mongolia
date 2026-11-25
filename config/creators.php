@@ -15,6 +15,10 @@ return [
     'min_tip' => (int) env('MIN_TIP', 1_000),
     'max_tip' => (int) env('MAX_TIP', 1_000_000),
 
+    // Pay-per-view price limits for posts and messages (₮).
+    'min_ppv' => (int) env('MIN_PPV', 1_000),
+    'max_ppv' => (int) env('MAX_PPV', 1_000_000),
+
     // The platform's share of each payment, in percent. Creators see their earnings after this.
     'platform_fee_percent' => (int) env('PLATFORM_FEE_PERCENT', 20),
 

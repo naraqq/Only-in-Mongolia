@@ -12,9 +12,9 @@ class Post extends Model
 
     public const SUBSCRIBERS = 'subscribers';
 
-    protected $fillable = ['creator_profile_id', 'body', 'visibility', 'is_adult'];
+    protected $fillable = ['creator_profile_id', 'body', 'visibility', 'is_adult', 'price'];
 
-    protected $casts = ['is_adult' => 'boolean'];
+    protected $casts = ['is_adult' => 'boolean', 'price' => 'integer'];
 
     public function creator(): BelongsTo
     {
@@ -30,6 +30,7 @@ class Post extends Model
      * The one place that decides who may see a post (text and media):
      * - the creator and admins always;
      * - 18+ posts never to signed-out visitors;
+     * - pay-per-view posts (with a price) to people who bought them, subscribers included;
      * - free posts to everyone else;
      * - subscribers-only posts to active subscribers.
      */
@@ -40,6 +41,9 @@ class Post extends Model
         }
         if ($this->is_adult && ! $viewer) {
             return false;
+        }
+        if ($this->price) {
+            return Purchase::hasPost($viewer, $this);
         }
         if ($this->visibility === self::PUBLIC) {
             return true;
@@ -55,6 +59,10 @@ class Post extends Model
             return null;
         }
 
-        return $this->is_adult && ! $viewer ? 'login' : 'subscribe';
+        if ($this->is_adult && ! $viewer) {
+            return 'login';
+        }
+
+        return $this->price ? 'buy' : 'subscribe';
     }
 }

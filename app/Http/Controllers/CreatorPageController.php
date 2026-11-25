@@ -55,6 +55,7 @@ class CreatorPageController extends Controller
             'id' => $post->id,
             'visibility' => $post->visibility,
             'is_adult' => $post->is_adult,
+            'price' => $post->price,
             'created_at' => $post->created_at->toIso8601String(),
             'locked' => $lock,
             'body' => $lock ? null : $post->body,

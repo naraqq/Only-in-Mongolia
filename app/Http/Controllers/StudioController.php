@@ -52,6 +52,7 @@ class StudioController extends Controller
             'body' => ['nullable', 'string', 'max:5000', 'required_without:media'],
             'visibility' => ['required', Rule::in([Post::PUBLIC, Post::SUBSCRIBERS])],
             'is_adult' => ['boolean'],
+            'price' => ['nullable', 'integer', 'min:'.config('creators.min_ppv'), 'max:'.config('creators.max_ppv')],
             'media' => ['nullable', 'array', 'max:10'],
             // Photos up to 20 MB, videos up to 40 MB (raise upload_max_filesize/post_max_size in production).
             'media.*' => ['file', 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm', 'max:40960'],
@@ -76,6 +77,7 @@ class StudioController extends Controller
                 'body' => trim((string) ($data['body'] ?? '')) ?: null,
                 'visibility' => $data['visibility'],
                 'is_adult' => $adult,
+                'price' => $data['price'] ?? null,
             ]);
             foreach ($request->file('media', []) as $i => $file) {
                 $post->media()->create([

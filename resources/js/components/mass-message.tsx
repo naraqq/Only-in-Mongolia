@@ -1,22 +1,35 @@
 import InputError from '@/components/input-error';
+import PriceField from '@/components/price-field';
 import { Button } from '@/components/ui/button';
+import { priceOk } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { useForm, usePage } from '@inertiajs/react';
-import { ImagePlus, LoaderCircle, Megaphone, X } from 'lucide-react';
-import { useRef, type FormEvent } from 'react';
+import { ImagePlus, LoaderCircle, Lock, Megaphone, X } from 'lucide-react';
+import { useRef, useState, type FormEvent } from 'react';
 
 /** Studio: one message to every subscriber (or follower), delivered into each fan's own conversation. */
 export default function MassMessage({ subscribers, followers }: { subscribers: number; followers: number }) {
     const { t } = useT();
     const flash = usePage<{ flash?: { status?: string } }>().props.flash;
-    const form = useForm({ body: '', audience: 'subscribers' as 'subscribers' | 'followers', media: [] as File[] });
+    const form = useForm({ body: '', audience: 'subscribers' as 'subscribers' | 'followers', media: [] as File[], price: 5000 });
+    const [ppv, setPpv] = useState(false);
+    const { ppvLimits } = usePage<{ ppvLimits: { min: number; max: number } }>().props;
+    const priced = ppv && form.data.media.length > 0;
     const files = useRef<HTMLInputElement>(null);
     const count = form.data.audience === 'subscribers' ? subscribers : followers;
     const sent = typeof flash?.status === 'string' && flash.status.startsWith('mass-sent:') ? Number(flash.status.split(':')[1]) : null;
 
     function submit(e: FormEvent) {
         e.preventDefault();
-        form.post(route('studio.mass'), { forceFormData: true, preserveScroll: true, onSuccess: () => form.reset('body', 'media') });
+        form.transform((d) => ({ ...d, price: priced ? d.price : null }));
+        form.post(route('studio.mass'), {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                form.reset('body', 'media');
+                setPpv(false);
+            },
+        });
     }
 
     return (
@@ -65,6 +78,18 @@ export default function MassMessage({ subscribers, followers }: { subscribers: n
                 </ul>
             )}
             <InputError message={form.errors.body} />
+            {form.data.media.length > 0 && (
+                <div className="mt-2 flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setPpv(!ppv)}
+                        className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm font-semibold transition ${ppv ? 'border-amber-300 text-amber-700' : 'text-muted-foreground hover:bg-muted'}`}
+                    >
+                        <Lock className="size-3.5" /> {t('ppv.lockMedia')}
+                    </button>
+                    {ppv && <PriceField value={form.data.price} onChange={(v) => form.setData('price', v)} />}
+                </div>
+            )}
             <div className="mt-3 flex items-center gap-3 border-t pt-3">
                 <button
                     type="button"
@@ -89,7 +114,12 @@ export default function MassMessage({ subscribers, followers }: { subscribers: n
                     type="submit"
                     size="sm"
                     className="ml-auto rounded-full px-5"
-                    disabled={form.processing || count === 0 || (!form.data.body.trim() && form.data.media.length === 0)}
+                    disabled={
+                        form.processing ||
+                        count === 0 ||
+                        (!form.data.body.trim() && form.data.media.length === 0) ||
+                        (priced && !priceOk(form.data.price, ppvLimits))
+                    }
                     onClick={(e) => !confirm(t('mm.confirm', { n: count })) && e.preventDefault()}
                 >
                     {form.processing && <LoaderCircle className="size-4 animate-spin" />}

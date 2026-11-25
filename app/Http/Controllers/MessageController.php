@@ -33,7 +33,7 @@ class MessageController extends Controller
             $thread = [
                 'id' => $conversation->id,
                 'other' => $this->person($other),
-                'messages' => $conversation->messages()->with('media')->latest('id')->take(self::PAGE)->get()->reverse()->values()->map->present(),
+                'messages' => $conversation->messages()->with('media')->latest('id')->take(self::PAGE)->get()->reverse()->values()->map(fn (Message $m) => $m->present($me)),
                 'cannotSend' => Messaging::whyNot($me, $other),
             ];
         }
@@ -67,7 +67,10 @@ class MessageController extends Controller
         }
 
         $data = $this->validateMessage($request);
-        $this->deliver($conversation, $me, ($data['body'] ?? null), $this->storeFiles($request, $me));
+        if (isset($data['price']) && ! $me->creatorProfile()->where('status', CreatorProfile::APPROVED)->exists()) {
+            return back()->withErrors(['price' => 'Only creators can sell messages.']);
+        }
+        $this->deliver($conversation, $me, ($data['body'] ?? null), $this->storeFiles($request, $me), price: $data['price'] ?? null);
         $conversation->markRead($me);
 
         return back();
@@ -90,7 +93,7 @@ class MessageController extends Controller
         $recipients->where('users.id', '!=', $me->id)->select('users.*')->chunkById(200, function ($users) use ($me, $data, $files, &$sent) {
             foreach ($users as $user) {
                 $conversation = Conversation::between($me, $user);
-                $this->deliver($conversation, $me, ($data['body'] ?? null), $files, mass: true);
+                $this->deliver($conversation, $me, ($data['body'] ?? null), $files, mass: true, price: $data['price'] ?? null);
                 $conversation->markRead($me);
                 $sent++;
             }
@@ -104,6 +107,7 @@ class MessageController extends Controller
     {
         $conversation = $media->message->conversation;
         abort_unless($conversation->includes($request->user()), 404);
+        abort_unless($media->message->isUnlockedFor($request->user()), 403);
         abort_unless(Storage::exists($media->path), 404);
 
         return response()->file(Storage::path($media->path), [
@@ -119,6 +123,8 @@ class MessageController extends Controller
             'body' => ['nullable', 'string', 'max:2000', 'required_without:media'],
             'media' => ['nullable', 'array', 'max:10'],
             'media.*' => ['file', 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm', 'max:40960'],
+            // A price locks the photos/videos, so it only applies to messages that have some.
+            'price' => ['nullable', 'integer', 'min:'.config('creators.min_ppv'), 'max:'.config('creators.max_ppv')],
         ], ['body.required_without' => __('Write something or add a photo or video.')]);
     }
 
@@ -132,13 +138,14 @@ class MessageController extends Controller
         ])->all();
     }
 
-    private function deliver(Conversation $conversation, User $from, ?string $body, array $files, bool $mass = false): Message
+    private function deliver(Conversation $conversation, User $from, ?string $body, array $files, bool $mass = false, ?int $price = null): Message
     {
-        return DB::transaction(function () use ($conversation, $from, $body, $files, $mass) {
+        return DB::transaction(function () use ($conversation, $from, $body, $files, $mass, $price) {
             $message = $conversation->messages()->create([
                 'sender_id' => $from->id,
                 'body' => trim((string) $body) ?: null,
                 'is_mass' => $mass,
+                'price' => $files ? $price : null,
             ]);
             foreach ($files as $i => $f) {
                 $message->media()->create([...$f, 'position' => $i]);

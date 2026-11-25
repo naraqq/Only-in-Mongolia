@@ -1,11 +1,13 @@
+import PriceField from '@/components/price-field';
 import TipButton from '@/components/tip-button';
 import UserAvatar from '@/components/user-avatar';
 import SocialLayout from '@/layouts/social-layout';
-import { mnt } from '@/lib/format';
+import { mnt, priceOk } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
-import { Link, useForm, usePoll } from '@inertiajs/react';
-import { ArrowLeft, BadgeCheck, HandCoins, ImageIcon, ImagePlus, LoaderCircle, MessageCircle, SendHorizontal, X } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, type FormEvent, type KeyboardEvent } from 'react';
+import { type SharedData } from '@/types';
+import { Link, useForm, usePage, usePoll } from '@inertiajs/react';
+import { ArrowLeft, BadgeCheck, HandCoins, ImageIcon, ImagePlus, LoaderCircle, Lock, MessageCircle, SendHorizontal, X } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 
 type Person = { id: number; name: string; handle: string | null; avatar_url: string | null };
 type Item = { id: number; other: Person; last: { mine: boolean; body: string | null; has_media: boolean; at: string } | null; unread: number };
@@ -14,6 +16,9 @@ type Msg = {
     sender_id: number;
     body: string | null;
     tip_amount: number | null;
+    price: number | null;
+    locked: boolean;
+    counts: { image: number; video: number };
     created_at: string;
     media: { id: number; type: 'image' | 'video'; url: string }[];
 };
@@ -166,6 +171,27 @@ function Conversation({ thread, me }: { thread: Thread; me: number }) {
                                 )}
                                 <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                                     <div className={`max-w-[78%] ${mine ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
+                                        {m.locked && (
+                                            <div className="flex w-64 flex-col items-center gap-2 rounded-2xl bg-gradient-to-br from-zinc-800 to-black p-5 text-center text-white">
+                                                <Lock className="size-6" />
+                                                <span className="text-sm text-white/70">
+                                                    {m.counts.image > 0 && `📷 ${m.counts.image}`} {m.counts.video > 0 && `🎬 ${m.counts.video}`}
+                                                </span>
+                                                <Link
+                                                    href={route('messages.buy', m.id)}
+                                                    method="post"
+                                                    as="button"
+                                                    className="rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 text-sm font-bold transition hover:brightness-110"
+                                                >
+                                                    {t('ppv.unlock', { price: mnt(m.price ?? 0) })}
+                                                </Link>
+                                            </div>
+                                        )}
+                                        {mine && m.price && (
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                                                <Lock className="size-3" /> {mnt(m.price)}
+                                            </span>
+                                        )}
                                         {m.media.length > 0 && (
                                             <div className={`grid gap-1 overflow-hidden rounded-2xl ${m.media.length > 1 ? 'grid-cols-2' : ''}`}>
                                                 {m.media.map((x) =>
@@ -227,7 +253,10 @@ function Conversation({ thread, me }: { thread: Thread; me: number }) {
 
 function Composer({ conversationId }: { conversationId: number }) {
     const { t } = useT();
-    const form = useForm({ body: '', media: [] as File[] });
+    const form = useForm({ body: '', media: [] as File[], price: 5000 });
+    const [ppv, setPpv] = useState(false);
+    const { auth, ppvLimits } = usePage<SharedData & { ppvLimits: { min: number; max: number } }>().props;
+    const isCreator = auth.creator?.status === 'approved';
     const files = useRef<HTMLInputElement>(null);
     const box = useRef<HTMLTextAreaElement>(null);
 
@@ -240,15 +269,21 @@ function Composer({ conversationId }: { conversationId: number }) {
 
     useEffect(() => form.reset(), [conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const canSend = !form.processing && (form.data.body.trim() !== '' || form.data.media.length > 0);
+    const priced = ppv && form.data.media.length > 0;
+    const canSend =
+        !form.processing && (form.data.body.trim() !== '' || form.data.media.length > 0) && (!priced || priceOk(form.data.price, ppvLimits));
 
     function submit(e?: FormEvent) {
         e?.preventDefault();
         if (!canSend) return;
+        form.transform((d) => ({ ...d, price: priced ? d.price : null }));
         form.post(route('messages.send', conversationId), {
             forceFormData: true,
             preserveScroll: true,
-            onSuccess: () => form.reset(),
+            onSuccess: () => {
+                form.reset();
+                setPpv(false);
+            },
         });
     }
 
@@ -284,6 +319,18 @@ function Composer({ conversationId }: { conversationId: number }) {
                         </li>
                     ))}
                 </ul>
+            )}
+            {isCreator && form.data.media.length > 0 && (
+                <div className="mb-2 flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setPpv(!ppv)}
+                        className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm font-semibold transition ${ppv ? 'border-amber-300 text-amber-700' : 'text-muted-foreground hover:bg-muted'}`}
+                    >
+                        <Lock className="size-3.5" /> {t('ppv.lockMedia')}
+                    </button>
+                    {ppv && <PriceField value={form.data.price} onChange={(v) => form.setData('price', v)} />}
+                </div>
             )}
             {error && <p className="mb-2 text-sm text-red-600">{REASONS[error] ? t(REASONS[error]) : error}</p>}
             <div className="flex items-end gap-2">

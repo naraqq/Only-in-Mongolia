@@ -19,7 +19,9 @@ class Payment extends Model
 
     public const TIP = 'tip';
 
-    protected $fillable = ['user_id', 'creator_profile_id', 'purpose', 'post_id', 'note', 'amount', 'platform_fee', 'status', 'provider', 'invoice_id', 'qr_text', 'qr_image', 'bank_links', 'paid_at'];
+    public const PPV = 'ppv';
+
+    protected $fillable = ['user_id', 'creator_profile_id', 'purpose', 'post_id', 'message_id', 'note', 'amount', 'platform_fee', 'status', 'provider', 'invoice_id', 'qr_text', 'qr_image', 'bank_links', 'paid_at'];
 
     protected $casts = ['bank_links' => 'array', 'paid_at' => 'datetime'];
 
@@ -28,6 +30,11 @@ class Payment extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function message(): BelongsTo
+    {
+        return $this->belongsTo(Message::class);
     }
 
     public function creator(): BelongsTo

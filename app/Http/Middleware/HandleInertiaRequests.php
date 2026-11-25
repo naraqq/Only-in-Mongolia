@@ -51,6 +51,7 @@ class HandleInertiaRequests extends Middleware
             // Right-hand column of the social layout: a few creators the viewer doesn't follow yet.
             'suggestions' => fn () => $this->suggestions($request),
             'flash' => ['status' => fn () => $request->session()->get('status')],
+            'ppvLimits' => ['min' => (int) config('creators.min_ppv'), 'max' => (int) config('creators.max_ppv')],
             'tipLimits' => ['min' => (int) config('creators.min_tip'), 'max' => (int) config('creators.max_tip')],
             'unreadMessages' => fn () => $request->user() ? \App\Models\Conversation::unreadCountFor($request->user()) : 0,
         ]);

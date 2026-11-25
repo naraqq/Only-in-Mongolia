@@ -5,7 +5,9 @@ namespace App\Payments;
 use App\Models\Conversation;
 use App\Models\CreatorProfile;
 use App\Models\Payment;
+use App\Models\Message;
 use App\Models\Post;
+use App\Models\Purchase;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -34,6 +36,18 @@ class Payments
             'post_id' => $post?->id,
             'note' => $note,
         ]);
+    }
+
+    /** Unlock a pay-per-view post. */
+    public function startPostPurchase(User $fan, Post $post): Payment
+    {
+        return $this->start($fan, $post->creator, Payment::PPV, (int) $post->price, "Only in Mongolia: @{$post->creator->handle} post", ['post_id' => $post->id]);
+    }
+
+    /** Unlock a pay-per-view message from $creator. */
+    public function startMessagePurchase(User $fan, CreatorProfile $creator, Message $message): Payment
+    {
+        return $this->start($fan, $creator, Payment::PPV, (int) $message->price, "Only in Mongolia: @{$creator->handle} message", ['message_id' => $message->id]);
     }
 
     private function start(User $fan, CreatorProfile $creator, string $purpose, int $amount, string $description, array $extra = []): Payment
@@ -70,6 +84,14 @@ class Payments
 
             if ($fresh->purpose === Payment::TIP) {
                 $this->deliverTip($fresh);
+
+                return $fresh;
+            }
+            if ($fresh->purpose === Payment::PPV) {
+                Purchase::firstOrCreate(
+                    ['user_id' => $fresh->user_id, 'post_id' => $fresh->post_id, 'message_id' => $fresh->message_id],
+                    ['payment_id' => $fresh->id],
+                );
 
                 return $fresh;
             }

@@ -13,3 +13,6 @@ export const avatarGradient = (key: string) => GRADIENTS[[...key].reduce((a, c) 
 
 /** 9900 → "₮9,900" */
 export const mnt = (n: number) => '₮' + n.toLocaleString('en-US');
+
+/** Is a pay-per-view (or tip) amount within the allowed range? */
+export const priceOk = (value: number, limits: { min: number; max: number }) => value >= limits.min && value <= limits.max;

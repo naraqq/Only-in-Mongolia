@@ -1,5 +1,6 @@
 import TipButton from '@/components/tip-button';
 import UserAvatar from '@/components/user-avatar';
+import { mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
@@ -10,7 +11,8 @@ export type PostItem = {
     visibility: 'public' | 'subscribers';
     is_adult: boolean;
     created_at: string;
-    locked: 'login' | 'subscribe' | null;
+    locked: 'login' | 'subscribe' | 'buy' | null;
+    price: number | null;
     body: string | null;
     media: { id: number; type: 'image' | 'video'; url: string }[];
     counts: { image: number; video: number };
@@ -54,13 +56,19 @@ export default function PostCard({
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
                     {post.is_adult && <span className="rounded bg-rose-100 px-1.5 py-0.5 text-[11px] font-semibold text-rose-700">18+</span>}
-                    <span
-                        className="text-muted-foreground inline-flex items-center gap-1 text-xs"
-                        title={t(post.visibility === 'public' ? 'po.public' : 'po.subscribers')}
-                    >
-                        {post.visibility === 'public' ? <Globe className="size-3.5" /> : <Lock className="size-3.5" />}
-                        {t(post.visibility === 'public' ? 'po.public' : 'po.subscribers')}
-                    </span>
+                    {post.price ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                            <Lock className="size-3" /> {mnt(post.price)}
+                        </span>
+                    ) : (
+                        <span
+                            className="text-muted-foreground inline-flex items-center gap-1 text-xs"
+                            title={t(post.visibility === 'public' ? 'po.public' : 'po.subscribers')}
+                        >
+                            {post.visibility === 'public' ? <Globe className="size-3.5" /> : <Lock className="size-3.5" />}
+                            {t(post.visibility === 'public' ? 'po.public' : 'po.subscribers')}
+                        </span>
+                    )}
                     {onDelete && (
                         <button
                             type="button"
@@ -135,9 +143,24 @@ function Locked({ post, price, handle }: { post: PostItem; price?: string; handl
                     </span>
                 )}
             </div>
-            {post.locked === 'login' || !signedIn ? (
+            {post.locked === 'buy' && signedIn ? (
+                <Link
+                    href={route('posts.buy', post.id)}
+                    method="post"
+                    as="button"
+                    className="relative rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2 text-sm font-bold transition hover:brightness-110"
+                >
+                    {t('ppv.unlock', { price: mnt(post.price ?? 0) })}
+                </Link>
+            ) : post.locked === 'login' || !signedIn ? (
                 <Link href={route('login')} className="bg-primary relative rounded-full px-5 py-2 text-sm font-bold">
-                    {post.locked === 'login' ? t('po.loginToView') : price ? t('po.subscribeToView', { price }) : t('po.subscribersOnly')}
+                    {post.locked === 'buy'
+                        ? t('ppv.unlock', { price: mnt(post.price ?? 0) })
+                        : post.locked === 'login'
+                          ? t('po.loginToView')
+                          : price
+                            ? t('po.subscribeToView', { price })
+                            : t('po.subscribersOnly')}
                 </Link>
             ) : (
                 <Link

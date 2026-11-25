@@ -15,7 +15,7 @@ type Payment = {
     qr_image: string | null;
     bank_links: BankLink[];
     fake: boolean;
-    purpose: 'subscription' | 'tip';
+    purpose: 'subscription' | 'tip' | 'ppv';
     note: string | null;
 };
 type Creator = { handle: string; display_name: string; bio: string | null; price_monthly: number; avatar_url: string | null };
@@ -23,14 +23,14 @@ type Creator = { handle: string; display_name: string; bio: string | null; price
 const POLL_MS = 3000;
 
 /** Checkout for a subscription: scan the QPay QR (computer) or open a bank app (phone). Paid status is polled. */
-export default function PaymentShow({ payment, creator, days }: { payment: Payment; creator: Creator; days: number }) {
+export default function PaymentShow({ payment, creator, days, returnUrl }: { payment: Payment; creator: Creator; days: number; returnUrl: string }) {
     const { t } = useT();
     const [status, setStatus] = useState(payment.status);
 
     // Poll until paid, then go back to the creator's page.
     useEffect(() => {
         if (status === 'paid') {
-            const id = setTimeout(() => router.visit(route('creator.show', creator.handle)), 1500);
+            const id = setTimeout(() => router.visit(returnUrl), 1500);
             return () => clearTimeout(id);
         }
         let timer: ReturnType<typeof setTimeout>;
@@ -49,7 +49,7 @@ export default function PaymentShow({ payment, creator, days }: { payment: Payme
             cancelled = true;
             clearTimeout(timer);
         };
-    }, [status, payment.id, creator.handle]);
+    }, [status, payment.id, returnUrl]);
 
     return (
         <SocialLayout
@@ -76,7 +76,9 @@ export default function PaymentShow({ payment, creator, days }: { payment: Payme
                             <span className="truncate">{creator.display_name}</span>
                             <BadgeCheck className="size-4 shrink-0 text-sky-500" />
                         </p>
-                        <p className="text-muted-foreground text-sm">{payment.purpose === 'tip' ? t('tip.for') : t('pay.what', { days })}</p>
+                        <p className="text-muted-foreground text-sm">
+                            {payment.purpose === 'tip' ? t('tip.for') : payment.purpose === 'ppv' ? t('ppv.what') : t('pay.what', { days })}
+                        </p>
                         {payment.note && <p className="text-muted-foreground mt-0.5 truncate text-xs italic">“{payment.note}”</p>}
                     </div>
                     <p className="text-2xl font-extrabold tracking-tight">{mnt(payment.amount)}</p>
@@ -86,7 +88,7 @@ export default function PaymentShow({ payment, creator, days }: { payment: Payme
                     <div className="flex flex-col items-center gap-3 rounded-2xl bg-emerald-50 p-10 text-center dark:bg-emerald-950/40">
                         <CircleCheck className="size-14 text-emerald-600" />
                         <p className="text-xl font-bold text-emerald-800 dark:text-emerald-300">
-                            {payment.purpose === 'tip' ? t('tip.done') : t('pay.done')}
+                            {payment.purpose === 'tip' ? t('tip.done') : payment.purpose === 'ppv' ? t('ppv.done') : t('pay.done')}
                         </p>
                         <p className="text-sm text-emerald-700/80">{t('pay.redirect')}</p>
                     </div>

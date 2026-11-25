@@ -99,7 +99,7 @@ class DemoSeeder extends Seeder
         $this->post($mine, 'Миний анхны нийтлэл 👋', [[225, 29, 72], [124, 58, 237]], 0, hoursAgo: 2);
         $me->following()->attach($creators->take(3)->pluck('id'));
 
-        $this->call([DemoSubscriptionsSeeder::class, DemoMessagesSeeder::class]);
+        $this->call([DemoSubscriptionsSeeder::class, DemoMessagesSeeder::class, DemoPayPerViewSeeder::class]);
     }
 
     private function user(string $name, ?string $phone): User

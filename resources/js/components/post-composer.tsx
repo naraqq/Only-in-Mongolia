@@ -1,19 +1,37 @@
 import InputError from '@/components/input-error';
+import PriceField from '@/components/price-field';
 import { Button } from '@/components/ui/button';
+import { priceOk } from '@/lib/format';
 import { useT } from '@/lib/i18n';
-import { useForm } from '@inertiajs/react';
+import { useForm, usePage } from '@inertiajs/react';
 import { ImagePlus, LoaderCircle, X } from 'lucide-react';
-import { type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 
 /** Write a post: text, photos/videos, who sees it, and (for 18+ pages) the 18+ flag. Used in the studio and on home. */
 export default function PostComposer({ adultAllowed, className = '' }: { adultAllowed: boolean; className?: string }) {
     const { t } = useT();
-    const form = useForm({ body: '', visibility: 'subscribers' as 'public' | 'subscribers', is_adult: false as boolean, media: [] as File[] });
+    const form = useForm({
+        body: '',
+        visibility: 'subscribers' as 'public' | 'subscribers',
+        is_adult: false as boolean,
+        media: [] as File[],
+        price: 5000,
+    });
+    const [ppv, setPpv] = useState(false);
+    const { ppvLimits } = usePage<{ ppvLimits: { min: number; max: number } }>().props;
     const mediaErrors = Object.entries(form.errors).filter(([k]) => k.startsWith('media'));
 
     function submit(e: FormEvent) {
         e.preventDefault();
-        form.post(route('studio.posts.store'), { forceFormData: true, preserveScroll: true, onSuccess: () => form.reset() });
+        form.transform((d) => ({ ...d, price: ppv ? d.price : null }));
+        form.post(route('studio.posts.store'), {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                form.reset();
+                setPpv(false);
+            },
+        });
     }
 
     return (
@@ -66,13 +84,19 @@ export default function PostComposer({ adultAllowed, className = '' }: { adultAl
                     />
                 </label>
                 <select
-                    value={form.data.visibility}
-                    onChange={(e) => form.setData('visibility', e.target.value as 'public' | 'subscribers')}
+                    value={ppv ? 'ppv' : form.data.visibility}
+                    onChange={(e) => {
+                        const v = e.target.value;
+                        setPpv(v === 'ppv');
+                        if (v !== 'ppv') form.setData('visibility', v as 'public' | 'subscribers');
+                    }}
                     className="border-input h-8 rounded-md border bg-transparent px-2 text-sm"
                 >
                     <option value="subscribers">{t('po.subscribers')}</option>
                     <option value="public">{t('po.public')}</option>
+                    <option value="ppv">{t('ppv.option')}</option>
                 </select>
+                {ppv && <PriceField value={form.data.price} onChange={(v) => form.setData('price', v)} />}
                 {adultAllowed && (
                     <label className="inline-flex items-center gap-1.5 text-sm">
                         <input type="checkbox" checked={form.data.is_adult} onChange={(e) => form.setData('is_adult', e.target.checked)} /> 18+
@@ -82,7 +106,9 @@ export default function PostComposer({ adultAllowed, className = '' }: { adultAl
                     type="submit"
                     size="sm"
                     className="ml-auto rounded-full px-5"
-                    disabled={form.processing || (!form.data.body.trim() && form.data.media.length === 0)}
+                    disabled={
+                        form.processing || (!form.data.body.trim() && form.data.media.length === 0) || (ppv && !priceOk(form.data.price, ppvLimits))
+                    }
                 >
                     {form.processing && <LoaderCircle className="size-4 animate-spin" />}
                     {t('st.publish')}
