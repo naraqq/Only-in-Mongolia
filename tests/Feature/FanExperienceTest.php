@@ -121,6 +121,10 @@ class FanExperienceTest extends TestCase
             ->where('auth.creator.adult_content', false)
             ->has('suggestions', 1) // not themselves, not who they follow
             ->where('suggestions.0.handle', 'other'));
+
+        // Suggestions are only for the home feed.
+        $this->get('/creators')->assertInertia(fn ($p) => $p->has('suggestions', 0));
+        $this->get('/@other')->assertInertia(fn ($p) => $p->has('suggestions', 0));
     }
 
     public function test_posting_from_home_returns_to_home(): void

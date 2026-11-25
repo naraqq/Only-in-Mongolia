@@ -49,7 +49,8 @@ class HandleInertiaRequests extends Middleware
                 'creator' => fn () => $request->user()?->creatorProfile()->first(['handle', 'status', 'adult_content']),
             ],
             // Right-hand column of the social layout: a few creators the viewer doesn't follow yet.
-            'suggestions' => fn () => $this->suggestions($request),
+            // "Санал болгох" (suggested creators) only appears on the home feed.
+            'suggestions' => fn () => $request->routeIs('home', 'feed') ? $this->suggestions($request) : [],
             'flash' => ['status' => fn () => $request->session()->get('status')],
             'ppvLimits' => ['min' => (int) config('creators.min_ppv'), 'max' => (int) config('creators.max_ppv')],
             'tipLimits' => ['min' => (int) config('creators.min_tip'), 'max' => (int) config('creators.max_tip')],

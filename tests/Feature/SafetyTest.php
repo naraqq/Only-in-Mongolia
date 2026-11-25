@@ -115,7 +115,7 @@ class SafetyTest extends TestCase
 
         $this->actingAs($fan)->postJson("/users/{$creator->user_id}/block")->assertJson(['blocked' => true]);
         $this->assertSame(0, $fan->following()->count());
-        $this->get('/creators')->assertInertia(fn ($p) => $p->has('suggestions', 0));
+        $this->get('/')->assertInertia(fn ($p) => $p->has('suggestions', 0));
         $this->get('/@artist')->assertInertia(fn ($p) => $p->where('blocked', true)); // the fan can still see a page they blocked
         $this->postJson("/users/{$fan->id}/block")->assertUnprocessable();
     }
