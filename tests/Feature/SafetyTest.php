@@ -61,7 +61,7 @@ class SafetyTest extends TestCase
         $this->actingAs($b)->postJson('/reports', ['type' => 'creator', 'id' => $creator->id, 'reason' => 'nonconsensual']);
 
         $this->actingAs($a)->get('/admin/reports')->assertForbidden();
-        $this->actingAs($admin)->get('/@artist')->assertInertia(fn ($p) => $p->where('openReports', 3));
+        $this->actingAs($admin)->get('/@artist')->assertInertia(fn ($p) => $p->where('adminCounts.reports', 3));
         $this->get('/admin/reports')->assertInertia(fn ($p) => $p
             ->has('open', 3)->where('open.0.reason', 'nonconsensual')->where('open.0.urgent', true)->where('open.1.preview.text', 'Bad'));
 

@@ -1,3 +1,4 @@
+import AdminTabs from '@/components/admin-tabs';
 import SocialLayout from '@/layouts/social-layout';
 import { mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
@@ -24,8 +25,9 @@ export default function AdminPayouts({ open, done }: { open: Row[]; done: Row[] 
     const { t } = useT();
 
     return (
-        <SocialLayout title={t('nav.payouts')} header={<h1 className="text-lg font-bold tracking-wide uppercase">{t('nav.payouts')}</h1>} wide>
+        <SocialLayout title={t('nav.payouts')} header={<h1 className="text-lg font-bold tracking-wide uppercase">{t('nav.adminHome')}</h1>} wide>
             <div className="flex flex-col gap-6 p-4">
+                <AdminTabs />
                 <p className="text-muted-foreground text-sm">{t('ap.sub')}</p>
 
                 {open.length === 0 ? (

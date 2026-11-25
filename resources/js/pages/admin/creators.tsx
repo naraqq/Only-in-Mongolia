@@ -1,3 +1,4 @@
+import AdminTabs from '@/components/admin-tabs';
 import { Button } from '@/components/ui/button';
 import SocialLayout from '@/layouts/social-layout';
 import { useT } from '@/lib/i18n';
@@ -32,9 +33,10 @@ export default function CreatorReview({ pending, recent }: { pending: Applicant[
     const { t } = useT();
 
     return (
-        <SocialLayout title={t('ad.title')} header={<h1 className="text-lg font-bold tracking-wide uppercase">{t('ad.title')}</h1>} wide>
-            <div className="p-4 md:py-6">
-                <p className="text-muted-foreground">{t('ad.sub')}</p>
+        <SocialLayout title={t('ad.title')} header={<h1 className="text-lg font-bold tracking-wide uppercase">{t('nav.adminHome')}</h1>} wide>
+            <div className="p-4">
+                <AdminTabs />
+                <p className="text-muted-foreground mt-4">{t('ad.sub')}</p>
 
                 <h2 className="mt-8 mb-3 font-medium">
                     {t('ad.pending')} <span className="text-muted-foreground">({pending.length})</span>

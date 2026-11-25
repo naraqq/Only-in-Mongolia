@@ -1,3 +1,4 @@
+import AdminTabs from '@/components/admin-tabs';
 import SocialLayout from '@/layouts/social-layout';
 import { useT, type TKey } from '@/lib/i18n';
 import { Link, router, useForm } from '@inertiajs/react';
@@ -34,8 +35,9 @@ export default function AdminReports({
     const { t } = useT();
 
     return (
-        <SocialLayout title={t('nav.reports')} header={<h1 className="text-lg font-bold tracking-wide uppercase">{t('nav.reports')}</h1>} wide>
+        <SocialLayout title={t('nav.reports')} header={<h1 className="text-lg font-bold tracking-wide uppercase">{t('nav.adminHome')}</h1>} wide>
             <div className="flex flex-col gap-6 p-4">
+                <AdminTabs />
                 {open.length === 0 ? (
                     <p className="text-muted-foreground rounded-2xl border border-dashed p-10 text-center text-sm">{t('ar.empty')}</p>
                 ) : (

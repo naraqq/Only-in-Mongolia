@@ -54,7 +54,12 @@ class HandleInertiaRequests extends Middleware
             'flash' => ['status' => fn () => $request->session()->get('status')],
             'ppvLimits' => ['min' => (int) config('creators.min_ppv'), 'max' => (int) config('creators.max_ppv')],
             'tipLimits' => ['min' => (int) config('creators.min_tip'), 'max' => (int) config('creators.max_tip')],
-            'openReports' => fn () => $request->user()?->is_admin ? \App\Models\Report::where('status', 'open')->count() : 0,
+            // What's waiting for admins (nav badge and admin tabs).
+            'adminCounts' => fn () => $request->user()?->is_admin ? [
+                'applications' => \App\Models\CreatorProfile::where('status', 'pending')->count(),
+                'payouts' => \App\Models\Payout::where('status', 'requested')->count(),
+                'reports' => \App\Models\Report::where('status', 'open')->count(),
+            ] : null,
             'unreadNotifications' => fn () => $request->user()?->unreadNotifications()->count() ?? 0,
             'unreadMessages' => fn () => $request->user() ? \App\Models\Conversation::unreadCountFor($request->user()) : 0,
         ]);

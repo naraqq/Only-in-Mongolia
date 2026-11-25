@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\CreatorReviewController;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\PayoutController;
 use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\BlockController;
@@ -95,6 +96,7 @@ Route::match(['get', 'post'], 'payments/{payment}/callback', [PaymentController:
 Route::get('media/{media}', [MediaController::class, 'show'])->name('media.show');
 
 Route::middleware(['auth', EnsureAdmin::class])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('creators', [CreatorReviewController::class, 'index'])->name('creators');
     Route::get('creators/{creator}/document/{kind}', [CreatorReviewController::class, 'document'])->whereIn('kind', ['front', 'back', 'selfie'])->name('creators.document');
     Route::post('creators/{creator}/decide', [CreatorReviewController::class, 'decide'])->name('creators.decide');

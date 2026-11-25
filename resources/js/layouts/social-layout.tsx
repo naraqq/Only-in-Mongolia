@@ -11,11 +11,9 @@ import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     BadgeCheck,
-    Banknote,
     Bell,
     Bookmark,
     Compass,
-    Flag,
     House,
     LogIn,
     LogOut,
@@ -53,8 +51,14 @@ export default function SocialLayout({
     wide?: boolean;
 }) {
     const { t } = useT();
-    const page = usePage<SharedData & { unreadMessages: number; unreadNotifications: number; openReports: number }>();
-    const { auth, unreadMessages, unreadNotifications, openReports } = page.props;
+    const page = usePage<
+        SharedData & {
+            unreadMessages: number;
+            unreadNotifications: number;
+            adminCounts: { applications: number; payouts: number; reports: number } | null;
+        }
+    >();
+    const { auth, unreadMessages, unreadNotifications, adminCounts } = page.props;
     const user = auth.user;
     const creator = auth.creator?.status === 'approved' ? auth.creator : null;
     const path = page.url.split('?')[0];
@@ -101,23 +105,11 @@ export default function SocialLayout({
                   ...(user.is_admin
                       ? [
                             {
-                                label: 'nav.admin',
-                                href: route('admin.creators'),
+                                label: 'nav.adminHome',
+                                href: route('admin.dashboard'),
                                 icon: ShieldCheck,
-                                match: (u: string) => u.startsWith('/admin/creators'),
-                            } as NavLink,
-                            {
-                                label: 'nav.payouts',
-                                href: route('admin.payouts'),
-                                icon: Banknote,
-                                match: (u: string) => u.startsWith('/admin/payouts'),
-                            } as NavLink,
-                            {
-                                label: 'nav.reports',
-                                href: route('admin.reports'),
-                                icon: Flag,
-                                match: (u: string) => u.startsWith('/admin/reports'),
-                                badge: openReports,
+                                match: (u: string) => u.startsWith('/admin'),
+                                badge: adminCounts ? adminCounts.applications + adminCounts.payouts + adminCounts.reports : 0,
                             } as NavLink,
                         ]
                       : []),
