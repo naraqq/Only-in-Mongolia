@@ -1,5 +1,6 @@
 import FollowButton from '@/components/follow-button';
 import InputError from '@/components/input-error';
+import MediaLightbox from '@/components/media-lightbox';
 import MoreMenu from '@/components/more-menu';
 import PostCard, { type PostItem } from '@/components/post-card';
 import TipButton from '@/components/tip-button';
@@ -25,6 +26,8 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
+type Option = { months: number; discount: number; price: number };
+
 type Creator = {
     avatar_url: string | null;
     cover_url: string | null;
@@ -33,6 +36,7 @@ type Creator = {
     bio: string | null;
     price_monthly: number;
     adult_content: boolean;
+    options: Option[];
     joined: string;
     posts_count: number;
     media_count: number;
@@ -145,7 +149,9 @@ export default function CreatorPage({
                     </span>
                 </div>
 
-                {!isOwner && <SubscribeCard handle={creator.handle} price={price} subscribed={subscribed} until={subscribedUntil} />}
+                {!isOwner && (
+                    <SubscribeCard handle={creator.handle} price={price} options={creator.options} subscribed={subscribed} until={subscribedUntil} />
+                )}
             </div>
 
             <div className="mt-6 border-t">
@@ -206,17 +212,15 @@ export default function CreatorPage({
 
 /** Photos and videos as a square grid. Locked ones show a lock (and the price for pay-per-view). */
 function MediaGrid({ posts, handle }: { posts: PostItem[]; handle: string }) {
+    const [open, setOpen] = useState<PostItem | null>(null);
+
     return (
         <div className="grid grid-cols-3 gap-0.5 p-0.5">
             {posts.map((p) => {
                 const first = p.media[0];
                 const many = p.counts.image + p.counts.video > 1;
-                return (
-                    <Link
-                        key={p.id}
-                        href={`${route('creator.show', handle)}#post-${p.id}`}
-                        className="group relative aspect-square overflow-hidden bg-zinc-900"
-                    >
+                const inner = (
+                    <>
                         {first ? (
                             first.type === 'video' ? (
                                 <video src={first.url} muted preload="metadata" className="size-full object-cover" />
@@ -235,9 +239,21 @@ function MediaGrid({ posts, handle }: { posts: PostItem[]; handle: string }) {
                         {(first?.type === 'video' || (!first && p.counts.video > 0)) && (
                             <Play className="absolute bottom-1.5 left-1.5 size-4 fill-white text-white drop-shadow" />
                         )}
+                    </>
+                );
+                const tile = 'group relative aspect-square overflow-hidden bg-zinc-900';
+                // Visible media opens in the full-screen viewer; locked tiles go to the post to unlock it.
+                return first ? (
+                    <button key={p.id} type="button" onClick={() => setOpen(p)} className={`${tile} cursor-zoom-in`}>
+                        {inner}
+                    </button>
+                ) : (
+                    <Link key={p.id} href={`${route('creator.show', handle)}#post-${p.id}`} className={tile}>
+                        {inner}
                     </Link>
                 );
             })}
+            <MediaLightbox media={open?.media ?? []} start={open ? 0 : null} onClose={() => setOpen(null)} />
         </div>
     );
 }
@@ -274,15 +290,61 @@ function MessageButton({ handle, block }: { handle: string; block: string | null
 }
 
 /** Subscribe (or renew) for one period; signed-out visitors are sent to log in first. */
-export function SubscribeCard({ handle, price, subscribed, until }: { handle: string; price: string; subscribed: boolean; until: string | null }) {
+export function SubscribeCard({
+    handle,
+    price,
+    options,
+    subscribed,
+    until,
+}: {
+    handle: string;
+    price: string;
+    options: Option[];
+    subscribed: boolean;
+    until: string | null;
+}) {
     const { t } = useT();
     const { auth, errors } = usePage<SharedData & { errors: Record<string, string> }>().props;
-    const [busy, setBusy] = useState(false);
+    const [busy, setBusy] = useState<number | null>(null);
+    const bundles = options.filter((o) => o.months > 1);
 
-    const subscribe = () => {
+    const subscribe = (months = 1) => {
         if (!auth.user) return router.visit(route('login'));
-        router.post(route('creator.subscribe', handle), {}, { onStart: () => setBusy(true), onFinish: () => setBusy(false) });
+        router.post(route('creator.subscribe', handle), { months }, { onStart: () => setBusy(months), onFinish: () => setBusy(null) });
     };
+
+    // Several months at once, cheaper per month. Shown under the main button (and for renewing).
+    const bundleRow = bundles.length > 0 && (
+        <div className="mt-3">
+            <p className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">{t('cp.bundles')}</p>
+            <div className="grid gap-2 sm:grid-cols-3">
+                {bundles.map((b) => (
+                    <button
+                        key={b.months}
+                        type="button"
+                        onClick={() => subscribe(b.months)}
+                        disabled={busy !== null}
+                        className="hover:border-primary hover:bg-primary/5 relative flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition disabled:opacity-60 sm:flex-col sm:items-start"
+                    >
+                        <span>
+                            <span className="block text-sm font-bold">{t('cp.months', { n: b.months })}</span>
+                            <span className="text-muted-foreground block text-xs">
+                                {t('cp.perMonth', { price: mnt(Math.round(b.price / b.months)) })}
+                            </span>
+                        </span>
+                        <span className="flex items-center gap-2 sm:w-full sm:justify-between">
+                            <span className="font-extrabold tabular-nums">
+                                {busy === b.months ? <LoaderCircle className="size-4 animate-spin" /> : mnt(b.price)}
+                            </span>
+                            <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[11px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                                −{b.discount}%
+                            </span>
+                        </span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
 
     if (subscribed && until) {
         return (
@@ -292,7 +354,7 @@ export function SubscribeCard({ handle, price, subscribed, until }: { handle: st
                     <p className="font-bold text-emerald-800 dark:text-emerald-300">{t('cp.subscribed')}</p>
                     <p className="text-sm text-emerald-700/80 dark:text-emerald-400/80">{t('cp.until', { date: day(until) })}</p>
                 </div>
-                <Button variant="outline" size="sm" className="rounded-full" onClick={subscribe} disabled={busy}>
+                <Button variant="outline" size="sm" className="rounded-full" onClick={() => subscribe()} disabled={busy !== null}>
                     {t('cp.renew')}
                 </Button>
             </div>
@@ -303,8 +365,8 @@ export function SubscribeCard({ handle, price, subscribed, until }: { handle: st
         <div className="mt-5">
             <button
                 type="button"
-                onClick={subscribe}
-                disabled={busy}
+                onClick={() => subscribe()}
+                disabled={busy !== null}
                 className="from-primary shadow-primary/25 flex w-full items-center justify-between gap-3 rounded-2xl bg-gradient-to-r to-rose-500 px-5 py-4 text-left text-white shadow-lg transition hover:brightness-110 disabled:opacity-60"
             >
                 <span>
@@ -312,10 +374,11 @@ export function SubscribeCard({ handle, price, subscribed, until }: { handle: st
                     <span className="block text-sm text-white/90">{t('cp.unlock')}</span>
                 </span>
                 <span className="flex items-center gap-2 text-lg font-extrabold whitespace-nowrap">
-                    {busy && <LoaderCircle className="size-5 animate-spin" />}
+                    {busy === 1 && <LoaderCircle className="size-5 animate-spin" />}
                     {t('cp.perMonth', { price })}
                 </span>
             </button>
+            {bundleRow}
             <InputError message={errors.payment} className="mt-2" />
         </div>
     );

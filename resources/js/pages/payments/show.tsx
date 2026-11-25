@@ -17,6 +17,7 @@ type Payment = {
     fake: boolean;
     purpose: 'subscription' | 'tip' | 'ppv';
     note: string | null;
+    months: number;
 };
 type Creator = { handle: string; display_name: string; bio: string | null; price_monthly: number; avatar_url: string | null };
 
@@ -77,7 +78,11 @@ export default function PaymentShow({ payment, creator, days, returnUrl }: { pay
                             <BadgeCheck className="size-4 shrink-0 text-sky-500" />
                         </p>
                         <p className="text-muted-foreground text-sm">
-                            {payment.purpose === 'tip' ? t('tip.for') : payment.purpose === 'ppv' ? t('ppv.what') : t('pay.what', { days })}
+                            {payment.purpose === 'tip'
+                                ? t('tip.for')
+                                : payment.purpose === 'ppv'
+                                  ? t('ppv.what')
+                                  : (payment.months > 1 ? `${t('pay.months', { n: payment.months })} · ` : '') + t('pay.what', { days })}
                         </p>
                         {payment.note && <p className="text-muted-foreground mt-0.5 truncate text-xs italic">“{payment.note}”</p>}
                     </div>

@@ -9,7 +9,15 @@ import { ArrowLeft, Camera, Check, ImagePlus, LoaderCircle, Trash2 } from 'lucid
 import { useRef, useState, type FormEvent } from 'react';
 
 type Policy = 'everyone' | 'followers' | 'subscribers';
-type Creator = { handle: string; display_name: string; bio: string | null; price_monthly: number; dm_policy: Policy; cover_url: string | null };
+type Creator = {
+    handle: string;
+    display_name: string;
+    bio: string | null;
+    price_monthly: number;
+    dm_policy: Policy;
+    cover_url: string | null;
+    bundles: Record<string, number>;
+};
 
 const POLICIES: { value: Policy; label: TKey }[] = [
     { value: 'everyone', label: 'pe.dmEveryone' },
@@ -25,7 +33,7 @@ export default function EditProfile({
 }: {
     profile: { name: string; avatar_url: string | null; cover_url: string | null };
     creator: Creator | null;
-    limits: { min_price: number; max_price: number };
+    limits: { min_price: number; max_price: number; max_discount: number };
 }) {
     const { t } = useT();
     const { errors: pageErrors } = usePage<{ errors: Record<string, string> }>().props;
@@ -35,6 +43,7 @@ export default function EditProfile({
         bio: creator?.bio ?? '',
         price_monthly: creator?.price_monthly ?? 0,
         dm_policy: (creator?.dm_policy ?? 'followers') as Policy,
+        bundles: (creator?.bundles ?? {}) as Record<string, number>,
     });
     const [saved, setSaved] = useState(false);
 
@@ -131,6 +140,42 @@ export default function EditProfile({
                                     value={form.data.price_monthly ? form.data.price_monthly.toLocaleString('en-US') : ''}
                                     onChange={(e) => form.setData('price_monthly', Number(e.target.value.replace(/\D/g, '').slice(0, 7)))}
                                 />
+                            </div>
+                        </Field>
+                        <Field label={t('pe.bundles')} hint={t('pe.bundlesHint', { max: limits.max_discount })}>
+                            <div className="grid grid-cols-3 gap-2">
+                                {Object.keys(form.data.bundles).map((m) => {
+                                    const pct = form.data.bundles[m] ?? 0;
+                                    const total = Math.floor((form.data.price_monthly * Number(m) * (100 - pct)) / 10000) * 100;
+                                    return (
+                                        <div key={m} className={`rounded-2xl border p-3 ${pct > 0 ? 'border-primary/50 bg-primary/5' : ''}`}>
+                                            <p className="text-sm font-bold">{t('cp.months', { n: Number(m) })}</p>
+                                            <div className="mt-1.5 flex items-center gap-1">
+                                                <span className="text-muted-foreground text-sm">−</span>
+                                                <input
+                                                    inputMode="numeric"
+                                                    value={pct || ''}
+                                                    placeholder="0"
+                                                    onChange={(e) =>
+                                                        form.setData('bundles', {
+                                                            ...form.data.bundles,
+                                                            [m]: Math.min(
+                                                                limits.max_discount,
+                                                                Number(e.target.value.replace(/\D/g, '').slice(0, 2)) || 0,
+                                                            ),
+                                                        })
+                                                    }
+                                                    className="border-input focus:border-primary h-9 w-14 rounded-lg border bg-transparent px-2 text-center font-semibold tabular-nums outline-none"
+                                                    aria-label={t('cp.months', { n: Number(m) })}
+                                                />
+                                                <span className="text-muted-foreground text-sm">%</span>
+                                            </div>
+                                            <p className="text-muted-foreground mt-1.5 text-xs">
+                                                {pct > 0 ? t('pe.bundleTotal', { price: `₮${total.toLocaleString('en-US')}` }) : t('pe.bundleOff')}
+                                            </p>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </Field>
                         <Field label={t('pe.dmPolicy')} error={form.errors.dm_policy}>

@@ -11,6 +11,10 @@ return [
     // A subscription buys this many days of access; fans renew by paying again (QPay has no recurring billing).
     'subscription_days' => 30,
 
+    // Bundles: creators may sell several months at once at a discount (percent, up to the max).
+    'bundle_months' => [3, 6, 12],
+    'max_bundle_discount' => 50,
+
     // Tip limits (₮).
     'min_tip' => (int) env('MIN_TIP', 1_000),
     'max_tip' => (int) env('MAX_TIP', 1_000_000),

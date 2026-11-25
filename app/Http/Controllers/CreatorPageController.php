@@ -45,6 +45,7 @@ class CreatorPageController extends Controller
                 'joined' => $creator->created_at->toIso8601String(),
                 'avatar_url' => $creator->avatarUrl(),
                 'cover_url' => $creator->coverUrl(),
+                'options' => $creator->subscriptionOptions(),
                 'posts_count' => $creator->posts()->published()->count(),
                 'media_count' => $creator->posts()->published()->has('media')->count(),
                 'followers_count' => $creator->followers()->count(),

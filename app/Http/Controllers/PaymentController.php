@@ -28,9 +28,11 @@ class PaymentController extends Controller
         $creator = CreatorProfile::listableFor($request->user())->where('handle', mb_strtolower($handle))->firstOrFail();
         abort_if($creator->user_id === $request->user()->id, 422, 'You can’t subscribe to yourself.');
         abort_if(Blocking::between($creator->user, $request->user()), 404);
+        $months = (int) ($request->validate(['months' => ['nullable', 'integer', 'in:1,'.implode(',', config('creators.bundle_months'))]])['months'] ?? 1);
+        abort_if($creator->priceFor($months) === null, 422, 'This bundle is not offered.');
 
         try {
-            $payment = $this->payments->startSubscription($request->user(), $creator);
+            $payment = $this->payments->startSubscription($request->user(), $creator, $months);
         } catch (PaymentException $e) {
             report($e);
 
@@ -129,10 +131,11 @@ class PaymentController extends Controller
                 'fake' => $payment->provider === 'fake',
                 'purpose' => $payment->purpose,
                 'note' => $payment->note,
+                'months' => $payment->months,
             ],
             'returnUrl' => $this->returnUrl($payment),
             'creator' => [...$creator->only('handle', 'display_name', 'bio', 'price_monthly'), 'avatar_url' => $creator->avatarUrl()],
-            'days' => (int) config('creators.subscription_days'),
+            'days' => (int) config('creators.subscription_days') * max(1, $payment->months),
             'expiresAt' => $request->user()->subscriptions()->where('creator_profile_id', $creator->id)->value('expires_at'),
         ]);
     }

@@ -29,9 +29,10 @@ class ProfileEditController extends Controller
             ],
             'creator' => $creator ? [
                 ...$creator->only('handle', 'display_name', 'bio', 'price_monthly', 'dm_policy'),
+                'bundles' => collect(config('creators.bundle_months'))->mapWithKeys(fn ($m) => [$m => (int) ($creator->bundles[(string) $m] ?? 0)]),
                 'cover_url' => $creator->coverUrl(),
             ] : null,
-            'limits' => ['min_price' => config('creators.min_price'), 'max_price' => config('creators.max_price')],
+            'limits' => ['min_price' => config('creators.min_price'), 'max_price' => config('creators.max_price'), 'max_discount' => config('creators.max_bundle_discount')],
         ]);
     }
 
@@ -47,6 +48,10 @@ class ProfileEditController extends Controller
                 'bio' => ['nullable', 'string', 'max:500'],
                 'price_monthly' => ['required', 'integer', 'min:'.config('creators.min_price'), 'max:'.config('creators.max_price')],
                 'dm_policy' => ['required', Rule::in(self::DM_POLICIES)],
+                'bundles' => ['nullable', 'array'],
+                ...collect(config('creators.bundle_months'))->mapWithKeys(fn ($m) => [
+                    "bundles.{$m}" => ['nullable', 'integer', 'min:0', 'max:'.config('creators.max_bundle_discount')],
+                ])->all(),
             ] : []),
         ]);
 
@@ -57,6 +62,9 @@ class ProfileEditController extends Controller
             'bio' => trim((string) ($data['bio'] ?? '')) ?: null,
             'price_monthly' => $data['price_monthly'],
             'dm_policy' => $data['dm_policy'],
+            'bundles' => collect(config('creators.bundle_months'))
+                ->mapWithKeys(fn ($m) => [(string) $m => (int) ($data['bundles'][$m] ?? $data['bundles'][(string) $m] ?? 0)])
+                ->filter()->all() ?: null,
         ]);
 
         return back()->with('status', 'saved');

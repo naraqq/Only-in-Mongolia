@@ -24,11 +24,14 @@ class Payments
         return $this->gateway;
     }
 
-    /** A new invoice for one subscription period to $creator. */
-    public function startSubscription(User $fan, CreatorProfile $creator): Payment
+    /** A new invoice for $months subscription periods to $creator (1, or a bundle the creator offers). */
+    public function startSubscription(User $fan, CreatorProfile $creator, int $months = 1): Payment
     {
-        return $this->start($fan, $creator, Payment::SUBSCRIPTION, $creator->price_monthly,
-            "Only in Mongolia: @{$creator->handle}, ".config('creators.subscription_days').' хоног');
+        $price = $creator->priceFor($months);
+        abort_if($price === null, 422, 'This bundle is not offered.');
+
+        return $this->start($fan, $creator, Payment::SUBSCRIPTION, $price,
+            "Only in Mongolia: @{$creator->handle}, ".(config('creators.subscription_days') * $months).' хоног', ['months' => $months]);
     }
 
     /** A new invoice for a tip, optionally for one of the creator's posts and with a short note. */
@@ -103,7 +106,7 @@ class Payments
             $sub = Subscription::firstOrNew(['user_id' => $fresh->user_id, 'creator_profile_id' => $fresh->creator_profile_id]);
             $renewed = $sub->expires_at && $sub->expires_at->isFuture();
             $from = $renewed ? $sub->expires_at : now(); // renewals add on to the current period
-            $sub->expires_at = $from->copy()->addDays((int) config('creators.subscription_days'));
+            $sub->expires_at = $from->copy()->addDays((int) config('creators.subscription_days') * max(1, $fresh->months));
             $sub->save();
             Notify::paid($fresh, $renewed);
 
@@ -125,7 +128,7 @@ class Payments
             if ($fresh->purpose === Payment::SUBSCRIPTION) {
                 $sub = Subscription::where('user_id', $fresh->user_id)->where('creator_profile_id', $fresh->creator_profile_id)->first();
                 if ($sub?->expires_at) {
-                    $end = $sub->expires_at->copy()->subDays((int) config('creators.subscription_days'));
+                    $end = $sub->expires_at->copy()->subDays((int) config('creators.subscription_days') * max(1, $fresh->months));
                     $sub->update(['expires_at' => $end->isFuture() ? $end : now()]);
                 }
             }

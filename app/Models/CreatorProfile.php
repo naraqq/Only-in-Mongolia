@@ -18,7 +18,7 @@ class CreatorProfile extends Model
     public const SUSPENDED = 'suspended';
 
     protected $fillable = [
-        'user_id', 'handle', 'display_name', 'bio', 'price_monthly', 'adult_content', 'dm_policy',
+        'user_id', 'handle', 'display_name', 'bio', 'price_monthly', 'adult_content', 'dm_policy', 'bundles',
         'legal_name', 'register_number', 'id_front_path', 'id_back_path', 'selfie_path',
         'bank_name', 'bank_account', 'account_holder', 'consented_at', 'consent_ip',
         'status', 'review_note', 'reviewed_at', 'reviewed_by',
@@ -26,6 +26,7 @@ class CreatorProfile extends Model
 
     protected $casts = [
         'price_monthly' => 'integer',
+        'bundles' => 'array',
         'adult_content' => 'boolean',
         'register_number' => 'encrypted',
         'bank_account' => 'encrypted',
@@ -85,6 +86,37 @@ class CreatorProfile extends Model
     }
 
     /** What a creator card shows (public information only). */
+    /** Discount (percent) for a bundle of $months, or null if the creator doesn't offer it. A month is always on offer. */
+    public function bundleDiscount(int $months): ?int
+    {
+        if ($months === 1) {
+            return 0;
+        }
+        if (! in_array($months, config('creators.bundle_months'), true)) {
+            return null;
+        }
+        $discount = (int) ($this->bundles[(string) $months] ?? 0);
+
+        return $discount > 0 ? $discount : null;
+    }
+
+    /** What $months cost at once, rounded down to whole hundreds of tögrög; null if not offered. */
+    public function priceFor(int $months): ?int
+    {
+        $discount = $this->bundleDiscount($months);
+
+        return $discount === null ? null : intdiv($this->price_monthly * $months * (100 - $discount), 100 * 100) * 100;
+    }
+
+    /** The plain month plus every bundle on offer: [{months, discount, price}]. */
+    public function subscriptionOptions(): array
+    {
+        return collect([1, ...config('creators.bundle_months')])
+            ->filter(fn ($m) => $this->bundleDiscount($m) !== null)
+            ->map(fn ($m) => ['months' => $m, 'discount' => $this->bundleDiscount($m), 'price' => $this->priceFor($m)])
+            ->values()->all();
+    }
+
     public function toCard(?User $viewer = null): array
     {
         return [

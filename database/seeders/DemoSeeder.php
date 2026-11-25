@@ -72,6 +72,13 @@ class DemoSeeder extends Seeder
         ]],
     ];
 
+    private const BUNDLES = [
+        'khulan.style' => ['3' => 10, '6' => 15, '12' => 25],
+        'gobi.lens' => ['3' => 10, '12' => 20],
+        'temuulen.fit' => ['3' => 15, '6' => 20],
+        'saraa.art' => ['6' => 15, '12' => 30],
+    ];
+
     public function run(): void
     {
         $creators = collect(self::CREATORS)->map(function ($c, $i) {
@@ -83,6 +90,11 @@ class DemoSeeder extends Seeder
 
             return $profile;
         });
+
+        // A few creators sell bundles (percent off for paying several months at once).
+        foreach (self::BUNDLES as $handle => $bundles) {
+            CreatorProfile::where('handle', $handle)->update(['bundles' => json_encode($bundles)]);
+        }
 
         // Followers, so counts and "most followed" mean something.
         User::factory(40)->create(['birthdate' => '1998-01-01'])->each(
