@@ -137,10 +137,16 @@ class PhoneLoginController extends Controller
             return to_route('login');
         }
 
-        $data = $request->validate(['name' => ['required', 'string', 'max:60']]);
+        $adultBy = now()->subYears(config('creators.min_age'))->toDateString();
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:60'],
+            'birthdate' => ['required', 'date', 'after:1900-01-01', "before_or_equal:{$adultBy}"],
+        ], [
+            'birthdate.before_or_equal' => __('You must be at least 18 to use this site.'),
+        ]);
 
         $user = User::firstOrNew(['phone' => $pending['phone']]);
-        $user->fill(['name' => trim($data['name'])])->forceFill(['phone_verified_at' => now()])->save();
+        $user->fill(['name' => trim($data['name']), 'birthdate' => $data['birthdate']])->forceFill(['phone_verified_at' => now()])->save();
         PhoneVerification::whereKey($pending['id'])->update(['user_id' => $user->id]);
         $request->session()->forget(self::VERIFIED_PHONE_KEY);
 

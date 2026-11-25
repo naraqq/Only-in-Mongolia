@@ -19,6 +19,7 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'birthdate',
         'phone',
         'email',
         'password',
@@ -44,7 +45,14 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'phone_verified_at' => 'datetime',
+            'birthdate' => 'date',
+            'is_admin' => 'boolean',
             'password' => 'hashed',
         ];
+    }
+
+    public function creatorProfile(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(CreatorProfile::class);
     }
 }

@@ -1,5 +1,13 @@
 {
     "Enter an 8-digit Mongolian mobile number.": "8 оронтой гар утасны дугаар оруулна уу.",
     "Could not start phone verification. Please try again.": "Утасны баталгаажуулалт эхлүүлж чадсангүй. Дахин оролдоно уу.",
-    "Your number is not verified yet.": "Таны дугаар хараахан баталгаажаагүй байна."
+    "Your number is not verified yet.": "Таны дугаар хараахан баталгаажаагүй байна.",
+    "You must be at least 18 to use this site.": "Энэ сайтыг ашиглахын тулд 18 нас хүрсэн байх ёстой.",
+    "Use only lowercase letters, numbers, dots and underscores.": "Зөвхөн жижиг латин үсэг, тоо, цэг, доогуур зураас ашиглана уу.",
+    "This handle is reserved.": "Энэ нэрийг ашиглах боломжгүй.",
+    "Enter a valid account number (digits only, or an MN IBAN).": "Зөв дансны дугаар оруулна уу (зөвхөн тоо эсвэл MN IBAN).",
+    "Enter a valid register number, e.g. УБ99031512.": "Зөв регистрийн дугаар оруулна уу, жишээ нь УБ99031512.",
+    "Creators must be at least 18 years old.": "Бүтээгч 18 нас хүрсэн байх ёстой.",
+    "This register number doesn’t match the date of birth on your account.": "Регистрийн дугаар таны бүртгэл дээрх төрсөн огноотой таарахгүй байна.",
+    "This register number is already used by another creator account.": "Энэ регистрийн дугаар өөр бүтээгчийн бүртгэлд ашиглагдсан байна."
 }
