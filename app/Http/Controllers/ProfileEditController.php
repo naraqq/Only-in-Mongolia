@@ -11,7 +11,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
 
-/** "Edit profile": everyone has a name and photo; approved creators also a cover, bio, price and message settings. */
+/** "Edit profile": everyone has a name, photo and cover; approved creators also a bio, price and message settings. */
 class ProfileEditController extends Controller
 {
     public const DM_POLICIES = ['everyone', 'followers', 'subscribers'];
@@ -25,6 +25,7 @@ class ProfileEditController extends Controller
             'profile' => [
                 'name' => $user->name,
                 'avatar_url' => $user->avatar_url,
+                'cover_url' => $user->cover_path ? Storage::disk('public')->url($user->cover_path) : null,
             ],
             'creator' => $creator ? [
                 ...$creator->only('handle', 'display_name', 'bio', 'price_monthly', 'dm_policy'),
@@ -99,9 +100,9 @@ class ProfileEditController extends Controller
         if ($kind === 'avatar') {
             return [$request->user(), 'avatar_path', 400, 400];
         }
+        // Creators' cover shows on their page; everyone else's is kept on the account.
         $creator = $request->user()->creatorProfile()->where('status', 'approved')->first();
-        abort_unless($creator, 403);
 
-        return [$creator, 'cover_path', 1500, 500];
+        return [$creator ?? $request->user(), 'cover_path', 1500, 500];
     }
 }

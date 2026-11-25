@@ -43,19 +43,39 @@ class ProfileEditTest extends TestCase
         $this->assertNull($user->fresh()->avatar_path);
     }
 
-    public function test_non_images_are_rejected_and_only_creators_have_a_cover(): void
+    public function test_non_images_are_rejected_and_everyone_can_have_a_cover(): void
     {
         Storage::fake('public');
         $user = User::factory()->create(['birthdate' => '1990-01-01']);
 
         $this->actingAs($user)->post('/profile/photo/avatar', ['photo' => UploadedFile::fake()->create('x.pdf', 10, 'application/pdf')])->assertSessionHasErrors('photo');
-        $this->post('/profile/photo/cover', ['photo' => UploadedFile::fake()->image('c.jpg', 1600, 900)])->assertForbidden();
+        $this->post('/profile/photo/cover', ['photo' => UploadedFile::fake()->image('c.jpg', 1600, 900)])->assertSessionHasNoErrors();
+        $mine = $user->fresh()->cover_path;
+        $this->assertNotNull($mine);
+        $this->get('/profile')->assertInertia(fn ($p) => $p->where('profile.cover_url', Storage::disk('public')->url($mine)));
+        $this->delete('/profile/photo/cover');
+        $this->assertNull($user->fresh()->cover_path);
+        Storage::disk('public')->assertMissing($mine);
 
         $creator = $this->creator();
         $this->actingAs($creator->user)->post('/profile/photo/cover', ['photo' => UploadedFile::fake()->image('c.jpg', 1600, 900)])->assertSessionHasNoErrors();
         $cover = $creator->fresh()->cover_path;
         $this->assertSame([1500, 500], array_slice(getimagesizefromstring(Storage::disk('public')->get($cover)), 0, 2));
         $this->get('/@artist')->assertInertia(fn ($p) => $p->where('creator.cover_url', Storage::disk('public')->url($cover)));
+    }
+
+    public function test_a_cover_picked_before_applying_moves_to_the_creator_page_on_approval(): void
+    {
+        Storage::fake('public');
+        $creator = $this->creator();
+        $creator->update(['status' => CreatorProfile::PENDING]);
+        $this->actingAs($creator->user)->post('/profile/photo/cover', ['photo' => UploadedFile::fake()->image('c.jpg', 1600, 900)]);
+        $path = $creator->user->fresh()->cover_path;
+
+        $admin = User::factory()->create(['is_admin' => true]);
+        $this->actingAs($admin)->post("/admin/creators/{$creator->id}/decide", ['decision' => 'approved'])->assertSessionHasNoErrors();
+        $this->assertSame($path, $creator->fresh()->cover_path);
+        $this->assertNull($creator->user->fresh()->cover_path);
     }
 
     public function test_creators_edit_their_page_and_message_settings(): void

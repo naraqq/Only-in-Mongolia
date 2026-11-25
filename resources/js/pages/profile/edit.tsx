@@ -17,13 +17,13 @@ const POLICIES: { value: Policy; label: TKey }[] = [
     { value: 'subscribers', label: 'pe.dmSubscribers' },
 ];
 
-/** Edit profile: photo and name for everyone; cover, display name, bio, price and message settings for creators. */
+/** Edit profile: photo, cover and name for everyone; display name, bio, price and message settings for creators. */
 export default function EditProfile({
     profile,
     creator,
     limits,
 }: {
-    profile: { name: string; avatar_url: string | null };
+    profile: { name: string; avatar_url: string | null; cover_url: string | null };
     creator: Creator | null;
     limits: { min_price: number; max_price: number };
 }) {
@@ -50,6 +50,7 @@ export default function EditProfile({
     }
 
     const seed = creator?.handle ?? profile.name;
+    const cover = creator ? creator.cover_url : profile.cover_url;
     const field =
         'border-input focus:border-primary focus:ring-primary/15 w-full rounded-2xl border bg-white px-4 text-[15px] shadow-sm outline-none transition focus:ring-4 dark:bg-zinc-900';
 
@@ -68,10 +69,10 @@ export default function EditProfile({
                 </>
             }
         >
-            {/* Cover (creators) + photo */}
+            {/* Cover + photo */}
             <div className={`group relative h-36 overflow-hidden bg-gradient-to-br sm:h-44 ${avatarGradient(seed)}`}>
-                {creator?.cover_url && <img src={creator.cover_url} alt="" className="size-full object-cover" />}
-                {creator && <PhotoButtons kind="cover" has={!!creator.cover_url} className="absolute inset-0 grid place-items-center bg-black/25" />}
+                {cover && <img src={cover} alt="" className="size-full object-cover" />}
+                <PhotoButtons kind="cover" has={!!cover} className="absolute inset-0 grid place-items-center bg-black/25" />
             </div>
             <div className="relative z-10 -mt-12 px-4">
                 <div className="relative w-fit">

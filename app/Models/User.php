@@ -39,6 +39,7 @@ class User extends Authenticatable
         'password',
         'remember_token',
         'avatar_path',
+        'cover_path',
     ];
 
     /** Sent to the browser with the user (e.g. auth.user.avatar_url). */

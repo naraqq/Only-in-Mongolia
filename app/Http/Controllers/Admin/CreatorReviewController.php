@@ -67,6 +67,13 @@ class CreatorReviewController extends Controller
             'reviewed_by' => $request->user()->id,
         ]);
 
+        // A cover picked before applying becomes the creator page's cover.
+        $user = $creator->user;
+        if ($data['decision'] === 'approved' && ! $creator->cover_path && $user->cover_path) {
+            $creator->forceFill(['cover_path' => $user->cover_path])->save();
+            $user->forceFill(['cover_path' => null])->save();
+        }
+
         return back();
     }
 }
