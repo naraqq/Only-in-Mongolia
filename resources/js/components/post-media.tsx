@@ -1,7 +1,7 @@
 import MediaLightbox from '@/components/media-lightbox';
 import { useT } from '@/lib/i18n';
 import { ChevronLeft, ChevronRight, Heart } from 'lucide-react';
-import { useRef, useState, type MouseEvent } from 'react';
+import { useRef, useState, type MouseEvent, type ReactNode } from 'react';
 
 type Media = { id: number; type: 'image' | 'video'; url: string };
 
@@ -9,7 +9,7 @@ type Media = { id: number; type: 'image' | 'video'; url: string };
  * A post's photos and videos. One item keeps its own shape; several become a swipeable carousel with dots.
  * Click a photo to see it full screen; double-click (or double-tap) to like.
  */
-export default function PostMedia({ media, onDoubleLike }: { media: Media[]; onDoubleLike?: () => void }) {
+export default function PostMedia({ media, onDoubleLike, aside }: { media: Media[]; onDoubleLike?: () => void; aside?: ReactNode }) {
     const { t } = useT();
     const track = useRef<HTMLDivElement>(null);
     const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -108,7 +108,7 @@ export default function PostMedia({ media, onDoubleLike }: { media: Media[]; onD
                 </>
             )}
 
-            <MediaLightbox media={media} start={open} onClose={() => setOpen(null)} />
+            <MediaLightbox media={media} start={open} onClose={() => setOpen(null)} aside={aside} />
         </div>
     );
 }

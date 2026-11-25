@@ -3,12 +3,14 @@ import InputError from '@/components/input-error';
 import MediaLightbox from '@/components/media-lightbox';
 import MoreMenu from '@/components/more-menu';
 import PostCard, { type PostItem } from '@/components/post-card';
+import PostPanel from '@/components/post-panel';
 import TipButton from '@/components/tip-button';
 import { Button } from '@/components/ui/button';
 import UserAvatar from '@/components/user-avatar';
 import SocialLayout from '@/layouts/social-layout';
 import { avatarGradient, mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
+import { usePostState } from '@/lib/use-post-state';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
 import {
@@ -197,7 +199,7 @@ export default function CreatorPage({
                 ) : posts.length === 0 ? (
                     <p className="text-muted-foreground p-10 text-center text-sm">{t('cp.noPosts')}</p>
                 ) : tab === 'media' ? (
-                    <MediaGrid posts={posts} handle={creator.handle} />
+                    <MediaGrid posts={posts} handle={creator.handle} author={author} />
                 ) : (
                     <div className="flex flex-col gap-4 p-4">
                         {posts.map((p) => (
@@ -211,7 +213,15 @@ export default function CreatorPage({
 }
 
 /** Photos and videos as a square grid. Locked ones show a lock (and the price for pay-per-view). */
-function MediaGrid({ posts, handle }: { posts: PostItem[]; handle: string }) {
+type Author = { name: string; handle: string; avatar_url: string | null };
+
+/** A media-tab post opened full screen, with its likes and comments beside it. */
+function GridViewer({ post, author, onClose }: { post: PostItem; author: Author; onClose: () => void }) {
+    const state = usePostState(post);
+    return <MediaLightbox media={post.media} start={0} onClose={onClose} aside={<PostPanel post={post} author={author} state={state} />} />;
+}
+
+function MediaGrid({ posts, handle, author }: { posts: PostItem[]; handle: string; author: Author }) {
     const [open, setOpen] = useState<PostItem | null>(null);
 
     return (
@@ -253,7 +263,7 @@ function MediaGrid({ posts, handle }: { posts: PostItem[]; handle: string }) {
                     </Link>
                 );
             })}
-            <MediaLightbox media={open?.media ?? []} start={open ? 0 : null} onClose={() => setOpen(null)} />
+            {open && <GridViewer key={open.id} post={open} author={author} onClose={() => setOpen(null)} />}
         </div>
     );
 }

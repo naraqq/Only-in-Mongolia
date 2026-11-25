@@ -1,15 +1,16 @@
 import MoreMenu from '@/components/more-menu';
 import PostComments from '@/components/post-comments';
 import PostMedia from '@/components/post-media';
+import PostPanel from '@/components/post-panel';
 import RichText from '@/components/rich-text';
 import TipButton from '@/components/tip-button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import UserAvatar from '@/components/user-avatar';
 import { mnt, timeAgo } from '@/lib/format';
-import { sendJson } from '@/lib/http';
 import { useT } from '@/lib/i18n';
+import { usePostState, type PostState } from '@/lib/use-post-state';
 import { type SharedData } from '@/types';
-import { Link, router, usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     BadgeCheck,
     Bookmark,
@@ -68,7 +69,7 @@ export default function PostCard({
     const { t } = useT();
     const { auth } = usePage<SharedData>().props;
     const mine = auth.creator?.handle === author.handle;
-    const like = useLike(post);
+    const state = usePostState(post);
     const avatar = <UserAvatar name={author.name} src={author.avatar_url} seed={author.handle} className="size-11" />;
 
     return (
@@ -170,71 +171,24 @@ export default function PostCard({
             ) : (
                 <>
                     {post.body && <RichText text={post.body} className="px-4 pt-3" />}
-                    {post.media.length > 0 && <PostMedia media={post.media} onDoubleLike={like.likeOnce} />}
+                    {post.media.length > 0 && (
+                        <PostMedia media={post.media} onDoubleLike={state.likeOnce} aside={<PostPanel post={post} author={author} state={state} />} />
+                    )}
                     <div className="h-1.5" />
                 </>
             )}
-            <Actions post={post} author={author} mine={mine} like={like} />
+            <Actions post={post} author={author} mine={mine} state={state} />
         </article>
     );
 }
 
-/** Like state for one post. Updates at once and rolls back if the server says no. */
-function useLike(post: PostItem) {
-    const { auth } = usePage<SharedData>().props;
-    const [liked, setLiked] = useState(post.liked);
-    const [likes, setLikes] = useState(post.likes_count);
-
-    async function toggle(want?: boolean) {
-        if (!auth.user) return router.visit(route('login'));
-        const was = liked;
-        if (want !== undefined && want === was) return;
-        setLiked(!was);
-        setLikes((n) => n + (was ? -1 : 1));
-        try {
-            const r = await sendJson<{ liked: boolean; likes_count: number }>('POST', route('posts.like', post.id));
-            setLiked(r.liked);
-            setLikes(r.likes_count);
-        } catch {
-            setLiked(was);
-            setLikes((n) => n + (was ? 1 : -1));
-        }
-    }
-
-    return { liked, likes, toggle: () => toggle(), likeOnce: () => toggle(true) };
-}
-
 /** Like, comment, save (on posts you can see) and tip (on other people's posts). Likes and saves update instantly. */
-function Actions({
-    post,
-    author,
-    mine,
-    like,
-}: {
-    post: PostItem;
-    author: { name: string; handle: string };
-    mine: boolean;
-    like: ReturnType<typeof useLike>;
-}) {
+function Actions({ post, author, mine, state }: { post: PostItem; author: { name: string; handle: string }; mine: boolean; state: PostState }) {
     const { t } = useT();
-    const { auth } = usePage<SharedData>().props;
-    const { liked, likes } = like;
-    const [saved, setSaved] = useState(post.bookmarked);
-    const [comments, setComments] = useState(post.comments_count);
+    const { liked, likes, saved, comments, setComments, toggleSave } = state;
     const [open, setOpen] = useState(false);
     const canEngage = !post.locked;
     const btn = 'text-muted-foreground inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold transition';
-
-    async function toggleSave() {
-        if (!auth.user) return router.visit(route('login'));
-        const was = saved;
-        setSaved(!was);
-        try {
-            setSaved((await sendJson<{ bookmarked: boolean }>('POST', route('posts.bookmark', post.id))).bookmarked);
-        } catch {
-            setSaved(was);
-        }
-    }
 
     if (!canEngage && mine) return null;
 
@@ -245,7 +199,7 @@ function Actions({
                     <>
                         <button
                             type="button"
-                            onClick={like.toggle}
+                            onClick={state.toggleLike}
                             className={`${btn} hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 ${liked ? 'text-rose-600' : ''}`}
                             aria-pressed={liked}
                             aria-label={t('po.like')}
