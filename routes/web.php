@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Admin\CreatorReviewController;
+use App\Http\Controllers\Admin\PayoutController;
+use App\Http\Controllers\EarningsController;
 use App\Http\Controllers\CreatorApplicationController;
 use App\Http\Controllers\CreatorPageController;
 use App\Http\Controllers\FanController;
@@ -63,6 +65,9 @@ Route::middleware(['auth'])->group(function () {
 
     // Studio: approved creators write and manage posts.
     Route::get('studio', [StudioController::class, 'index'])->name('studio');
+    Route::get('studio/earnings', [EarningsController::class, 'index'])->name('studio.earnings');
+    Route::post('studio/earnings/payout', [EarningsController::class, 'requestPayout'])->middleware('throttle:10,60')->name('studio.payout');
+    Route::get('studio/earnings/statement.csv', [EarningsController::class, 'statement'])->name('studio.statement');
     Route::post('studio/posts', [StudioController::class, 'store'])->middleware('throttle:30,60')->name('studio.posts.store');
     Route::delete('studio/posts/{post}', [StudioController::class, 'destroy'])->name('studio.posts.destroy');
 });
@@ -77,6 +82,8 @@ Route::middleware(['auth', EnsureAdmin::class])->prefix('admin')->name('admin.')
     Route::get('creators', [CreatorReviewController::class, 'index'])->name('creators');
     Route::get('creators/{creator}/document/{kind}', [CreatorReviewController::class, 'document'])->whereIn('kind', ['front', 'back', 'selfie'])->name('creators.document');
     Route::post('creators/{creator}/decide', [CreatorReviewController::class, 'decide'])->name('creators.decide');
+    Route::get('payouts', [PayoutController::class, 'index'])->name('payouts');
+    Route::post('payouts/{payout}/decide', [PayoutController::class, 'decide'])->name('payouts.decide');
 });
 
 require __DIR__.'/settings.php';

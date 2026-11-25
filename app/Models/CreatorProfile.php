@@ -109,6 +109,11 @@ class CreatorProfile extends Model
         return $this->hasMany(Subscription::class);
     }
 
+    public function payouts(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Payout::class);
+    }
+
     public function payments(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Payment::class);

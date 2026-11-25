@@ -46,7 +46,12 @@ export default function Studio({ creator, posts, stats }: { creator: StudioCreat
                         </div>
                     ))}
                 </div>
-                <p className="text-muted-foreground mt-2 text-xs">{t('st.feeNote', { fee: stats.feePercent })}</p>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                    <p className="text-muted-foreground text-xs">{t('st.feeNote', { fee: stats.feePercent })}</p>
+                    <Link href={route('studio.earnings')} className="text-primary shrink-0 text-sm font-bold hover:underline">
+                        {t('ea.open')} →
+                    </Link>
+                </div>
 
                 <PostComposer adultAllowed={creator.adult_content} className="mt-6 rounded-xl border p-4" />
                 <p className="text-muted-foreground mt-2 text-xs">{t('st.rules')}</p>

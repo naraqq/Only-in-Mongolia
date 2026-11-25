@@ -19,6 +19,10 @@ return [
     'min_ppv' => (int) env('MIN_PPV', 1_000),
     'max_ppv' => (int) env('MAX_PPV', 1_000_000),
 
+    // Payouts: earnings wait this many days before they can be withdrawn, and the smallest payout (₮).
+    'payout_hold_days' => (int) env('PAYOUT_HOLD_DAYS', 7),
+    'min_payout' => (int) env('MIN_PAYOUT', 20_000),
+
     // The platform's share of each payment, in percent. Creators see their earnings after this.
     'platform_fee_percent' => (int) env('PLATFORM_FEE_PERCENT', 20),
 

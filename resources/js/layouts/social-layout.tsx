@@ -11,6 +11,7 @@ import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     BadgeCheck,
+    Banknote,
     Bell,
     Compass,
     House,
@@ -100,7 +101,13 @@ export default function SocialLayout({
                                 label: 'nav.admin',
                                 href: route('admin.creators'),
                                 icon: ShieldCheck,
-                                match: (u: string) => u.startsWith('/admin'),
+                                match: (u: string) => u.startsWith('/admin/creators'),
+                            } as NavLink,
+                            {
+                                label: 'nav.payouts',
+                                href: route('admin.payouts'),
+                                icon: Banknote,
+                                match: (u: string) => u.startsWith('/admin/payouts'),
                             } as NavLink,
                         ]
                       : []),
