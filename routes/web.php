@@ -3,6 +3,9 @@
 use App\Http\Controllers\Admin\CreatorReviewController;
 use App\Http\Controllers\AgeGateController;
 use App\Http\Controllers\CreatorApplicationController;
+use App\Http\Controllers\CreatorPageController;
+use App\Http\Controllers\MediaController;
+use App\Http\Controllers\StudioController;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Support\Facades\Route;
@@ -33,7 +36,15 @@ Route::middleware(['auth'])->group(function () {
     // Become a creator: apply, then wait for admin review.
     Route::get('creator/apply', [CreatorApplicationController::class, 'show'])->name('creator.apply');
     Route::post('creator/apply', [CreatorApplicationController::class, 'store'])->middleware('throttle:5,60')->name('creator.apply.store');
+
+    // Studio: approved creators write and manage posts.
+    Route::get('studio', [StudioController::class, 'index'])->name('studio');
+    Route::post('studio/posts', [StudioController::class, 'store'])->middleware('throttle:30,60')->name('studio.posts.store');
+    Route::delete('studio/posts/{post}', [StudioController::class, 'destroy'])->name('studio.posts.destroy');
 });
+
+// Photos and videos, only after a permission check (see MediaController).
+Route::get('media/{media}', [MediaController::class, 'show'])->name('media.show');
 
 Route::middleware(['auth', EnsureAdmin::class])->prefix('admin')->name('admin.')->group(function () {
     Route::get('creators', [CreatorReviewController::class, 'index'])->name('creators');
@@ -43,3 +54,6 @@ Route::middleware(['auth', EnsureAdmin::class])->prefix('admin')->name('admin.')
 
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';
+
+// Creator pages: /@handle. Last, so it never shadows another route.
+Route::get('@{handle}', [CreatorPageController::class, 'show'])->where('handle', '[A-Za-z0-9_.]{3,30}')->name('creator.show');

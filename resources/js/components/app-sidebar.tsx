@@ -4,15 +4,21 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { useT } from '@/lib/i18n';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutGrid, ShieldCheck, Sparkles } from 'lucide-react';
+import { LayoutGrid, PenSquare, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
 import AppLogo from './app-logo';
 
 export function AppSidebar() {
     const { t } = useT();
     const { auth } = usePage<SharedData>().props;
+    const creator = auth.creator;
     const mainNavItems: NavItem[] = [
         { title: t('nav.dashboard'), url: '/dashboard', icon: LayoutGrid },
-        { title: t('nav.becomeCreator'), url: '/creator/apply', icon: Sparkles },
+        ...(creator?.status === 'approved'
+            ? [
+                  { title: t('nav.studio'), url: '/studio', icon: PenSquare },
+                  { title: t('nav.myPage'), url: `/@${creator.handle}`, icon: UserRound },
+              ]
+            : [{ title: t('nav.becomeCreator'), url: '/creator/apply', icon: Sparkles }]),
         ...(auth.user?.is_admin ? [{ title: t('nav.admin'), url: '/admin/creators', icon: ShieldCheck }] : []),
     ];
 

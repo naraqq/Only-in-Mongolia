@@ -2,6 +2,8 @@ import { LucideIcon } from 'lucide-react';
 
 export interface Auth {
     user: User;
+    /** The signed-in user's creator application, if any. */
+    creator: { handle: string; status: 'pending' | 'approved' | 'rejected' } | null;
 }
 
 export interface BreadcrumbItem {

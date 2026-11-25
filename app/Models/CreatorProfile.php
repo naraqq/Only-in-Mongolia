@@ -57,4 +57,18 @@ class CreatorProfile extends Model
     {
         return $this->status === self::APPROVED;
     }
+
+    public function posts(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Post::class)->latest();
+    }
+
+    /**
+     * Whether $viewer has a paid, active subscription to this creator.
+     * Subscriptions (QPay) are the next step; until then nobody is subscribed.
+     */
+    public function hasActiveSubscriber(?User $viewer): bool
+    {
+        return false;
+    }
 }
