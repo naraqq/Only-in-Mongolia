@@ -51,6 +51,12 @@ class User extends Authenticatable
         ];
     }
 
+    /** Creators this user follows (free). */
+    public function following(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(CreatorProfile::class, 'follows')->withTimestamps();
+    }
+
     public function creatorProfile(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(CreatorProfile::class);

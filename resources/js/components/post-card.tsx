@@ -21,11 +21,13 @@ export default function PostCard({
     author,
     price,
     onDelete,
+    linkAuthor = false,
 }: {
     post: PostItem;
     author: { name: string; handle: string };
     price?: string;
     onDelete?: () => void;
+    linkAuthor?: boolean;
 }) {
     const { t } = useT();
 
@@ -36,7 +38,13 @@ export default function PostCard({
                     {author.name.charAt(0)}
                 </span>
                 <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold">{author.name}</div>
+                    {linkAuthor ? (
+                        <Link href={route('creator.show', author.handle)} className="block truncate text-sm font-semibold hover:underline">
+                            {author.name}
+                        </Link>
+                    ) : (
+                        <div className="truncate text-sm font-semibold">{author.name}</div>
+                    )}
                     <div className="text-muted-foreground text-xs">
                         @{author.handle} · {day(post.created_at)}
                     </div>

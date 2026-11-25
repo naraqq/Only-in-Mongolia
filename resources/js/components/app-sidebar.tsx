@@ -4,7 +4,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { useT } from '@/lib/i18n';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutGrid, PenSquare, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
+import { LayoutGrid, PenSquare, Rss, ShieldCheck, Sparkles, UserRound, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 export function AppSidebar() {
@@ -13,6 +13,8 @@ export function AppSidebar() {
     const creator = auth.creator;
     const mainNavItems: NavItem[] = [
         { title: t('nav.dashboard'), url: '/dashboard', icon: LayoutGrid },
+        { title: t('nav.feed'), url: '/feed', icon: Rss },
+        { title: t('nav.creators'), url: '/creators', icon: Users },
         ...(creator?.status === 'approved'
             ? [
                   { title: t('nav.studio'), url: '/studio', icon: PenSquare },

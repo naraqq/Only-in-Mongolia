@@ -58,9 +58,31 @@ class CreatorProfile extends Model
         return $this->status === self::APPROVED;
     }
 
+    public function followers(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'follows')->withTimestamps();
+    }
+
+    /** Approved creators the viewer may see listed: 18+ pages only for signed-in adults. */
+    public function scopeListableFor(\Illuminate\Database\Eloquent\Builder $q, ?User $viewer): \Illuminate\Database\Eloquent\Builder
+    {
+        return $q->where('status', self::APPROVED)->when(! $viewer, fn ($w) => $w->where('adult_content', false));
+    }
+
+    /** What a creator card shows (public information only). */
+    public function toCard(?User $viewer = null): array
+    {
+        return [
+            ...$this->only('handle', 'display_name', 'bio', 'price_monthly', 'adult_content'),
+            'posts_count' => (int) ($this->posts_count ?? $this->posts()->count()),
+            'followers_count' => (int) ($this->followers_count ?? $this->followers()->count()),
+            'following' => $viewer ? $this->followers()->whereKey($viewer->id)->exists() : false,
+        ];
+    }
+
     public function posts(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(Post::class)->latest();
+        return $this->hasMany(Post::class)->latest()->latest('id'); // newest first, stable within the same second
     }
 
     /**

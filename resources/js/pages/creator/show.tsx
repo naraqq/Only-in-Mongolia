@@ -1,3 +1,4 @@
+import FollowButton from '@/components/follow-button';
 import PostCard, { type PostItem } from '@/components/post-card';
 import { Button } from '@/components/ui/button';
 import SiteLayout from '@/layouts/site-layout';
@@ -13,6 +14,7 @@ type Creator = {
     adult_content: boolean;
     joined: string;
     posts_count: number;
+    followers_count: number;
 };
 
 const mnt = (n: number) => '₮' + n.toLocaleString('en-US');
@@ -24,12 +26,14 @@ export default function CreatorPage({
     gated,
     isOwner,
     subscribed,
+    following,
 }: {
     creator: Creator;
     posts: PostItem[];
     gated: boolean;
     isOwner: boolean;
     subscribed: boolean;
+    following: boolean;
 }) {
     const { t } = useT();
     const price = mnt(creator.price_monthly);
@@ -48,10 +52,11 @@ export default function CreatorPage({
                         {creator.adult_content && <span className="rounded bg-rose-100 px-1.5 py-0.5 text-xs font-semibold text-rose-700">18+</span>}
                     </h1>
                     <p className="text-muted-foreground text-sm">
-                        @{creator.handle} · {t('cp.posts', { n: creator.posts_count })}
+                        @{creator.handle} · {t('fan.counts', { posts: creator.posts_count, followers: creator.followers_count })}
                     </p>
                     {creator.bio && <p className="mt-3 leading-relaxed whitespace-pre-line">{creator.bio}</p>}
                 </div>
+                {!isOwner && <FollowButton handle={creator.handle} initial={following} />}
             </section>
 
             {/* Subscribe / owner actions */}

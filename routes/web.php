@@ -4,12 +4,12 @@ use App\Http\Controllers\Admin\CreatorReviewController;
 use App\Http\Controllers\AgeGateController;
 use App\Http\Controllers\CreatorApplicationController;
 use App\Http\Controllers\CreatorPageController;
+use App\Http\Controllers\FanController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\StudioController;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 // Language switch (МН / EN), remembered in the session.
 Route::post('locale/{locale}', function (string $locale) {
@@ -22,16 +22,14 @@ Route::post('locale/{locale}', function (string $locale) {
 Route::get('age-gate', [AgeGateController::class, 'show'])->name('age-gate');
 Route::post('age-gate', [AgeGateController::class, 'confirm'])->name('age-gate.confirm');
 
-Route::get('/', function () {
-    return Inertia::render('welcome');
-})->name('home');
+Route::get('/', [FanController::class, 'home'])->name('home');
+Route::get('creators', [FanController::class, 'discover'])->name('creators');
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('dashboard', function () {
-        return Inertia::render('dashboard', [
-            'creatorStatus' => request()->user()->creatorProfile?->status,
-        ]);
-    })->name('dashboard');
+    Route::get('dashboard', [FanController::class, 'dashboard'])->name('dashboard');
+    Route::get('feed', [FanController::class, 'feed'])->name('feed');
+    Route::post('@{handle}/follow', [FanController::class, 'follow'])->middleware('throttle:60,1')->name('creator.follow');
+    Route::delete('@{handle}/follow', [FanController::class, 'unfollow'])->middleware('throttle:60,1')->name('creator.unfollow');
 
     // Become a creator: apply, then wait for admin review.
     Route::get('creator/apply', [CreatorApplicationController::class, 'show'])->name('creator.apply');

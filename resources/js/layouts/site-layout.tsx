@@ -7,7 +7,7 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import { type ReactNode } from 'react';
 
 /** Public pages (creator pages), for signed-in users and visitors alike. */
-export default function SiteLayout({ title, children }: { title: string; children: ReactNode }) {
+export default function SiteLayout({ title, children, wide = false }: { title: string; children: ReactNode; wide?: boolean }) {
     const { t } = useT();
     const { auth, name } = usePage<SharedData>().props;
 
@@ -15,11 +15,21 @@ export default function SiteLayout({ title, children }: { title: string; childre
         <div className="bg-background min-h-svh">
             <Head title={title} />
             <header className="sticky top-0 z-30 border-b bg-white/90 backdrop-blur dark:bg-zinc-950/90">
-                <div className="mx-auto flex h-14 max-w-3xl items-center gap-3 px-4">
+                <div className={`mx-auto flex h-14 items-center gap-3 px-4 ${wide ? 'max-w-5xl' : 'max-w-3xl'}`}>
                     <Link href={route('home')} className="flex items-center gap-2 font-semibold">
                         <AppLogoIcon className="size-6 fill-current" />
                         <span className="hidden sm:inline">{name}</span>
                     </Link>
+                    <nav className="ml-2 flex items-center gap-4 text-sm">
+                        <Link href={route('creators')} className="text-muted-foreground hover:text-foreground">
+                            {t('nav.creators')}
+                        </Link>
+                        {auth.user && (
+                            <Link href={route('feed')} className="text-muted-foreground hover:text-foreground">
+                                {t('nav.feed')}
+                            </Link>
+                        )}
+                    </nav>
                     <div className="ml-auto flex items-center gap-2">
                         <LangSwitch />
                         <Button asChild size="sm" variant={auth.user ? 'outline' : 'default'}>
@@ -28,7 +38,7 @@ export default function SiteLayout({ title, children }: { title: string; childre
                     </div>
                 </div>
             </header>
-            <main className="mx-auto max-w-3xl px-4 py-6">{children}</main>
+            <main className={`mx-auto px-4 py-6 ${wide ? 'max-w-5xl' : 'max-w-3xl'}`}>{children}</main>
         </div>
     );
 }
