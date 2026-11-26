@@ -205,7 +205,7 @@ function Conversation({ thread, me, area }: { thread: Thread; me: number; area: 
                     {o.handle ? (
                         <Link href={route('creator.show', o.handle)} className="flex items-center gap-1 font-bold hover:underline">
                             <span className="truncate">{o.name}</span>
-                            <BadgeCheck className="size-4 shrink-0 text-sky-500" />
+                            <BadgeCheck className="size-4 shrink-0 text-primary" />
                         </Link>
                     ) : (
                         <p className="truncate font-bold">{o.name}</p>
@@ -217,7 +217,7 @@ function Conversation({ thread, me, area }: { thread: Thread; me: number; area: 
                         <TipButton
                             handle={o.handle}
                             name={o.name}
-                            className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-bold text-amber-600 transition hover:bg-amber-500/10 dark:text-amber-400"
+                            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary/12 px-3 text-sm font-bold text-primary transition hover:bg-primary/20"
                         />
                         <Link
                             href={route('creator.show', o.handle)}

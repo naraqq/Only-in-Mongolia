@@ -69,7 +69,20 @@ class NotificationTest extends TestCase
         $renewed = collect($user->notifications()->where('type', 'subscribed')->get())->pluck('data.renewed')->filter()->count();
         $this->assertSame(1, $renewed);
 
-        // Seen now.
+        // Looking (or the bell preloading the page) changes nothing; each stays new until it's opened.
+        $this->get('/@artist')->assertInertia(fn ($p) => $p->where('unreadNotifications', 5));
+
+        // Opening one marks just that one and goes where it points.
+        $tip = $user->notifications()->where('type', 'tipped')->first();
+        $this->post(route('notifications.open', $tip->id))->assertRedirect();
+        $this->assertNotNull($tip->fresh()->read_at);
+        $this->get('/notifications')->assertInertia(fn ($p) => $p->where('unreadNotifications', 4)
+            ->where('notifications', fn ($list) => collect($list)->firstWhere('kind', 'tipped')['read'] === true));
+
+        // Someone else's notification can't be opened.
+        $this->actingAs($fan)->post(route('notifications.open', $tip->id))->assertNotFound();
+
+        $this->actingAs($user)->from('/notifications')->post(route('notifications.read-all'))->assertRedirect('/notifications');
         $this->get('/@artist')->assertInertia(fn ($p) => $p->where('unreadNotifications', 0));
     }
 

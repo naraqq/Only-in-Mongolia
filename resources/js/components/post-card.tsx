@@ -90,7 +90,7 @@ export default function PostCard({
         <article
             ref={box}
             id={`post-${post.id}`}
-            className={`border-border scroll-mt-20 overflow-hidden border-b ${post.publish_at ? 'bg-sky-50 dark:bg-sky-950/40' : 'bg-transparent'}`}
+            className={`scroll-mt-20 overflow-hidden rounded-2xl shadow-xs ${post.publish_at ? 'bg-sky-50 dark:bg-sky-950/40' : 'bg-card'}`}
         >
             <Header post={post} author={author} mine={mine} linkAuthor={linkAuthor} menu={menu} action={authorAction} />
             {post.locked ? (
@@ -216,13 +216,13 @@ function Header({
                 <div className="min-w-0 flex-1 leading-tight">
                     <div className="flex min-w-0 items-center gap-1">
                         {linkAuthor ? (
-                            <Link href={route('creator.show', author.handle)} className="truncate text-[15px] font-semibold hover:underline">
+                            <Link href={route('creator.show', author.handle)} className="truncate text-[15px] font-bold hover:underline">
                                 {author.name}
                             </Link>
                         ) : (
-                            <span className="truncate text-[15px] font-semibold">{author.name}</span>
+                            <span className="truncate text-[15px] font-bold">{author.name}</span>
                         )}
-                        <BadgeCheck className="size-4 shrink-0 text-sky-500" aria-label={t('po.verified')} />
+                        <BadgeCheck className="text-primary size-4 shrink-0" aria-label={t('po.verified')} />
                     </div>
                     <div className="text-muted-foreground mt-0.5 flex min-w-0 items-center gap-1 text-[13px]">
                         <span className="truncate">@{author.handle}</span>
@@ -312,7 +312,7 @@ function Body({
 }) {
     return (
         <>
-            {post.body && <RichText text={post.body} className="px-4 pt-2.5" />}
+            {post.body && <RichText text={post.body} className="px-4 pt-2.5 text-[15px] leading-relaxed" />}
             {post.media.length > 0 ? (
                 <PostMedia
                     media={post.media}
@@ -381,7 +381,7 @@ function Actions({
                     handle={author.handle}
                     name={author.name}
                     postId={post.id}
-                    className={`${btn} text-amber-600 hover:bg-amber-500/10 hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-400`}
+                    className={`${btn} bg-primary/12 text-primary hover:bg-primary/20 hover:text-primary px-3.5`}
                 >
                     <HandCoins className={icon} /> {t('tip.tip')}
                 </TipButton>

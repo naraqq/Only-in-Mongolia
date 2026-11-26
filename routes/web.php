@@ -76,8 +76,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('reports', [ReportController::class, 'store'])->middleware('throttle:20,60')->name('reports.store');
     Route::post('users/{user}/block', [BlockController::class, 'toggle'])->middleware('throttle:30,1')->name('users.block');
 
-    // Notifications (the bell). Opening the page marks them read.
+    // Notifications (the bell). Each stays new until it's opened, or all are marked read.
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications');
+    Route::post('notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
+    Route::post('notifications/{id}/open', [NotificationController::class, 'open'])->whereUuid('id')->name('notifications.open');
 
     // Direct messages (the page polls for new ones).
     Route::get('messages', [MessageController::class, 'index'])->name('messages.index');

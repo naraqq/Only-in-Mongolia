@@ -367,7 +367,7 @@ function PageStep({ form, limits }: { form: Form; limits: { min: number; max: nu
                     </span>
                     <div className="min-w-0 flex-1">
                         <p className="flex items-center gap-1 truncate font-bold">
-                            {data.display_name || t('cr.displayName')} <BadgeCheck className="size-4 shrink-0 text-sky-500" />
+                            {data.display_name || t('cr.displayName')} <BadgeCheck className="size-4 shrink-0 text-primary" />
                         </p>
                         <p className="text-muted-foreground truncate text-sm">@{handle}</p>
                     </div>

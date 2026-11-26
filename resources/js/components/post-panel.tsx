@@ -36,7 +36,7 @@ export default function PostPanel({
                         <Link href={route('creator.show', author.handle)} className="truncate font-bold hover:underline">
                             {author.name}
                         </Link>
-                        <BadgeCheck className="size-4 shrink-0 text-sky-500" aria-label={t('po.verified')} />
+                        <BadgeCheck className="size-4 shrink-0 text-primary" aria-label={t('po.verified')} />
                     </div>
                     <p className="text-muted-foreground text-[13px]">
                         @{author.handle} · {timeAgo(post.created_at, t)}
@@ -70,7 +70,7 @@ export default function PostPanel({
                                     handle={author.handle}
                                     name={author.name}
                                     postId={post.id}
-                                    className={`${btn} text-amber-600 hover:bg-amber-500/10 dark:text-amber-400`}
+                                    className={`${btn} bg-primary/12 text-primary hover:bg-primary/20 hover:text-primary px-3.5`}
                                 />
                             )}
                             <button

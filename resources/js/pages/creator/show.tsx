@@ -123,7 +123,7 @@ export default function CreatorPage({
                                 <TipButton
                                     handle={creator.handle}
                                     name={creator.display_name}
-                                    className="hover:bg-muted bg-muted grid size-9 place-items-center rounded-full text-amber-600 transition"
+                                    className="bg-primary/12 text-primary hover:bg-primary/20 grid size-9 place-items-center rounded-full transition"
                                 >
                                     <HandCoins className="size-4" />
                                 </TipButton>
@@ -142,7 +142,7 @@ export default function CreatorPage({
 
                 <h1 className="mt-3 flex flex-wrap items-center gap-2 text-2xl font-extrabold tracking-tight">
                     {creator.display_name}
-                    <BadgeCheck className="size-5 text-sky-500" aria-label={t('cp.verified')} />
+                    <BadgeCheck className="size-5 text-primary" aria-label={t('cp.verified')} />
                     {creator.adult_content && <span className="rounded bg-rose-100 px-1.5 py-0.5 text-xs font-bold text-rose-700">18+</span>}
                 </h1>
                 <p className="text-muted-foreground text-sm">@{creator.handle}</p>

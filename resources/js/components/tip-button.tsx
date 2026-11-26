@@ -64,7 +64,7 @@ export default function TipButton({
             <DialogContent className="gap-0 rounded-3xl p-0 sm:max-w-sm">
                 <form onSubmit={submit} className="flex flex-col gap-4 p-6">
                     <div className="text-center">
-                        <span className="mx-auto grid size-14 place-items-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-950">
+                        <span className="mx-auto grid size-14 place-items-center rounded-full bg-primary/12 text-primary">
                             <HandCoins className="size-7" />
                         </span>
                         <DialogTitle className="mt-3 text-xl font-extrabold">{t('tip.title', { name })}</DialogTitle>
@@ -97,7 +97,7 @@ export default function TipButton({
                         />
                     </label>
                     {!valid && form.data.amount > 0 && (
-                        <p className="-mt-2 text-xs text-amber-600">{t('tip.limits', { min: mnt(tipLimits.min), max: mnt(tipLimits.max) })}</p>
+                        <p className="text-muted-foreground -mt-2 text-xs">{t('tip.limits', { min: mnt(tipLimits.min), max: mnt(tipLimits.max) })}</p>
                     )}
                     <InputError message={form.errors.amount} className="-mt-2" />
 
@@ -116,7 +116,7 @@ export default function TipButton({
                     <button
                         type="submit"
                         disabled={!valid || form.processing}
-                        className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 font-bold text-white shadow-lg shadow-amber-500/25 transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
+                        className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
                     >
                         {form.processing && <LoaderCircle className="size-5 animate-spin" />}
                         {t('tip.send', { amount: mnt(form.data.amount || 0) })}

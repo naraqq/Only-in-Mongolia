@@ -140,11 +140,11 @@ function StarterFeed({ posts }: { posts: StarterPost[] }) {
                 <h3 id="starter-featured" className="text-primary px-4 pt-2 text-xs font-bold tracking-wider uppercase sm:px-5">
                     {t('starter.featured')}
                 </h3>
-                {renderPost(featured)}
+                <div className="px-4 pt-2">{renderPost(featured)}</div>
                 {more.length > 0 && (
                     <>
                         <h3 className="px-4 pt-5 text-lg font-bold tracking-tight sm:px-5">{t('starter.more')}</h3>
-                        <div className="space-y-3">{more.map(renderPost)}</div>
+                        <div className="space-y-4 px-4 pt-2">{more.map(renderPost)}</div>
                     </>
                 )}
             </section>

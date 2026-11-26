@@ -4,12 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\Conversation;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
 use Inertia\Inertia;
 use Inertia\Response;
 
-/** The bell: newest notifications first. Opening the page marks them all read (they still show as new this once). */
+/**
+ * The bell: newest notifications first. Like Facebook, each one stays new until it's opened (or "mark all as read").
+ * Showing the page changes nothing, so hovering the bell (which preloads the page) can't mark anything read.
+ */
 class NotificationController extends Controller
 {
     public function index(Request $request): Response
@@ -38,9 +42,25 @@ class NotificationController extends Controller
             ];
         });
 
-        $me->unreadNotifications()->update(['read_at' => now()]);
-
         return Inertia::render('notifications/index', ['notifications' => $list]);
+    }
+
+    /** Tapping one: mark it read, then go where it points (or stay on the list). */
+    public function open(Request $request, string $id): RedirectResponse
+    {
+        $me = $request->user();
+        $n = $me->notifications()->findOrFail($id);
+        $n->markAsRead();
+        $actor = User::find($n->data['actor_id'] ?? 0);
+
+        return ($url = $this->url($n, $actor, $me)) ? redirect($url) : back();
+    }
+
+    public function readAll(Request $request): RedirectResponse
+    {
+        $request->user()->unreadNotifications()->update(['read_at' => now()]);
+
+        return back();
     }
 
     /** Where tapping a notification goes. */

@@ -2,8 +2,10 @@ import UserAvatar from '@/components/user-avatar';
 import SocialLayout from '@/layouts/social-layout';
 import { mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
-import { Link } from '@inertiajs/react';
+import { router, useRemember } from '@inertiajs/react';
+import { useState } from 'react';
 import {
+    CheckCheck,
     Banknote,
     Bell,
     CalendarClock,
@@ -67,6 +69,20 @@ const ICONS: Record<Kind, [LucideIcon, string]> = {
 /** The bell: who followed, subscribed, tipped or bought, new posts, and subscriptions about to end. */
 export default function Notifications({ notifications }: { notifications: Item[] }) {
     const { t } = useT();
+    // Opened on this visit. Kept in the browser history, so Back shows them as read straight away.
+    const [opened, setOpened] = useRemember<string[]>([], 'notifications:opened');
+    const [busy, setBusy] = useState(false);
+    const isRead = (n: Item) => n.read || opened.includes(n.id);
+    const unread = notifications.filter((n) => !isRead(n)).length;
+
+    function open(n: Item) {
+        setOpened((ids) => [...ids, n.id]);
+        router.post(route('notifications.open', n.id), {}, { preserveScroll: true });
+    }
+
+    function readAll() {
+        router.post(route('notifications.read-all'), {}, { preserveScroll: true, onStart: () => setBusy(true), onFinish: () => setBusy(false) });
+    }
 
     function text(n: Item) {
         const name = n.actor?.name ?? '—';
@@ -106,7 +122,22 @@ export default function Notifications({ notifications }: { notifications: Item[]
     }
 
     return (
-        <SocialLayout title={t('nav.notifications')} header={<h1 className="text-lg font-bold tracking-wide uppercase">{t('nav.notifications')}</h1>}>
+        <SocialLayout title={t('nav.notifications')} header={
+                <>
+                    <h1 className="text-lg font-bold tracking-wide uppercase">{t('nav.notifications')}</h1>
+                    {unread > 0 && (
+                        <button
+                            type="button"
+                            onClick={readAll}
+                            disabled={busy}
+                            className="text-primary hover:bg-primary/10 ml-auto inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-bold transition disabled:opacity-50"
+                        >
+                            <CheckCheck className="size-4" /> {t('nt.readAll')}
+                        </button>
+                    )}
+                </>
+            }
+        >
             {notifications.length === 0 ? (
                 <div className="text-muted-foreground flex flex-col items-center gap-3 p-12 text-center text-sm">
                     <span className="bg-muted grid size-16 place-items-center rounded-full">
@@ -118,8 +149,9 @@ export default function Notifications({ notifications }: { notifications: Item[]
                 <ul className="flex flex-col">
                     {notifications.map((n) => {
                         const [Icon, color] = ICONS[n.kind] ?? [Bell, 'bg-zinc-500'];
+                        const read = isRead(n);
                         const body = (
-                            <div className={`flex gap-3 px-4 py-3.5 transition ${n.read ? '' : 'bg-primary/5'} ${n.url ? 'hover:bg-muted/60' : ''}`}>
+                            <div className={`hover:bg-muted/60 flex gap-3 px-4 py-3.5 transition ${read ? '' : 'bg-primary/8'}`}>
                                 <span className="relative shrink-0">
                                     <UserAvatar
                                         name={n.actor?.name ?? '?'}
@@ -134,16 +166,22 @@ export default function Notifications({ notifications }: { notifications: Item[]
                                     </span>
                                 </span>
                                 <span className="min-w-0 flex-1">
-                                    <span className="block text-[15px] leading-snug">{text(n)}</span>
+                                    <span className={`block text-[15px] leading-snug ${read ? '' : 'font-semibold'}`}>{text(n)}</span>
                                     {n.data.note && (
                                         <span className="text-muted-foreground mt-0.5 block truncate text-sm italic">“{n.data.note}”</span>
                                     )}
-                                    <span className="text-muted-foreground mt-0.5 block text-xs">{when(n.at)}</span>
+                                    <span className={`mt-0.5 block text-xs ${read ? 'text-muted-foreground' : 'text-primary font-bold'}`}>{when(n.at)}</span>
                                 </span>
-                                {!n.read && <span className="bg-primary mt-2 size-2.5 shrink-0 rounded-full" aria-label="new" />}
+                                {!read && <span className="bg-primary mt-2 size-2.5 shrink-0 rounded-full" role="img" aria-label={t('nt.new')} />}
                             </div>
                         );
-                        return <li key={n.id}>{n.url ? <Link href={n.url}>{body}</Link> : body}</li>;
+                        return (
+                            <li key={n.id}>
+                                <button type="button" onClick={() => open(n)} className="block w-full text-left">
+                                    {body}
+                                </button>
+                            </li>
+                        );
                     })}
                 </ul>
             )}

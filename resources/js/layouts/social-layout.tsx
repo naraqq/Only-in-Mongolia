@@ -126,7 +126,7 @@ export default function SocialLayout({
             <Head title={title} />
 
             {/* Phone top bar */}
-            <header className="border-border bg-background/95 sticky top-0 z-30 flex h-14 items-center gap-3 border-b px-4 backdrop-blur md:hidden">
+            <header className="bg-background sticky top-0 z-30 flex h-14 items-center gap-3 px-4 shadow-xs md:hidden">
                 <Link href={route('home')} className="min-w-0" aria-label={t('nav.home')}>
                     <AppLogo className={user ? '' : 'max-[359px]:[&>span]:hidden'} />
                 </Link>
@@ -153,7 +153,7 @@ export default function SocialLayout({
             {/* Desktop navigation, workspace, and contextual discovery. */}
             <div className="mx-auto flex w-full max-w-[1500px]">
                 {/* Left: navigation */}
-                <aside className="border-border sticky top-0 hidden h-svh w-20 shrink-0 flex-col overflow-y-auto border-r px-3 py-5 md:flex xl:w-60">
+                <aside className="sticky top-0 hidden h-svh w-20 shrink-0 flex-col overflow-y-auto px-3 py-5 md:flex xl:w-60">
                     <Link href={route('home')} className="mb-6 flex items-center px-3 py-2" aria-label={t('nav.home')}>
                         <AppLogoIcon className="size-9 xl:hidden" />
                         <AppLogo className="hidden xl:flex" />
@@ -174,7 +174,8 @@ export default function SocialLayout({
                                 <Link
                                     key={l.href}
                                     href={l.href}
-                                    prefetch
+                                    // Pages with a live count (notifications, messages) always load fresh.
+                                    prefetch={l.badge === undefined}
                                     className={`group flex items-center gap-4 rounded-lg px-3 py-2.5 text-[15px] transition ${active ? 'bg-muted text-foreground font-bold' : 'text-foreground/70 hover:bg-muted hover:text-foreground font-medium'}`}
                                     aria-current={active ? 'page' : undefined}
                                     title={t(l.label)}
@@ -209,7 +210,7 @@ export default function SocialLayout({
                 <main className="min-h-svh min-w-0 flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] md:px-6 md:pb-0">
                     <div className={`animate-page-in mx-auto w-full ${wide ? 'max-w-[1100px]' : 'max-w-[680px]'}`}>
                         {header !== undefined && (
-                            <div className="bg-background/85 sticky top-14 z-20 flex h-14 items-center gap-3 px-5 backdrop-blur-md md:top-0">
+                            <div className="bg-background sticky top-14 z-20 flex h-14 items-center gap-3 px-5 md:top-0">
                                 {header}
                             </div>
                         )}
@@ -240,17 +241,31 @@ export default function SocialLayout({
                     </Link>
                 )}
                 {links.slice(2, 4).map((l) => (
-                    <TabLink key={l.href} href={l.href} icon={l.icon} label={t(l.label)} active={l.match(path)} badge={l.badge} />
+                    <TabLink key={l.href} href={l.href} icon={l.icon} label={t(l.label)} active={l.match(path)} badge={l.badge} prefetch={l.badge === undefined} />
                 ))}
             </nav>
         </div>
     );
 }
 
-function TabLink({ href, icon: Icon, label, active, badge }: { href: string; icon: LucideIcon; label: string; active: boolean; badge?: number }) {
+function TabLink({
+    href,
+    icon: Icon,
+    label,
+    active,
+    badge,
+    prefetch = true,
+}: {
+    href: string;
+    icon: LucideIcon;
+    label: string;
+    active: boolean;
+    badge?: number;
+    prefetch?: boolean;
+}) {
     return (
         <Link
-            prefetch
+            prefetch={prefetch}
             href={href}
             className={`flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-lg px-1 ${active ? 'text-primary font-bold' : 'text-muted-foreground font-medium'}`}
             aria-label={label}
