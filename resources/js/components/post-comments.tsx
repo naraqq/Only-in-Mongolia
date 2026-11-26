@@ -1,5 +1,6 @@
 import MoreMenu from '@/components/more-menu';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Skeleton } from '@/components/ui/skeleton';
 import UserAvatar from '@/components/user-avatar';
 import { timeAgo } from '@/lib/format';
 import { sendJson } from '@/lib/http';
@@ -145,7 +146,7 @@ export default function PostComments({
                 {top}
                 <div className="px-4 py-3">
                     {comments === null ? (
-                        <LoaderCircle className="text-muted-foreground mx-auto my-4 size-5 animate-spin" />
+                        <CommentsSkeleton />
                     ) : (
                         <ul className="flex flex-col gap-3">
                             {threads.map((c) => {
@@ -311,6 +312,37 @@ function CommentRow({
                 </div>
             </div>
         </div>
+    );
+}
+
+/** Placeholder rows shaped like real comments (avatar, name, text, actions), with one reply, while they load. */
+function CommentsSkeleton() {
+    const { t } = useT();
+    const rows: { small?: boolean; lines: string[] }[] = [
+        { lines: ['w-11/12', 'w-2/3'] },
+        { small: true, lines: ['w-3/4'] },
+        { lines: ['w-4/5'] },
+        { lines: ['w-full', 'w-1/2'] },
+    ];
+
+    return (
+        <ul className="flex flex-col gap-3 motion-reduce:[&_*]:animate-none" aria-busy="true" aria-label={t('cm.loading')}>
+            {rows.map((r, i) => (
+                <li key={i} className={`flex gap-2.5 ${r.small ? 'ml-[46px]' : ''}`}>
+                    <Skeleton className={`shrink-0 rounded-full ${r.small ? 'size-7' : 'size-9'}`} />
+                    <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-0.5">
+                        <Skeleton className="h-3.5 w-28 rounded-full" />
+                        {r.lines.map((w, j) => (
+                            <Skeleton key={j} className={`h-3.5 rounded-full ${w}`} />
+                        ))}
+                        <div className="mt-1 flex gap-4">
+                            <Skeleton className="h-3 w-8 rounded-full" />
+                            <Skeleton className="h-3 w-10 rounded-full" />
+                        </div>
+                    </div>
+                </li>
+            ))}
+        </ul>
     );
 }
 
