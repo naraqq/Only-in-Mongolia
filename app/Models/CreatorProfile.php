@@ -151,6 +151,15 @@ class CreatorProfile extends Model
         return $this->hasMany(Post::class)->latest()->latest('id'); // newest first, stable within the same second
     }
 
+    public function starterPost(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Post::class)->ofMany(
+            ['created_at' => 'max', 'id' => 'max'],
+            fn ($query) => $query->published()->where('visibility', Post::PUBLIC)->where('is_adult', false)
+                ->where(fn ($price) => $price->whereNull('price')->orWhere('price', 0)),
+        );
+    }
+
     /** Whether $viewer has a paid subscription to this creator that hasn't expired. */
     public function hasActiveSubscriber(?User $viewer): bool
     {

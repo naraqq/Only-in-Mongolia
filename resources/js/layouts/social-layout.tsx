@@ -127,9 +127,17 @@ export default function SocialLayout({
             {/* Phone top bar */}
             <header className="border-border bg-background/95 sticky top-0 z-30 flex h-14 items-center gap-3 border-b px-4 backdrop-blur md:hidden">
                 <Link href={route('home')} className="min-w-0" aria-label={t('nav.home')}>
-                    <AppLogo className="max-[359px]:[&>span]:text-xs max-[359px]:[&>span]:leading-tight max-[359px]:[&>span]:whitespace-normal" />
+                    <AppLogo className={user ? '' : 'max-[359px]:[&>span]:hidden'} />
                 </Link>
                 <div className="ml-auto flex shrink-0 items-center gap-2">
+                    <Link
+                        href={route('search')}
+                        aria-label={t('nav.search')}
+                        aria-current={path === '/search' ? 'page' : undefined}
+                        className="hover:bg-muted grid size-9 place-items-center rounded-full"
+                    >
+                        <Search className="size-5" aria-hidden />
+                    </Link>
                     <LangSwitch />
                     {user ? (
                         <AccountMenu compact />
@@ -150,6 +158,15 @@ export default function SocialLayout({
                         <AppLogo className="hidden xl:flex" />
                     </Link>
                     <nav className="flex flex-col gap-1">
+                        <Link
+                            href={route('search')}
+                            aria-current={path === '/search' ? 'page' : undefined}
+                            title={t('nav.search')}
+                            className={`flex items-center gap-4 rounded-lg px-3 py-2.5 text-[15px] transition ${path === '/search' ? 'bg-muted text-foreground font-bold' : 'text-foreground/70 hover:bg-muted hover:text-foreground font-medium'}`}
+                        >
+                            <Search className="size-6 shrink-0" aria-hidden />
+                            <span className="hidden xl:inline">{t('nav.search')}</span>
+                        </Link>
                         {links.map((l) => {
                             const active = l.match(path);
                             return (
@@ -325,7 +342,7 @@ function RightRail() {
 
     function search(e: FormEvent) {
         e.preventDefault();
-        router.get(route('creators'), q.trim() ? { q: q.trim() } : {});
+        router.get(route('search'), q.trim() ? { q: q.trim() } : {});
     }
 
     return (
@@ -336,7 +353,9 @@ function RightRail() {
                     type="search"
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
-                    placeholder={t('rail.search')}
+                    aria-label={t('nav.search')}
+                    placeholder={t('search.placeholder')}
+                    maxLength={100}
                     className="placeholder:text-muted-foreground h-11 w-full bg-transparent text-sm outline-none"
                 />
             </form>

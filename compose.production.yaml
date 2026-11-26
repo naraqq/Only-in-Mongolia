@@ -12,6 +12,7 @@ x-redis-client: &redis-client
   REDIS_PASSWORD: ${REDIS_PASSWORD:?Production Redis password is missing}
   MYSQL_ROOT_PASSWORD: ""
   DB_QUEUE_RETRY_AFTER: "120"
+  LOG_LEVEL: ${LOG_LEVEL:-warning}
 
 x-backends: &backends
   - default

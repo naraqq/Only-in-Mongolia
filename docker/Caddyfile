@@ -3,6 +3,12 @@
         -Server
         X-Content-Type-Options nosniff
         Referrer-Policy strict-origin-when-cross-origin
+        # Browsers only honour HSTS over HTTPS, so this is harmless on http://localhost.
+        Strict-Transport-Security "max-age=31536000"
+        # No one may put the site in a frame (clickjacking).
+        X-Frame-Options DENY
+        Content-Security-Policy "frame-ancestors 'none'"
+        Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
     }
     encode zstd gzip
     reverse_proxy {

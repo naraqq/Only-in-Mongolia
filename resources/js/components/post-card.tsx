@@ -31,7 +31,7 @@ import {
     Video,
     X,
 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 
 export type PostItem = {
     id: number;
@@ -65,11 +65,15 @@ export default function PostCard({
     onEdit,
     onPin,
     linkAuthor = false,
+    authorAction,
+    compactMedia = false,
 }: {
     post: PostItem;
     author: Author;
     price?: string;
     linkAuthor?: boolean;
+    authorAction?: ReactNode;
+    compactMedia?: boolean;
 } & Menu) {
     const { auth } = usePage<SharedData>().props;
     const mine = auth.creator?.handle === author.handle;
@@ -88,8 +92,12 @@ export default function PostCard({
             id={`post-${post.id}`}
             className={`border-border scroll-mt-20 overflow-hidden border-b ${post.publish_at ? 'bg-sky-50 dark:bg-sky-950/40' : 'bg-transparent'}`}
         >
-            <Header post={post} author={author} mine={mine} linkAuthor={linkAuthor} menu={menu} />
-            {post.locked ? <Locked post={post} price={price} handle={author.handle} /> : <Body post={post} author={author} state={state} lightbox />}
+            <Header post={post} author={author} mine={mine} linkAuthor={linkAuthor} menu={menu} action={authorAction} />
+            {post.locked ? (
+                <Locked post={post} price={price} handle={author.handle} />
+            ) : (
+                <Body post={post} author={author} state={state} lightbox compact={compactMedia} />
+            )}
             <Actions post={post} author={author} mine={mine} state={state} onComment={comment} />
             {talk > 0 && (
                 <CommentsModal
@@ -162,7 +170,21 @@ function CommentsModal({
 }
 
 /** Avatar, name, handle, when, and who can see it; the post's menu on the right. */
-function Header({ post, author, mine, linkAuthor, menu }: { post: PostItem; author: Author; mine: boolean; linkAuthor: boolean; menu: Menu }) {
+function Header({
+    post,
+    author,
+    mine,
+    linkAuthor,
+    menu,
+    action,
+}: {
+    post: PostItem;
+    author: Author;
+    mine: boolean;
+    linkAuthor: boolean;
+    menu: Menu;
+    action?: ReactNode;
+}) {
     const { t } = useT();
     const avatar = <UserAvatar name={author.name} src={author.avatar_url} seed={author.handle} className="size-10" />;
     const audience = t(post.visibility === 'public' ? 'po.public' : 'po.subscribers');
@@ -227,6 +249,7 @@ function Header({ post, author, mine, linkAuthor, menu }: { post: PostItem; auth
                     </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
+                    {action}
                     {post.is_adult && <span className="rounded bg-rose-100 px-1.5 py-0.5 text-[11px] font-semibold text-rose-700">18+</span>}
                     {!!post.price && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700 dark:bg-amber-950 dark:text-amber-300">
@@ -277,6 +300,7 @@ function Body({
     state,
     lightbox = false,
     short = false,
+    compact = false,
 }: {
     post: PostItem;
     author: Author;
@@ -284,6 +308,7 @@ function Body({
     lightbox?: boolean;
     /** Keep photos short (in the comments window) so the comments show under them. */
     short?: boolean;
+    compact?: boolean;
 }) {
     return (
         <>
@@ -292,7 +317,13 @@ function Body({
                 <PostMedia
                     media={post.media}
                     onDoubleLike={state.likeOnce}
-                    className={short ? 'mt-3 [&_.aspect-square]:max-h-[55dvh] [&_img]:max-h-[55dvh]' : 'mt-3'}
+                    className={
+                        compact
+                            ? 'mt-3 rounded-xl [&_.aspect-square]:max-h-56 sm:[&_.aspect-square]:max-h-72 [&_img]:max-h-56 sm:[&_img]:max-h-72 [&_video]:max-h-56 sm:[&_video]:max-h-72'
+                            : short
+                              ? 'mt-3 [&_.aspect-square]:max-h-[55dvh] [&_img]:max-h-[55dvh]'
+                              : 'mt-3'
+                    }
                     aside={lightbox ? <PostPanel post={post} author={author} state={state} /> : undefined}
                 />
             ) : (

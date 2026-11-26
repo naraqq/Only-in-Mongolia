@@ -17,6 +17,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileEditController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\StudioController;
 use App\Http\Controllers\WalletController;
 use App\Http\Middleware\EnsureAdmin;
@@ -33,6 +34,7 @@ Route::post('locale/{locale}', function (string $locale) {
 
 Route::get('/', [FanController::class, 'home'])->name('home');
 Route::get('creators', [FanController::class, 'discover'])->name('creators');
+Route::get('search', SearchController::class)->middleware('throttle:60,1')->name('search');
 Route::post('posts/views', [\App\Http\Controllers\InsightsController::class, 'views'])->middleware('throttle:60,1')->name('posts.views');
 
 Route::middleware(['auth'])->group(function () {

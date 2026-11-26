@@ -40,3 +40,5 @@ php artisan test
 GitHub Actions runs type checking, frontend tests, the asset build, and PHP tests for `main` and `develop`.
 
 Payment settlement, wallets, renewals, and earnings live under `app/Payments`. Upload scanning lives under `app/Moderation` and `app/Jobs`. Inertia pages live under `resources/js/pages`. See the [production readiness checklist](docs/production-readiness.md) for staging and deployment checks.
+
+The starter feed leads with free work from approved creators. To curate it for a launch, edit the ordered handle-to-interest list in `config/starter-feed.php`. Only interests with eligible posts are shown, and unlisted creators can appear under All.

@@ -6,7 +6,17 @@ import { Check, Plus } from 'lucide-react';
 import { useState } from 'react';
 
 /** Free follow toggle. Optimistic; visitors are sent to log in. */
-export default function FollowButton({ handle, initial, size = 'default' }: { handle: string; initial: boolean; size?: 'default' | 'sm' }) {
+export default function FollowButton({
+    handle,
+    initial,
+    size = 'default',
+    starter = false,
+}: {
+    handle: string;
+    initial: boolean;
+    size?: 'default' | 'sm';
+    starter?: boolean;
+}) {
     const { t } = useT();
     const { auth } = usePage<SharedData>().props;
     const [following, setFollowing] = useState(initial);
@@ -27,8 +37,9 @@ export default function FollowButton({ handle, initial, size = 'default' }: { ha
         setFollowing(next);
         setBusy(true);
         const opts = { preserveScroll: true, preserveState: true, onError: () => setFollowing(!next), onFinish: () => setBusy(false) };
-        if (next) router.post(route('creator.follow', handle), {}, opts);
-        else router.delete(route('creator.unfollow', handle), opts);
+        const params = { handle, ...(starter ? { _query: { view: 'starter' } } : {}) };
+        if (next) router.post(route('creator.follow', params), {}, opts);
+        else router.delete(route('creator.unfollow', params), opts);
     }
 
     return (

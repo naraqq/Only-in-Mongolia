@@ -39,6 +39,13 @@ curl --fail https://app.example.com/up
 - Named volumes hold MySQL data, shared Laravel uploads, and Caddy state. Laravel serves public images from the public upload directory and performs permission checks before serving private media. Redis is disposable cache and is excluded from backups.
 - Only Caddy publishes ports. Containers restart after unexpected process exits. Check health separately because Docker does not automatically restart a running process solely because its health check fails.
 
+## Runtime settings
+
+- Each container caches its configuration, routes, views and events when it starts (`docker/entrypoint.sh`), so changes to `.env.docker` apply after `bash deploy.sh --no-pull`.
+- Production logs at `LOG_LEVEL=warning` unless you set another level. The app runs on Mongolian time (`APP_TIMEZONE=Asia/Ulaanbaatar`): reminders, renewals, "this month" totals and daily insights follow local days. Set it before the first real data; changing it later shifts how stored times are read.
+- PHP accepts uploads for up to 5 minutes (`max_input_time=300`) with 256 MB of memory, for large videos over slow mobile connections and full-size phone photos.
+- Caddy sends HSTS, `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `nosniff`, a strict referrer policy and a restrictive `Permissions-Policy`.
+
 ## Deploy and inspect
 
 ```bash
@@ -66,6 +73,14 @@ bash backup.sh --database-only
 ```
 
 The full backup briefly stops application writers and produces a pair of validated archives under `.deployment/backups/`: `database.sql.gz` and `storage.tar.gz`. The storage archive contains public and private uploads and both Caddy volumes. The command restarts the existing release after success or failure. The database-only option takes an online transaction-consistent SQL dump. Pre-migration backups are database-only.
+
+### Automatic backups
+
+```bash
+sudo bash deployment/install-backup-timers.sh
+```
+
+This installs two systemd timers (Mongolian time): an online database dump every night at 03:30, and a full snapshot (database, uploads, Caddy state; writers pause briefly) every Sunday at 04:00. Old backups are pruned after `BACKUP_KEEP_DAYS` (default 14) and full snapshots after `BACKUP_KEEP_FULL_DAYS` (default 56). Set `BACKUP_RSYNC_TARGET` in `.env.docker` (for example `backup@storage.example.com:only-in-mongolia/`) to copy every finished backup off this server with the deploying account's SSH key. The timers run as the deploying account, which must reach Docker without a password prompt. Check runs with `journalctl -u only-in-mongolia-backup-db -u only-in-mongolia-backup-full`.
 
 Store backups encrypted off-server. The archives contain sensitive records and TLS material. Keep the application key, environment file, release state, and tagged images protected. Verify recovery on a separate host or project. Run `gzip -t database.sql.gz` and `tar -tzf storage.tar.gz`. Import SQL into an empty recovery database using `gzip -dc database.sql.gz | mysql --defaults-extra-file=/private/recovery-client.cnf recovery_db`. Extract into a private staging directory and restore uploads and Caddy state into new volumes before switching traffic. Review writes since the backup before promoting any recovered data.
 

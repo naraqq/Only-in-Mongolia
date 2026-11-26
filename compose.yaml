@@ -62,7 +62,7 @@ services:
     restart: unless-stopped
     stop_signal: SIGTERM
     stop_grace_period: 100s
-    command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=75"]
+    command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=75", "--max-time=3600"]
     depends_on:
       migrate:
         condition: service_completed_successfully

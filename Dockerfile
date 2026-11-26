@@ -24,7 +24,10 @@ COPY --from=assets /app/public/build ./public/build
 COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
 COPY docker/uploads.ini /usr/local/etc/php/conf.d/uploads.ini
 COPY docker/production.ini /usr/local/etc/php/conf.d/production.ini
+COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/oim-entrypoint
 RUN mkdir -p storage/app/private storage/app/public storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
     && ln -s ../storage/app/public public/storage \
     && composer dump-autoload --no-dev --optimize --no-interaction \
     && chown -R www-data:www-data storage bootstrap/cache
+ENTRYPOINT ["oim-entrypoint"]
+CMD ["apache2-foreground"]

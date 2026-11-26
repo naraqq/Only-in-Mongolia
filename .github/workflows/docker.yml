@@ -26,3 +26,49 @@ jobs:
       - name: Show service logs on failure
         if: failure()
         run: docker compose --env-file .env.docker logs --no-color app migrate worker scheduler proxy
+
+  # The production overlay (Redis, private data network, per-service health checks) with production settings.
+  production-overlay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      COMPOSE: docker compose --env-file .env.docker -f compose.yaml -f compose.production.yaml
+    steps:
+      - uses: actions/checkout@v4
+      - name: Production-like settings
+        run: |
+          cp .env.docker.example .env.docker
+          sed -i \
+            -e 's/^APP_ENV=.*/APP_ENV=production/' \
+            -e 's/^APP_DEBUG=.*/APP_DEBUG=false/' \
+            -e 's/^LOG_LEVEL=.*/LOG_LEVEL=warning/' \
+            -e "s/^REDIS_PASSWORD=.*/REDIS_PASSWORD=$(openssl rand -hex 32)/" \
+            -e "s/^MYSQL_ROOT_PASSWORD=.*/MYSQL_ROOT_PASSWORD=$(openssl rand -hex 32)/" \
+            .env.docker
+      - name: Build and start
+        run: |
+          $COMPOSE build app
+          key="$($COMPOSE run --rm --no-deps app php artisan key:generate --show)"
+          sed -i "s|^APP_KEY=.*|APP_KEY=$key|" .env.docker
+          $COMPOSE up -d --wait --wait-timeout 240
+      - name: Every service is running and healthy
+        run: |
+          $COMPOSE ps
+          for service in proxy app worker scheduler db redis; do
+            healthy="$($COMPOSE ps --status running --format '{{.Health}}' "$service" | grep -c '^healthy$' || true)"
+            echo "$service: $healthy healthy"
+            test "$healthy" -ge 1
+          done
+          test "$($COMPOSE ps --status running -q app | wc -l)" -eq 3
+      - name: Site answers, with security headers
+        run: |
+          curl --fail --show-error --retry 5 http://localhost:8080/up
+          headers="$(curl --silent --show-error --fail --dump-header - --output /dev/null http://localhost:8080/login)"
+          echo "$headers"
+          echo "$headers" | grep -qi '^x-frame-options: DENY'
+          echo "$headers" | grep -qi '^strict-transport-security:'
+          echo "$headers" | grep -qi '^x-content-type-options: nosniff'
+          ! echo "$headers" | grep -qi '^x-powered-by:'
+      - name: Show service logs on failure
+        if: failure()
+        run: $COMPOSE logs --no-color app migrate worker scheduler proxy redis

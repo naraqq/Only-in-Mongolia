@@ -42,22 +42,22 @@ function PhoneStep() {
     }
 
     return (
-        <form onSubmit={submit} className="flex flex-col gap-5">
+        <form onSubmit={submit} autoComplete="off" className="flex flex-col gap-5">
             <div className="grid gap-2">
                 <label htmlFor="phone" className="text-sm font-bold">
                     {t('ph.phone')}
                 </label>
-                <div className="focus-within:border-ring focus-within:ring-ring/15 flex h-15 items-center rounded-2xl border border-zinc-300 bg-white transition focus-within:ring-4 dark:border-white/15 dark:bg-white/5">
-                    <span className="ml-4 shrink-0 border-r border-zinc-200 pr-3 text-sm font-bold dark:border-white/15">+976</span>
+                <div className="bg-card border-input focus-within:border-ring focus-within:ring-ring/15 flex h-15 items-center overflow-hidden rounded-2xl border transition focus-within:ring-4">
+                    <span className="border-border text-foreground ml-4 shrink-0 border-r pr-3 text-base font-bold tabular-nums">+976</span>
                     <input
                         id="phone"
                         type="tel"
                         inputMode="numeric"
-                        autoComplete="tel-national"
+                        autoComplete="off"
                         required
                         aria-invalid={Boolean(errors.phone)}
                         placeholder="9911 2233"
-                        className="h-full w-full min-w-0 bg-transparent px-3 text-base font-semibold tracking-[0.1em] outline-none placeholder:text-zinc-500 dark:placeholder:text-zinc-400"
+                        className="login-phone-input text-foreground placeholder:text-muted-foreground h-full w-full min-w-0 bg-transparent px-3 text-2xl font-extrabold tracking-wide tabular-nums scheme-light outline-none dark:scheme-dark"
                         value={data.phone}
                         onChange={(e) => setData('phone', formatPhone(e.target.value))}
                     />

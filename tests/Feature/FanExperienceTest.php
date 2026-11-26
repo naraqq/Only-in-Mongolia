@@ -6,6 +6,7 @@ use App\Models\CreatorProfile;
 use App\Models\Post;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class FanExperienceTest extends TestCase
@@ -103,6 +104,95 @@ class FanExperienceTest extends TestCase
         $fan->following()->attach($c->id);
 
         $this->actingAs($fan)->get('/dashboard')->assertInertia(fn ($p) => $p->has('following', 1)->where('following.0.handle', 'artist')->where('creatorStatus', null));
+    }
+
+    public function test_global_search_ranks_exact_handles_and_excludes_inaccessible_posts(): void
+    {
+        $artist = $this->creator('saraa', name: 'Saraa Art');
+        $related = $this->creator('saraa-studio');
+        $blocked = $this->creator('saraa-private');
+        $adult = $this->creator('saraa-adult', adult: true);
+        $suspended = $this->creator('saraa-suspended', status: CreatorProfile::SUSPENDED);
+        $fan = $this->fan();
+        DB::table('blocks')->insert(['blocker_id' => $blocked->user_id, 'blocked_id' => $fan->id]);
+
+        $free = $artist->posts()->create(['body' => 'Ink workshop', 'visibility' => Post::PUBLIC]);
+        $artist->posts()->create(['body' => 'Saraa private ink', 'visibility' => Post::SUBSCRIBERS]);
+        $artist->posts()->create(['body' => 'Saraa paid ink', 'visibility' => Post::PUBLIC, 'price' => 5000]);
+        $artist->posts()->create(['body' => 'Saraa future ink', 'visibility' => Post::PUBLIC, 'publish_at' => now()->addDay()]);
+        $artist->posts()->create(['body' => 'Saraa adult ink', 'visibility' => Post::PUBLIC, 'is_adult' => true]);
+        $artist->posts()->create(['body' => 'Saraa held ink', 'visibility' => Post::PUBLIC])->forceFill(['held_at' => now()])->save();
+        foreach ([$blocked, $adult, $suspended] as $creator) {
+            $creator->posts()->create(['body' => 'Saraa ink', 'visibility' => Post::PUBLIC]);
+        }
+
+        $this->actingAs($fan)->get('/search?q=%40saraa')->assertInertia(fn ($result) => $result
+            ->component('search')
+            ->has('creators', 2)
+            ->where('creators.0.handle', $artist->handle)
+            ->where('creators.1.handle', $related->handle)
+            ->has('posts', 1)
+            ->where('posts.0.id', $free->id)
+            ->where('posts.0.body', 'Ink workshop'));
+
+        $this->get('/search?q=%25')->assertInertia(fn ($result) => $result->has('creators', 0)->has('posts', 0));
+    }
+
+    public function test_global_search_filters_post_age_and_media_and_paginates(): void
+    {
+        $creator = $this->creator('food');
+        for ($i = 0; $i < 13; $i++) {
+            $creator->posts()->create(['body' => 'Recipe '.$i, 'visibility' => Post::PUBLIC]);
+        }
+        $photo = $creator->posts()->create(['body' => 'Recipe photo', 'visibility' => Post::PUBLIC]);
+        $photo->media()->create(['type' => 'image', 'path' => 'photo.jpg', 'mime' => 'image/jpeg', 'position' => 0]);
+        $old = $creator->posts()->create(['body' => 'Recipe old photo', 'visibility' => Post::PUBLIC]);
+        $old->forceFill(['created_at' => now()->subMonths(2)])->save();
+        $old->media()->create(['type' => 'image', 'path' => 'old.jpg', 'mime' => 'image/jpeg', 'position' => 0]);
+
+        $this->get('/search?q=recipe&tab=posts&media=image&date=week')->assertInertia(fn ($result) => $result
+            ->has('posts', 1)->where('posts.0.id', $photo->id)->has('creators', 0));
+        $this->get('/search?q=recipe&tab=posts&sort=latest')->assertInertia(fn ($result) => $result->has('posts', 12)->where('morePosts', true));
+        $this->get('/search?q=recipe&tab=posts&sort=latest&page=2')->assertInertia(fn ($result) => $result->has('posts', 3)->where('morePosts', false));
+    }
+
+    public function test_first_feed_offers_one_eligible_free_post_per_creator(): void
+    {
+        config(['starter-feed.topics_by_handle' => ['artist' => 'art', 'musician' => 'music']]);
+        $artist = $this->creator('artist');
+        $musician = $this->creator('musician');
+        $blocked = $this->creator('blocked');
+        $adult = $this->creator('adult', adult: true);
+        $suspended = $this->creator('suspended', status: CreatorProfile::SUSPENDED);
+        $fan = $this->fan();
+        DB::table('blocks')->insert(['blocker_id' => $blocked->user_id, 'blocked_id' => $fan->id]);
+
+        $artist->posts()->create(['body' => 'Earlier free post', 'visibility' => Post::PUBLIC]);
+        $free = $artist->posts()->create(['body' => 'Latest free post', 'visibility' => Post::PUBLIC]);
+        $artist->posts()->create(['body' => 'Subscribers only', 'visibility' => Post::SUBSCRIBERS]);
+        $artist->posts()->create(['body' => 'Pay to unlock', 'visibility' => Post::PUBLIC, 'price' => 5000]);
+        $artist->posts()->create(['body' => 'Future post', 'visibility' => Post::PUBLIC, 'publish_at' => now()->addDay()]);
+        $artist->posts()->create(['body' => '18+ post', 'visibility' => Post::PUBLIC, 'is_adult' => true]);
+        $held = $artist->posts()->create(['body' => 'Held post', 'visibility' => Post::PUBLIC]);
+        $held->forceFill(['held_at' => now()])->save();
+        foreach ([$musician, $blocked, $adult, $suspended] as $creator) {
+            $creator->posts()->create(['body' => 'Public post', 'visibility' => Post::PUBLIC]);
+        }
+
+        $this->actingAs($fan)->get('/')->assertInertia(fn ($page) => $page
+            ->component('feed')
+            ->has('posts', 0)
+            ->has('starterPosts', 2)
+            ->where('starterPosts.0.id', $free->id)
+            ->where('starterPosts.0.topic', 'art')
+            ->where('starterPosts.0.following', false)
+            ->where('starterPosts.1.topic', 'music'));
+
+        $this->post('/@artist/follow?view=starter')->assertRedirect('/?view=starter');
+        $this->get('/?view=starter')->assertInertia(fn ($page) => $page
+            ->where('followingCount', 1)
+            ->where('starterPosts.0.following', true));
+        $this->get('/')->assertInertia(fn ($page) => $page->where('starterPosts', null)->has('posts', 5));
     }
 
     public function test_signed_in_home_is_the_feed_including_the_creators_own_posts(): void

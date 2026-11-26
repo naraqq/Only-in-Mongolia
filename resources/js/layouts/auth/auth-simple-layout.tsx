@@ -2,8 +2,10 @@ import AppLogo from '@/components/app-logo';
 import LangSwitch from '@/components/lang-switch';
 import { useT } from '@/lib/i18n';
 import { Link } from '@inertiajs/react';
-import { ArrowUpRight } from 'lucide-react';
-import coverPhoto from '../../../../database/seeders/images/cover-erdene.travel.jpg';
+import { ArrowUpRight, Pause, Play } from 'lucide-react';
+import { useEffect, useState } from 'react';
+
+const loginImages = ['/images/login-images/login-v1.png', '/images/login-images/login-v2.png', '/images/login-images/login-v3.png'];
 
 interface AuthLayoutProps {
     children: React.ReactNode;
@@ -40,11 +42,71 @@ export default function AuthSimpleLayout({ children, title, description }: AuthL
 function CreatorPreview() {
     const { locale } = useT();
     const mn = locale === 'mn';
+    const [active, setActive] = useState(0);
+    const [paused, setPaused] = useState(false);
+    const [reducedMotion, setReducedMotion] = useState(false);
+
+    useEffect(() => {
+        const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
+        const update = () => setReducedMotion(preference.matches);
+        update();
+        preference.addEventListener('change', update);
+        return () => preference.removeEventListener('change', update);
+    }, []);
+
+    useEffect(() => {
+        if (paused || reducedMotion) return;
+        const timer = window.setTimeout(() => setActive((index) => (index + 1) % loginImages.length), 7000);
+        return () => window.clearTimeout(timer);
+    }, [active, paused, reducedMotion]);
 
     return (
         <aside className="relative isolate flex min-h-[360px] flex-col justify-end overflow-hidden bg-[#242b23] p-6 text-white sm:p-10 lg:order-1 lg:min-h-svh xl:p-14">
-            <img src={coverPhoto} alt="" fetchPriority="high" className="absolute inset-0 -z-20 size-full object-cover" />
-            <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/90 via-black/35 to-transparent" aria-hidden />
+            {loginImages.map((src, index) => (
+                <img
+                    key={src}
+                    src={src}
+                    alt=""
+                    fetchPriority={index === 0 ? 'high' : 'low'}
+                    className={`absolute inset-0 -z-20 size-full object-cover object-[center_20%] motion-safe:transition-opacity motion-safe:duration-700 ${active === index ? 'opacity-100' : 'opacity-0'}`}
+                />
+            ))}
+            <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/65 via-transparent to-transparent" aria-hidden />
+            <div role="group" aria-label={mn ? 'Нүүр зураг' : 'Login images'} className="absolute top-4 right-4 z-10 flex rounded-full bg-black/65">
+                {loginImages.map((src, index) => (
+                    <button
+                        key={src}
+                        type="button"
+                        aria-label={mn ? `Зураг ${index + 1}` : `Image ${index + 1}`}
+                        aria-pressed={active === index}
+                        onClick={() => {
+                            setActive(index);
+                            setPaused(true);
+                        }}
+                        className="grid size-10 place-items-center rounded-full hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2"
+                    >
+                        <span className={`size-2.5 rounded-full border border-white ${active === index ? 'bg-white' : ''}`} aria-hidden />
+                    </button>
+                ))}
+                {!reducedMotion && (
+                    <button
+                        type="button"
+                        aria-label={
+                            paused
+                                ? mn
+                                    ? 'Зураг солихыг үргэлжлүүлэх'
+                                    : 'Resume image rotation'
+                                : mn
+                                  ? 'Зураг солихыг түр зогсоох'
+                                  : 'Pause image rotation'
+                        }
+                        onClick={() => setPaused((value) => !value)}
+                        className="grid size-10 place-items-center rounded-full hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2"
+                    >
+                        {paused ? <Play className="size-4" aria-hidden /> : <Pause className="size-4" aria-hidden />}
+                    </button>
+                )}
+            </div>
             <div className="animate-page-in max-w-xl">
                 <p className="text-brand-2 text-xs font-bold tracking-[0.18em] uppercase">
                     {mn ? 'Монголын бүтээгчдийн платформ' : 'Made for Mongolian creators'}

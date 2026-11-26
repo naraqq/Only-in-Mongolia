@@ -58,6 +58,7 @@ if [[ ! -e "$ENV_FILE" ]]; then
             printf '%s\n' 'APP_NAME="Only in Mongolia"' 'APP_ENV=production' 'APP_DEBUG=false'
             printf 'APP_KEY=base64:%s\nAPP_URL=https://%s\nSITE_ADDRESS=%s\n' "$app_key" "$hostname" "$hostname"
             printf '%s\n' 'HTTP_BIND=80' 'HTTPS_BIND=443' 'SESSION_SECURE_COOKIE=true' 'SESSION_ENCRYPT=true'
+            printf '%s\n' 'LOG_LEVEL=warning' 'APP_TIMEZONE=Asia/Ulaanbaatar'
             printf '%s\n' 'DB_DATABASE=only_in_mongolia' 'DB_USERNAME=only_in_mongolia'
             printf 'DB_PASSWORD=%s\n' "$db_password"
             printf 'MYSQL_ROOT_PASSWORD=%s\n' "$mysql_root_password"

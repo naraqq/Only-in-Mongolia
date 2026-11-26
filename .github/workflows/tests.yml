@@ -34,12 +34,6 @@ jobs:
       - name: Install Node Dependencies
         run: npm ci
 
-      - name: Typecheck
-        run: npm run types
-
-      - name: Frontend Tests
-        run: npm test
-
       - name: Build Assets
         run: npm run build
 
@@ -48,6 +42,13 @@ jobs:
 
       - name: Install Dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      # After Composer: TypeScript resolves ziggy-js from vendor/tightenco/ziggy.
+      - name: Typecheck
+        run: npm run types
+
+      - name: Frontend Tests
+        run: npm test
 
       - name: Copy Environment File
         run: cp .env.example .env
