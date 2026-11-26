@@ -2,13 +2,14 @@ import AppLogo from '@/components/app-logo';
 import AppLogoIcon from '@/components/app-logo-icon';
 import { type CreatorCardData } from '@/components/creator-card';
 import LangSwitch from '@/components/lang-switch';
+import SearchBox from '@/components/search-box';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import UserAvatar from '@/components/user-avatar';
 import { mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
 import { type SharedData } from '@/types';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import {
     BadgeCheck,
     Bell,
@@ -29,7 +30,7 @@ import {
     Wallet,
     type LucideIcon,
 } from 'lucide-react';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 
 type NavLink = { label: TKey; href: string; icon: LucideIcon; match: (url: string) => boolean; badge?: number };
 
@@ -338,27 +339,10 @@ function AccountMenu({ compact = false }: { compact?: boolean }) {
 function RightRail() {
     const { t } = useT();
     const { suggestions } = usePage<SharedData & { suggestions: CreatorCardData[] }>().props;
-    const [q, setQ] = useState('');
-
-    function search(e: FormEvent) {
-        e.preventDefault();
-        router.get(route('search'), q.trim() ? { q: q.trim() } : {});
-    }
 
     return (
         <div className="flex flex-col gap-6">
-            <form onSubmit={search} className="bg-muted flex items-center gap-2 rounded-full px-4">
-                <Search className="text-muted-foreground size-4 shrink-0" aria-hidden />
-                <input
-                    type="search"
-                    value={q}
-                    onChange={(e) => setQ(e.target.value)}
-                    aria-label={t('nav.search')}
-                    placeholder={t('search.placeholder')}
-                    maxLength={100}
-                    className="placeholder:text-muted-foreground h-11 w-full bg-transparent text-sm outline-none"
-                />
-            </form>
+            <SearchBox />
 
             {suggestions.length > 0 && (
                 <section>

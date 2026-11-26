@@ -1,0 +1,29 @@
+# Local development database: the same MySQL 8.4 as production, for `php artisan serve` / `composer dev`.
+#   docker compose -f compose.dev.yaml up -d
+# Only reachable from this machine (127.0.0.1:3307; 3306 is often taken by XAMPP). Separate from the full
+# Docker stack in compose.yaml, with its own data. Creates two databases: one for the app, one for the tests.
+name: only-in-mongolia-dev
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${DEV_DB_PORT:-3307}:3306"
+    environment:
+      MYSQL_DATABASE: only_in_mongolia
+      MYSQL_USER: only_in_mongolia
+      MYSQL_PASSWORD: local-dev-password
+      MYSQL_ROOT_PASSWORD: local-dev-root
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes:
+      - dev_database:/var/lib/mysql
+      - ./docker/mysql-dev-init.sql:/docker-entrypoint-initdb.d/10-test-database.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=local-dev-password mysql -h 127.0.0.1 -u only_in_mongolia only_in_mongolia -e 'SELECT 1'"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+
+volumes:
+  dev_database:

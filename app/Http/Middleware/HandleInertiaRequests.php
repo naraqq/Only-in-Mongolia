@@ -52,6 +52,10 @@ class HandleInertiaRequests extends Middleware
             // "Санал болгох" (suggested creators) only appears on the home feed.
             'suggestions' => fn () => $request->routeIs('home', 'feed') ? $this->suggestions($request) : [],
             'flash' => ['status' => fn () => $request->session()->get('status')],
+            'appearance' => fn () => \App\Support\Appearance::for($request),
+            // The current CSRF token, for the few plain HTML form posts. The <meta> tag is only written on the first
+            // page load, so after logging out (new session, new token) it goes stale and the post fails with 419.
+            'csrf' => fn () => $request->session()->token(),
             'ppvLimits' => ['min' => (int) config('creators.min_ppv'), 'max' => (int) config('creators.max_ppv')],
             'tipLimits' => ['min' => (int) config('creators.min_tip'), 'max' => (int) config('creators.max_tip')],
             // What's waiting for admins (nav badge and admin tabs).

@@ -2,7 +2,7 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import AuthLayout from '@/layouts/auth-layout';
 import { useT } from '@/lib/i18n';
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, ArrowRight, CircleCheck, Hourglass, LoaderCircle, MessageSquare } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
@@ -93,6 +93,7 @@ function SmsStep({ v }: { v: Verification }) {
     const [left, setLeft] = useState(() => secondsLeft(v.expires_at));
     const [total] = useState(() => Math.max(1, secondsLeft(v.expires_at)));
     const completeForm = useRef<HTMLFormElement>(null);
+    const page = usePage<{ csrf: string }>();
 
     // Countdown to expiresAt.
     useEffect(() => {
@@ -146,7 +147,8 @@ function SmsStep({ v }: { v: Verification }) {
     const cancel = () => router.post(route('login.phone.cancel'));
 
     if (status === 'VERIFIED') {
-        const csrf = typeof document === 'undefined' ? '' : document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+        // From this response, not the <meta> tag: that one is from the first page load and goes stale after logging out.
+        const csrf = page.props.csrf;
         return (
             <form
                 ref={completeForm}

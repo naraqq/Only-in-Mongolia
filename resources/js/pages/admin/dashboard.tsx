@@ -262,7 +262,7 @@ function Todo({
             <Link href={href} className="group hover:bg-muted/60 flex items-center gap-3 rounded-xl p-2.5 transition">
                 <span
                     className={`grid size-10 shrink-0 place-items-center rounded-xl ${
-                        urgent ? 'bg-red-600 text-white' : n ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+                        urgent ? 'bg-red-600 text-white' : n ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                     }`}
                 >
                     <Icon className="size-5" />

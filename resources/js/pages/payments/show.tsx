@@ -247,7 +247,7 @@ function Done({
             <div className="mt-7 flex w-full max-w-sm flex-col gap-2">
                 <Link
                     href={returnUrl}
-                    className="from-primary shadow-primary/25 flex h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r to-rose-500 font-bold text-white shadow-lg transition hover:brightness-110"
+                    className="bg-primary shadow-primary/25 text-primary-foreground flex h-12 items-center justify-center gap-2 rounded-2xl font-bold shadow-lg transition hover:brightness-110"
                 >
                     {t('co.continueTo')} <ArrowRight className="size-5" />
                 </Link>

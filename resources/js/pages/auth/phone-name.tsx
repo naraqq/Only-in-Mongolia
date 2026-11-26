@@ -114,7 +114,7 @@ export default function PhoneName({ phone }: { phone: string }) {
 
                 <Button
                     type="submit"
-                    className="from-primary shadow-primary/25 group mt-1 h-14 w-full rounded-2xl bg-gradient-to-r to-rose-500 text-base font-bold shadow-lg transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
+                    className="bg-primary shadow-primary/25 group mt-1 h-14 w-full rounded-2xl text-base font-bold shadow-lg transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
                     disabled={processing || !data.name.trim() || age === null || age < 18}
                 >
                     {t('ph.create')}

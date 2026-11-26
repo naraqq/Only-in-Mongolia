@@ -84,7 +84,7 @@ export default function TopupDialog({
                     <button
                         type="submit"
                         disabled={!valid || form.processing}
-                        className="from-primary shadow-primary/25 flex h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r to-rose-500 font-bold text-white shadow-lg transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
+                        className="bg-primary shadow-primary/25 text-primary-foreground flex h-12 items-center justify-center gap-2 rounded-2xl font-bold shadow-lg transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
                     >
                         {form.processing && <LoaderCircle className="size-5 animate-spin" />}
                         {t('wal.topupPay', { amount: mnt(form.data.amount || 0) })}

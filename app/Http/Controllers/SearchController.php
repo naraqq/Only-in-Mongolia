@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\CreatorProfile;
 use App\Models\Post;
+use App\Models\SearchHistory;
 use App\Support\Blocking;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -98,7 +100,54 @@ class SearchController extends Controller
             }
         }
 
-        return Inertia::render('search', compact('filters', 'creators', 'posts', 'page', 'moreCreators', 'morePosts'));
+        // Recent searches live on the account: remember this one, or show the latest when the box is empty.
+        $recent = [];
+        if ($viewer && $filters['q'] !== '' && $page === 1) {
+            SearchHistory::record($viewer, $filters['q']);
+        } elseif ($viewer && $filters['q'] === '') {
+            $recent = $viewer->searchHistories()->orderByDesc('searched_at')->limit(SearchHistory::SHOW)->pluck('query')->all();
+        }
+
+        return Inertia::render('search', compact('filters', 'creators', 'posts', 'page', 'moreCreators', 'morePosts', 'recent'));
+    }
+
+    /**
+     * The search box dropdown (like Facebook's): recent searches when it's empty; while typing, matching creators
+     * and matching recent searches. Small and fast; the full results stay on the search page.
+     */
+    public function suggest(Request $request): JsonResponse
+    {
+        $q = trim((string) ($request->validate(['q' => ['nullable', 'string', 'max:100']])['q'] ?? ''));
+        $viewer = $request->user();
+        $recent = $viewer
+            ? $viewer->searchHistories()
+                ->when($q !== '', fn ($w) => $w->whereRaw("LOWER(query) LIKE ? ESCAPE '!'", ['%'.$this->literal(mb_strtolower($q)).'%']))
+                ->orderByDesc('searched_at')->limit($q === '' ? 8 : 3)->pluck('query')
+            : collect();
+
+        $creators = collect();
+        $phrase = mb_strtolower(ltrim($q, '@'));
+        if ($phrase !== '') {
+            $query = CreatorProfile::listableFor(null)->with('user:id,avatar_path')
+                ->when($viewer, fn (Builder $b) => $b->whereNotIn('user_id', Blocking::idsAround($viewer)));
+            foreach (preg_split('/\s+/u', $phrase, 6, PREG_SPLIT_NO_EMPTY) ?: [] as $term) {
+                $pattern = '%'.$this->literal($term).'%';
+                $query->where(fn (Builder $b) => $b->whereRaw("LOWER(handle) LIKE ? ESCAPE '!'", [$pattern])
+                    ->orWhereRaw("LOWER(display_name) LIKE ? ESCAPE '!'", [$pattern]));
+            }
+            $prefix = $this->literal($phrase).'%';
+            $creators = $query
+                ->orderByRaw("CASE WHEN LOWER(handle) = ? THEN 0 WHEN LOWER(display_name) = ? THEN 1 WHEN LOWER(handle) LIKE ? ESCAPE '!' OR LOWER(display_name) LIKE ? ESCAPE '!' THEN 2 ELSE 3 END", [$phrase, $phrase, $prefix, $prefix])
+                ->withCount('followers')->orderByDesc('followers_count')->limit(6)->get()
+                ->map(fn (CreatorProfile $c) => [
+                    'handle' => $c->handle,
+                    'display_name' => $c->display_name,
+                    'avatar_url' => $c->avatarUrl(),
+                    'followers' => (int) $c->followers_count,
+                ]);
+        }
+
+        return response()->json(['recent' => $recent->values(), 'creators' => $creators->values()]);
     }
 
     private function creatorMatch(Builder $builder, string $pattern): Builder

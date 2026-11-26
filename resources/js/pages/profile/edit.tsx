@@ -307,7 +307,7 @@ export default function EditProfile({
                         <Button
                             type="submit"
                             disabled={form.processing || !form.isDirty}
-                            className="from-primary shadow-primary/25 h-12 rounded-2xl bg-gradient-to-r to-rose-500 font-bold shadow-lg hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
+                            className="bg-primary shadow-primary/25 h-12 rounded-2xl font-bold shadow-lg hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
                         >
                             {form.processing && <LoaderCircle className="size-5 animate-spin" />}
                             {t('pe.save')}
@@ -348,17 +348,17 @@ function CreatorCard() {
     return (
         <Link
             href={route('creator.apply')}
-            className="from-primary shadow-primary/20 group relative flex items-center gap-4 overflow-hidden rounded-2xl bg-gradient-to-br to-rose-500 p-5 text-white shadow-lg transition hover:brightness-110"
+            className="bg-primary shadow-primary/20 group text-primary-foreground relative flex items-center gap-4 overflow-hidden rounded-2xl p-5 shadow-lg transition hover:brightness-110"
         >
             <Sparkles className="absolute -right-3 -bottom-4 size-24 opacity-15" aria-hidden />
-            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white/20">
+            <span className="bg-primary-foreground/15 grid size-12 shrink-0 place-items-center rounded-2xl">
                 <Sparkles className="size-6" />
             </span>
             <span className="relative min-w-0 flex-1">
                 <span className="block text-lg font-extrabold">{t('pr.creatorT')}</span>
-                <span className="block text-sm text-white/85">{t('pr.creatorD')}</span>
+                <span className="text-primary-foreground/80 block text-sm">{t('pr.creatorD')}</span>
             </span>
-            <span className="relative inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-4 py-2 text-sm font-bold text-rose-600 transition group-hover:gap-2">
+            <span className="bg-primary-foreground text-primary relative inline-flex shrink-0 items-center gap-1 rounded-full px-4 py-2 text-sm font-bold transition group-hover:gap-2">
                 {t('pr.creatorCta')} <ChevronRight className="size-4" />
             </span>
         </Link>

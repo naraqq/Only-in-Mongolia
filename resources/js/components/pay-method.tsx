@@ -25,7 +25,7 @@ export default function PayMethod({ amount, value, onChange }: { amount: number;
         `relative flex w-full items-center gap-3 rounded-2xl p-3 text-left transition ${on ? 'bg-primary/10 shadow-sm' : 'bg-muted hover:bg-muted/70'}`;
     const dot = (on: boolean) => (
         <span className={`grid size-5 shrink-0 place-items-center rounded-full ${on ? 'bg-primary' : 'bg-card'}`}>
-            {on && <Check className="size-3 text-white" strokeWidth={4} />}
+            {on && <Check className="text-primary-foreground size-3" strokeWidth={4} />}
         </span>
     );
 

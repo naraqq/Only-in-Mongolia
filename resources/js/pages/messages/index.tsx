@@ -105,7 +105,7 @@ export default function Messages({
                             <p className="text-muted-foreground text-sm">{t(area === 'studio' ? 'dm.emptyCreator' : 'dm.empty')}</p>
                             <Link
                                 href={route(area === 'studio' ? 'studio' : 'creators')}
-                                className="bg-primary mt-1 inline-flex h-10 items-center gap-2 rounded-full px-5 text-sm font-bold text-white"
+                                className="bg-primary text-primary-foreground mt-1 inline-flex h-10 items-center gap-2 rounded-full px-5 text-sm font-bold"
                             >
                                 {area === 'studio' ? <Megaphone className="size-4" /> : <Compass className="size-4" />}{' '}
                                 {t(area === 'studio' ? 'mm.title' : 'wal.discover')}
@@ -324,7 +324,7 @@ function Conversation({ thread, me, area }: { thread: Thread; me: number; area: 
                                         {m.body && (
                                             <p
                                                 className={`rounded-[20px] px-3.5 py-2 text-[15px] leading-snug break-words whitespace-pre-line ${
-                                                    mine ? 'from-primary bg-gradient-to-br to-rose-500 text-white' : 'bg-muted'
+                                                    mine ? 'bg-primary text-primary-foreground' : 'bg-muted'
                                                 } ${joinsPrev ? (mine ? 'rounded-tr-md' : 'rounded-tl-md') : ''} ${endsGroup ? '' : mine ? 'rounded-br-md' : 'rounded-bl-md'}`}
                                                 title={m.created_at.slice(0, 16).replace('T', ' ').replaceAll('-', '.')}
                                             >
@@ -467,7 +467,7 @@ function Composer({ conversationId }: { conversationId: number }) {
                 <button
                     type="submit"
                     disabled={!canSend}
-                    className="from-primary grid size-10 shrink-0 place-items-center rounded-full bg-gradient-to-br to-rose-500 text-white shadow-md transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
+                    className="bg-primary text-primary-foreground grid size-10 shrink-0 place-items-center rounded-full shadow-md transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
                     aria-label={t('dm.send')}
                 >
                     {form.processing ? <LoaderCircle className="size-5 animate-spin" /> : <SendHorizontal className="size-5" />}

@@ -26,6 +26,7 @@ use App\Http\Middleware\SetLocale;
 use Illuminate\Support\Facades\Route;
 
 // Language switch (МН / EN), remembered in the session.
+Route::post('appearance/{mode}', [\App\Http\Controllers\PreferencesController::class, 'appearance'])->whereIn('mode', \App\Support\Appearance::MODES)->middleware('throttle:30,1')->name('appearance');
 Route::post('locale/{locale}', function (string $locale) {
     session(['locale' => $locale]);
 
@@ -35,11 +36,14 @@ Route::post('locale/{locale}', function (string $locale) {
 Route::get('/', [FanController::class, 'home'])->name('home');
 Route::get('creators', [FanController::class, 'discover'])->name('creators');
 Route::get('search', SearchController::class)->middleware('throttle:60,1')->name('search');
+Route::get('search/suggest', [SearchController::class, 'suggest'])->middleware('throttle:120,1')->name('search.suggest');
 Route::post('posts/views', [\App\Http\Controllers\InsightsController::class, 'views'])->middleware('throttle:60,1')->name('posts.views');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', [FanController::class, 'dashboard'])->name('dashboard');
     Route::get('wallet', [WalletController::class, 'index'])->name('wallet');
+    Route::delete('search/recent', [\App\Http\Controllers\PreferencesController::class, 'clearSearches'])->name('search.recent.clear');
+    Route::delete('search/recent/one', [\App\Http\Controllers\PreferencesController::class, 'forgetSearch'])->name('search.recent.forget');
     Route::post('wallet/renew/{handle}', [WalletController::class, 'renew'])->middleware('throttle:10,1')->name('wallet.renew');
     Route::post('wallet/auto-renew/{handle}', [WalletController::class, 'autoRenew'])->name('wallet.auto-renew');
     Route::post('wallet/topup', [PaymentController::class, 'topup'])->middleware('throttle:10,1')->name('wallet.topup');

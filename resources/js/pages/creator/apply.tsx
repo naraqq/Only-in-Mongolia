@@ -139,7 +139,7 @@ function StatusScreen({ app }: { app: Application }) {
                 {approved ? (
                     <Link
                         href={route('studio')}
-                        className="from-primary shadow-primary/25 flex h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r to-rose-500 font-bold text-white shadow-lg transition hover:brightness-110"
+                        className="bg-primary shadow-primary/25 text-primary-foreground flex h-12 items-center justify-center gap-2 rounded-2xl font-bold shadow-lg transition hover:brightness-110"
                     >
                         {t('cr.openStudio')} <ArrowRight className="size-4" />
                     </Link>
@@ -242,7 +242,7 @@ function Flow({ application: previous, banks, limits, keep, account_name }: Prop
                         type="submit"
                         form="apply"
                         disabled={!ready[step] || processing}
-                        className="from-primary shadow-primary/25 inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r to-rose-500 font-bold text-white shadow-lg transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
+                        className="bg-primary shadow-primary/25 text-primary-foreground inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl font-bold shadow-lg transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
                     >
                         {processing && <LoaderCircle className="size-4 animate-spin" />}
                         {step < 3 ? t('cr.next') : processing ? t('cr.sending') : t('cr.submit')}
@@ -289,7 +289,7 @@ function Intro({ keep, previous, onStart }: { keep: number; previous: Applicatio
                 <button
                     type="button"
                     onClick={onStart}
-                    className="from-primary shadow-primary/25 inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r to-rose-500 font-bold text-white shadow-lg transition hover:brightness-110"
+                    className="bg-primary shadow-primary/25 text-primary-foreground inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl font-bold shadow-lg transition hover:brightness-110"
                 >
                     {t(previous ? 'cr.tryAgain' : 'cr.start')} <ArrowRight className="size-4" />
                 </button>
@@ -305,13 +305,13 @@ function Intro({ keep, previous, onStart }: { keep: number; previous: Applicatio
                 </div>
             )}
 
-            <div className="from-primary relative overflow-hidden rounded-3xl bg-gradient-to-br to-rose-500 p-6 text-white shadow-lg sm:p-8">
+            <div className="bg-primary text-primary-foreground relative overflow-hidden rounded-3xl p-6 shadow-lg sm:p-8">
                 <Sparkles className="absolute -top-4 -right-4 size-32 opacity-15" aria-hidden />
-                <span className="grid size-12 place-items-center rounded-2xl bg-white/20">
+                <span className="bg-primary-foreground/15 grid size-12 place-items-center rounded-2xl">
                     <Sparkles className="size-6" />
                 </span>
                 <h1 className="mt-4 text-2xl leading-tight font-extrabold sm:text-3xl">{t('cr.heroT')}</h1>
-                <p className="mt-2 max-w-md text-white/85">{t('cr.heroD')}</p>
+                <p className="text-primary-foreground/80 mt-2 max-w-md">{t('cr.heroD')}</p>
             </div>
 
             <ul className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -418,7 +418,7 @@ function PageStep({ form, limits }: { form: Form; limits: { min: number; max: nu
                                 key={p}
                                 type="button"
                                 onClick={() => setData('price_monthly', String(p))}
-                                className={`h-10 rounded-full px-4 text-sm font-bold transition ${price === p ? 'bg-primary text-white' : 'bg-muted hover:bg-muted/70'}`}
+                                className={`h-10 rounded-full px-4 text-sm font-bold transition ${price === p ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/70'}`}
                             >
                                 {mnt(p)}
                             </button>
@@ -673,7 +673,7 @@ function Consent({ checked, onChange, error, children }: { checked: boolean; onC
         >
             <input type="checkbox" className="peer sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
             <span
-                className={`peer-focus-visible:ring-primary/30 mt-0.5 grid size-5 shrink-0 place-items-center rounded-md transition peer-focus-visible:ring-2 ${checked ? 'bg-primary text-white' : 'bg-muted'}`}
+                className={`peer-focus-visible:ring-primary/30 mt-0.5 grid size-5 shrink-0 place-items-center rounded-md transition peer-focus-visible:ring-2 ${checked ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}
             >
                 {checked && <Check className="size-3.5" strokeWidth={3} />}
             </span>

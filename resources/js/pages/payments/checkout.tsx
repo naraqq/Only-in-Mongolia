@@ -124,7 +124,7 @@ export default function Checkout({
                             }`}
                         >
                             <span className={`grid size-5 shrink-0 place-items-center rounded-full ${on ? 'bg-primary' : 'bg-muted'}`}>
-                                {on && <Check className="size-3 text-white" strokeWidth={4} />}
+                                {on && <Check className="text-primary-foreground size-3" strokeWidth={4} />}
                             </span>
                             <span className="min-w-0 flex-1">
                                 <span className="flex flex-wrap items-center gap-2 font-bold">

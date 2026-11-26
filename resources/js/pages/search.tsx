@@ -25,6 +25,8 @@ type Props = {
     page: number;
     moreCreators: boolean;
     morePosts: boolean;
+    /** Recent searches, from the account (signed-in only). */
+    recent: string[];
 };
 
 const tabs = { all: 'search.all', creators: 'search.creators', posts: 'search.posts' } satisfies Record<Filters['tab'], TKey>;
@@ -32,12 +34,10 @@ const sorts = { relevance: 'search.relevance', latest: 'search.latest', popular:
 const dates = { any: 'search.anyDate', week: 'search.week', month: 'search.month', year: 'search.year' } satisfies Record<Filters['date'], TKey>;
 const media = { any: 'search.anyMedia', image: 'search.photos', video: 'search.videos' } satisfies Record<Filters['media'], TKey>;
 
-export default function Search({ filters, creators, posts, page, moreCreators, morePosts }: Props) {
+export default function Search({ filters, creators, posts, page, moreCreators, morePosts, recent }: Props) {
     const { t } = useT();
     const { auth } = usePage<SharedData>().props;
-    const storageKey = `oim.search.recent.${auth.user?.id ?? 'guest'}`;
     const [draft, setDraft] = useState(filters.q);
-    const [recent, setRecent] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
     const [filtersOpen, setFiltersOpen] = useState(false);
     const searchField = useRef<HTMLInputElement>(null);
@@ -46,16 +46,7 @@ export default function Search({ filters, creators, posts, page, moreCreators, m
 
     useEffect(() => {
         setDraft(filters.q);
-        try {
-            const stored: unknown = JSON.parse(localStorage.getItem(storageKey) ?? '[]');
-            const previous = Array.isArray(stored) ? stored.filter((value): value is string => typeof value === 'string') : [];
-            const next = (filters.q ? [filters.q, ...previous.filter((value) => value !== filters.q)] : previous).slice(0, 6);
-            setRecent(next);
-            if (filters.q) localStorage.setItem(storageKey, JSON.stringify(next));
-        } catch {
-            setRecent([]);
-        }
-    }, [filters.q, storageKey]);
+    }, [filters.q]);
 
     function destination(next: Partial<Filters> = {}, targetPage = 1) {
         const value = { ...filters, ...next };
@@ -74,14 +65,9 @@ export default function Search({ filters, creators, posts, page, moreCreators, m
         router.get(destination({ q: draft.trim() }), {}, { preserveState: true, onStart: () => setLoading(true), onFinish: () => setLoading(false) });
     }
 
-    function clearRecent() {
-        try {
-            localStorage.removeItem(storageKey);
-        } catch {
-            // Clearing in memory still works if storage is unavailable.
-        }
-        setRecent([]);
-    }
+    // Recent searches are kept on the account; the server remembers each search and returns the latest.
+    const clearRecent = () => router.delete(route('search.recent.clear'), { preserveScroll: true, preserveState: true });
+    const forget = (query: string) => router.delete(route('search.recent.forget'), { data: { q: query }, preserveScroll: true, preserveState: true });
 
     function applyFilter(next: Partial<Filters>) {
         router.get(destination(next), {}, { preserveState: true, preserveScroll: true });
@@ -129,7 +115,10 @@ export default function Search({ filters, creators, posts, page, moreCreators, m
                 {filters.q ? (
                     <div aria-busy={loading} className="animate-page-in">
                         <div className="border-border mt-5 flex min-w-0 items-center justify-between gap-1.5 border-b sm:mt-7">
-                            <nav aria-label={t('search.resultTypes')} className="flex min-w-0 gap-2 overflow-x-auto overflow-y-hidden [scrollbar-width:none] sm:gap-5">
+                            <nav
+                                aria-label={t('search.resultTypes')}
+                                className="flex min-w-0 gap-2 overflow-x-auto overflow-y-hidden [scrollbar-width:none] sm:gap-5"
+                            >
                                 {(Object.keys(tabs) as Filters['tab'][]).map((tab) => (
                                     <Link
                                         key={tab}
@@ -282,14 +271,24 @@ export default function Search({ filters, creators, posts, page, moreCreators, m
                         </div>
                         <ul className="divide-border divide-y">
                             {recent.map((query) => (
-                                <li key={query}>
+                                <li key={query} className="group flex items-center gap-1">
                                     <Link
                                         href={destination({ q: query })}
-                                        className="hover:bg-muted flex min-h-11 items-center gap-3 rounded-md px-2 text-sm"
+                                        className="hover:bg-muted flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-md px-2 text-sm"
                                     >
                                         <Clock3 className="text-muted-foreground size-4 shrink-0" aria-hidden />
                                         <span className="truncate">{query}</span>
                                     </Link>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        aria-label={t('search.forget', { query })}
+                                        className="text-muted-foreground shrink-0 opacity-60 group-hover:opacity-100"
+                                        onClick={() => forget(query)}
+                                    >
+                                        <X aria-hidden />
+                                    </Button>
                                 </li>
                             ))}
                         </ul>

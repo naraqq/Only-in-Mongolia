@@ -7,20 +7,20 @@ A Mongolian-first creator membership platform built with Laravel, Inertia, React
 For a containerized setup with MySQL and a three-replica server deployment, see the [Docker guide](docs/docker.md).
 For a production Ubuntu server, see the [installation and deployment runbook](DEPLOYMENT.md).
 
-Use PHP 8.4 with SQLite and GD, Composer 2, and Node.js 22.
+Use PHP 8.4 with `pdo_mysql` and GD, Composer 2, Node.js 22, and Docker Desktop (for the MySQL 8.4 database, the same version as production).
 
 ```sh
 composer install
 npm ci
 php -r "file_exists('.env') || copy('.env.example', '.env');"
 php artisan key:generate
-php -r "file_exists('database/database.sqlite') || touch('database/database.sqlite');"
+docker compose -f compose.dev.yaml up -d
 php artisan migrate
 php artisan db:seed
 composer dev
 ```
 
-Generate the key once for a fresh environment. Seeding is optional and adds demo data. Open the URL printed by Artisan. If PowerShell blocks `npm.ps1`, use `npm.cmd`.
+`compose.dev.yaml` runs MySQL on `127.0.0.1:3307` (3306 is often taken by XAMPP) with two databases: `only_in_mongolia` for the app and `only_in_mongolia_test` for `php artisan test`. Its data lives in a Docker volume and survives restarts; it starts again with Docker Desktop. Generate the key once for a fresh environment. Seeding is optional and adds demo data. Open the URL printed by Artisan. If PowerShell blocks `npm.ps1`, use `npm.cmd`.
 
 - Set `VERIFY_MN_API_KEY` for real phone verification or set `VERIFY_MN_DEV_PHONES` to comma-separated eight-digit test numbers for local sign-in.
 - Leave QPay credentials empty for fake checkout locally. The `QPAY_*` variables configure the merchant integration.

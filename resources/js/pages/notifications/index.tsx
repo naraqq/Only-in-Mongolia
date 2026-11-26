@@ -52,7 +52,7 @@ const ICONS: Record<Kind, [LucideIcon, string]> = {
     payout_rejected: [Banknote, 'bg-red-600'],
     refunded: [Undo2, 'bg-amber-600'],
     charge_refunded: [Undo2, 'bg-amber-600'],
-    subscribed: [Star, 'bg-primary'],
+    subscribed: [Star, 'bg-primary text-primary-foreground!'],
     tipped: [HandCoins, 'bg-amber-500'],
     purchased: [LockOpen, 'bg-orange-500'],
     new_post: [ImagePlus, 'bg-violet-500'],

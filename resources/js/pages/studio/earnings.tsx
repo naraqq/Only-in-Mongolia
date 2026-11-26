@@ -124,7 +124,7 @@ export default function Earnings({
                                 disabled={
                                     !canRequest || form.processing || form.data.amount < rules.minPayout || form.data.amount > balance.available
                                 }
-                                className="from-primary inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r to-rose-500 px-6 font-bold text-white shadow-md transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
+                                className="bg-primary text-primary-foreground inline-flex h-12 items-center justify-center gap-2 rounded-xl px-6 font-bold shadow-md transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
                             >
                                 {form.processing && <LoaderCircle className="size-4 animate-spin" />}
                                 {t('ea.requestBtn')}

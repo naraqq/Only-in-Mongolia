@@ -137,7 +137,7 @@ export default function Audit({
                                     key={i}
                                     href={l.url}
                                     preserveScroll
-                                    className={`grid h-9 min-w-9 place-items-center rounded-lg px-3 text-sm font-semibold ${l.active ? 'bg-primary text-white' : 'bg-card hover:bg-muted shadow-xs'}`}
+                                    className={`grid h-9 min-w-9 place-items-center rounded-lg px-3 text-sm font-semibold ${l.active ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-muted shadow-xs'}`}
                                 >
                                     {label(l.label)}
                                 </Link>

@@ -105,7 +105,7 @@ export default function MassMessage({ subscribers, followers, className = '' }: 
                 {sent !== null && !form.isDirty && <span className="text-sm font-semibold text-emerald-600">{t('mm.sent', { n: sent })}</span>}
                 <button
                     type="submit"
-                    className="bg-primary ml-auto inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-40"
+                    className="bg-primary text-primary-foreground ml-auto inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm font-bold transition hover:brightness-110 disabled:opacity-40"
                     disabled={
                         form.processing ||
                         count === 0 ||

@@ -102,6 +102,12 @@ class User extends Authenticatable
         return $this->two_factor_confirmed_at !== null && $this->two_factor_secret !== null;
     }
 
+    /** Recent searches, newest first when shown. */
+    public function searchHistories(): HasMany
+    {
+        return $this->hasMany(SearchHistory::class);
+    }
+
     /** Every change to this person's wallet balance. */
     public function walletEntries(): HasMany
     {

@@ -37,7 +37,7 @@ export default function TwoFactorChallenge() {
                 <button
                     type="submit"
                     disabled={!ready || form.processing}
-                    className="from-primary shadow-primary/25 flex h-14 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r to-rose-500 text-base font-bold text-white shadow-lg transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
+                    className="bg-primary shadow-primary/25 text-primary-foreground flex h-14 items-center justify-center gap-2 rounded-2xl text-base font-bold shadow-lg transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
                 >
                     {form.processing && <LoaderCircle className="size-5 animate-spin" />}
                     {t('2fa.verify')}

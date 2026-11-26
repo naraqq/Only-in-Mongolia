@@ -87,7 +87,7 @@ function Start({ required }: { required: boolean }) {
                 type="button"
                 disabled={busy}
                 onClick={() => router.post(route('two-factor.enable'), {}, { onStart: () => setBusy(true), onFinish: () => setBusy(false) })}
-                className="from-primary mt-5 inline-flex h-11 items-center gap-2 rounded-full bg-gradient-to-r to-rose-500 px-5 text-sm font-bold text-white shadow-md transition hover:brightness-110 disabled:opacity-50"
+                className="bg-primary text-primary-foreground mt-5 inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-bold shadow-md transition hover:brightness-110 disabled:opacity-50"
             >
                 {busy && <LoaderCircle className="size-4 animate-spin" />}
                 {t('2fa.turnOn')}
@@ -139,7 +139,7 @@ function Confirm({ setup }: { setup: Setup }) {
                         <button
                             type="submit"
                             disabled={form.data.code.length !== 6 || form.processing}
-                            className="bg-primary mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl font-bold text-white transition hover:brightness-110 disabled:opacity-40"
+                            className="bg-primary text-primary-foreground mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl font-bold transition hover:brightness-110 disabled:opacity-40"
                         >
                             {form.processing && <LoaderCircle className="size-4 animate-spin" />}
                             {t('2fa.confirm')}

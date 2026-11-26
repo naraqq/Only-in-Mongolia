@@ -152,7 +152,7 @@ function NewCode({ price }: { price: number }) {
             <button
                 type="submit"
                 disabled={form.data.code.length < 3 || form.data.percent_off < 5 || form.processing}
-                className="bg-primary inline-flex h-11 items-center justify-center gap-1.5 rounded-xl px-4 text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-40"
+                className="bg-primary text-primary-foreground inline-flex h-11 items-center justify-center gap-1.5 rounded-xl px-4 text-sm font-bold transition hover:brightness-110 disabled:opacity-40"
             >
                 {form.processing ? <LoaderCircle className="size-4 animate-spin" /> : <Plus className="size-4" />} {t('pro.create')}
             </button>

@@ -51,7 +51,7 @@ type Entry = {
 type Sub = Creator & { price_monthly: number; expires_at: string; auto_renew: boolean };
 
 const PURPOSE: Record<Purpose, [TKey, typeof Star, string]> = {
-    subscription: ['ea.subscription', Star, 'bg-primary'],
+    subscription: ['ea.subscription', Star, 'bg-primary text-primary-foreground!'],
     tip: ['tip.for', HandCoins, 'bg-amber-500'],
     ppv: ['ppv.option', LockOpen, 'bg-violet-500'],
 };
@@ -161,7 +161,7 @@ export default function Wallet({
                         <Empty icon={CreditCard} text={t('wal.noSubs')}>
                             <Link
                                 href={route('creators')}
-                                className="bg-primary inline-flex h-10 items-center gap-2 rounded-full px-5 text-sm font-bold text-white"
+                                className="bg-primary text-primary-foreground inline-flex h-10 items-center gap-2 rounded-full px-5 text-sm font-bold"
                             >
                                 <Compass className="size-4" /> {t('wal.discover')}
                             </Link>
@@ -246,7 +246,7 @@ function EntryRow({ e }: { e: Entry }) {
                 : [
                       e.purpose && e.purpose !== 'topup' ? t(PURPOSE[e.purpose][0]) : t('wal.eSpend'),
                       PURPOSE[(e.purpose as Purpose) ?? 'tip']?.[1] ?? Star,
-                      'bg-primary',
+                      'bg-primary text-primary-foreground!',
                   ];
     const body = (
         <>
@@ -315,7 +315,7 @@ function SubRow({ s, balance }: { s: Sub; balance: number }) {
                     </div>
                     <div className="bg-muted mt-2 h-1.5 overflow-hidden rounded-full">
                         <div
-                            className={`h-full rounded-full ${soon ? 'bg-amber-500' : 'bg-primary'}`}
+                            className={`h-full rounded-full ${soon ? 'bg-amber-500' : 'bg-primary text-primary-foreground!'}`}
                             style={{ width: `${Math.min(100, (left / 30) * 100)}%` }}
                         />
                     </div>
@@ -332,7 +332,7 @@ function SubRow({ s, balance }: { s: Sub; balance: number }) {
                     onClick={renew}
                     disabled={busy}
                     className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-4 text-sm font-bold transition disabled:opacity-50 ${
-                        soon && !s.auto_renew ? 'bg-primary text-white hover:brightness-110' : 'bg-muted hover:bg-muted/70'
+                        soon && !s.auto_renew ? 'bg-primary text-primary-foreground hover:brightness-110' : 'bg-muted hover:bg-muted/70'
                     }`}
                     title={canTap ? t('wal.renewFromWallet') : undefined}
                 >

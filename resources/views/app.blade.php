@@ -1,7 +1,12 @@
+@php($appearance = \App\Support\Appearance::for(request()))
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-appearance="{{ $appearance }}" @class(['dark' => $appearance === 'dark'])>
     <head>
         <meta charset="utf-8">
+        {{-- "Follow the device": decide before the first paint so the page never flashes the wrong colours. --}}
+        @if ($appearance === 'system')
+            <script>if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark');</script>
+        @endif
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 

@@ -35,7 +35,7 @@ export default function Toaster() {
                                     x.action!.onClick();
                                     dismiss(x.id);
                                 }}
-                                className="bg-primary shrink-0 rounded-full px-3.5 py-1.5 text-sm font-bold text-white transition hover:brightness-110"
+                                className="bg-primary text-primary-foreground shrink-0 rounded-full px-3.5 py-1.5 text-sm font-bold transition hover:brightness-110"
                             >
                                 {x.action.label}
                             </button>

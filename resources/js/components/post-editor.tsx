@@ -80,7 +80,7 @@ export default function PostEditor({ post, onDone }: { post: PostItem; onDone: (
                 <button
                     type="submit"
                     disabled={form.processing || (ppv && !priceOk(form.data.price, ppvLimits))}
-                    className="bg-primary inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-bold text-white disabled:opacity-40"
+                    className="bg-primary text-primary-foreground inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-bold disabled:opacity-40"
                 >
                     {form.processing && <LoaderCircle className="size-4 animate-spin" />}
                     {t('pe.save')}

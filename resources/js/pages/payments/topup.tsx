@@ -52,12 +52,12 @@ export default function Topup({ payment, paidAt, balance }: { payment: Payment; 
 
     const summary = (
         <div className="bg-card overflow-hidden rounded-3xl shadow-sm">
-            <div className="from-primary flex items-center gap-3 bg-gradient-to-br to-rose-500 p-5 text-white">
-                <span className="grid size-11 place-items-center rounded-2xl bg-white/20">
+            <div className="bg-primary text-primary-foreground flex items-center gap-3 p-5">
+                <span className="bg-primary-foreground/15 grid size-11 place-items-center rounded-2xl">
                     <Wallet className="size-6" />
                 </span>
                 <span>
-                    <span className="block text-sm text-white/80">{t('wal.title')}</span>
+                    <span className="text-primary-foreground/75 block text-sm">{t('wal.title')}</span>
                     <span className="block text-lg font-extrabold">{t('wal.topupTitle')}</span>
                 </span>
             </div>
@@ -97,7 +97,7 @@ export default function Topup({ payment, paidAt, balance }: { payment: Payment; 
                     )}
                     <Link
                         href={route('wallet')}
-                        className="from-primary shadow-primary/25 mt-7 flex h-12 w-full max-w-sm items-center justify-center gap-2 rounded-2xl bg-gradient-to-r to-rose-500 font-bold text-white shadow-lg transition hover:brightness-110"
+                        className="bg-primary shadow-primary/25 text-primary-foreground mt-7 flex h-12 w-full max-w-sm items-center justify-center gap-2 rounded-2xl font-bold shadow-lg transition hover:brightness-110"
                     >
                         {t('wal.toWallet')} <ArrowRight className="size-5" />
                     </Link>

@@ -1,46 +1,37 @@
-import { useEffect, useState } from 'react';
+import { router, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 
 export type Appearance = 'light' | 'dark' | 'system';
 
-const prefersDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
+/**
+ * Light, dark, or follow the device. The choice lives on the server (the account, plus a cookie for visitors),
+ * and the server renders <html class="dark"> itself, so the page never starts in the wrong colours.
+ */
 
-const applyTheme = (appearance: Appearance) => {
-    const isDark = appearance === 'dark' || (appearance === 'system' && prefersDark());
+const media = () => window.matchMedia('(prefers-color-scheme: dark)');
 
-    document.documentElement.classList.toggle('dark', isDark);
-};
+function apply(appearance: Appearance) {
+    const root = document.documentElement;
+    root.dataset.appearance = appearance;
+    root.classList.toggle('dark', appearance === 'dark' || (appearance === 'system' && media().matches));
+}
 
-const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-
-const handleSystemThemeChange = () => {
-    const currentAppearance = localStorage.getItem('appearance') as Appearance;
-    applyTheme(currentAppearance || 'system');
-};
-
+/** On load: keep following the device while the choice is "system" (the server already set the first paint). */
 export function initializeTheme() {
-    const savedAppearance = (localStorage.getItem('appearance') as Appearance) || 'system';
-
-    applyTheme(savedAppearance);
-
-    // Add the event listener for system theme changes...
-    mediaQuery.addEventListener('change', handleSystemThemeChange);
+    media().addEventListener('change', () => {
+        if (document.documentElement.dataset.appearance === 'system') apply('system');
+    });
 }
 
 export function useAppearance() {
-    const [appearance, setAppearance] = useState<Appearance>('system');
+    const saved = usePage<{ appearance?: Appearance }>().props.appearance ?? 'system';
+    const [appearance, setAppearance] = useState<Appearance>(saved);
 
     const updateAppearance = (mode: Appearance) => {
         setAppearance(mode);
-        localStorage.setItem('appearance', mode);
-        applyTheme(mode);
+        apply(mode); // instantly, then remember it on the server
+        router.post(route('appearance', mode), {}, { preserveScroll: true, preserveState: true });
     };
-
-    useEffect(() => {
-        const savedAppearance = localStorage.getItem('appearance') as Appearance | null;
-        updateAppearance(savedAppearance || 'system');
-
-        return () => mediaQuery.removeEventListener('change', handleSystemThemeChange);
-    }, []);
 
     return { appearance, updateAppearance };
 }

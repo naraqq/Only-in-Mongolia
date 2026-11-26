@@ -43,7 +43,7 @@ export default function FlowLayout({
                 {progress !== undefined && (
                     <div className="bg-muted h-1">
                         <div
-                            className="from-primary h-full rounded-r-full bg-gradient-to-r to-rose-500 transition-[width] duration-500"
+                            className="bg-primary h-full rounded-r-full transition-[width] duration-500"
                             style={{ width: `${Math.max(0, Math.min(1, progress)) * 100}%` }}
                         />
                     </div>
