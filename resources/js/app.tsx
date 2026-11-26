@@ -5,6 +5,7 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { type ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
 import { route as routeFn } from 'ziggy-js';
+import ConfirmHost from './components/confirm-host';
 import Toaster from './components/toaster';
 import { initializeTheme } from './hooks/use-appearance';
 
@@ -54,6 +55,7 @@ createInertiaApp({
             <>
                 <App {...props} />
                 <Toaster />
+                <ConfirmHost />
             </>,
         );
         warmPages();

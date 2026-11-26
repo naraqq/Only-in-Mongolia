@@ -6,8 +6,9 @@ import { timeAgo } from '@/lib/format';
 import { sendJson } from '@/lib/http';
 import { useT } from '@/lib/i18n';
 import { type SharedData } from '@/types';
+import { ask } from '@/lib/confirm';
 import { Link, router, usePage } from '@inertiajs/react';
-import { CornerDownRight, Heart, LoaderCircle, SendHorizontal, Smile, Trash2, X } from 'lucide-react';
+import { CornerDownRight, Heart, LoaderCircle, Reply, SendHorizontal, Smile, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
 type Comment = {
@@ -127,7 +128,7 @@ export default function PostComments({
     }
 
     async function remove(id: number) {
-        if (!confirm(t('cm.confirmDelete'))) return;
+        if (!(await ask({ message: t('cm.confirmDelete'), confirm: t('po.delete'), cancel: t('dlg.cancel'), danger: true }))) return;
         await sendJson('DELETE', route('comments.destroy', id));
         // Its replies go with it.
         update((comments ?? []).filter((c) => c.id !== id && c.parent_id !== id));
@@ -306,8 +307,8 @@ function CommentRow({
                         <Heart className={`size-4 transition ${c.liked ? 'scale-110 fill-current' : ''}`} />
                         {c.likes_count > 0 && <span className="tabular-nums">{c.likes_count}</span>}
                     </button>
-                    <button type="button" onClick={onReply} className={act}>
-                        {t('cm.reply')}
+                    <button type="button" onClick={onReply} className={act} aria-label={t('cm.reply')} title={t('cm.reply')}>
+                        <Reply className="size-4" />
                     </button>
                 </div>
             </div>
@@ -337,7 +338,7 @@ function CommentsSkeleton() {
                         ))}
                         <div className="mt-1 flex gap-4">
                             <Skeleton className="h-3 w-8 rounded-full" />
-                            <Skeleton className="h-3 w-10 rounded-full" />
+                            <Skeleton className="size-4 rounded-full" />
                         </div>
                     </div>
                 </li>

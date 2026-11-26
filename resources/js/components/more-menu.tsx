@@ -3,6 +3,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { sendJson } from '@/lib/http';
 import { useT, type TKey } from '@/lib/i18n';
 import { type SharedData } from '@/types';
+import { ask } from '@/lib/confirm';
 import { router, usePage } from '@inertiajs/react';
 import { Ban, CircleCheck, Flag, LoaderCircle, MoreHorizontal } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
@@ -40,7 +41,7 @@ export default function MoreMenu({
     if (!auth.user || (!report && !blockUserId)) return null;
 
     async function toggleBlock() {
-        if (!blocked && !confirm(t('bl.confirm'))) return;
+        if (!blocked && !(await ask({ message: t('bl.confirm'), confirm: t('bl.block'), cancel: t('dlg.cancel'), danger: true }))) return;
         await sendJson('POST', route('users.block', blockUserId));
         router.reload();
     }

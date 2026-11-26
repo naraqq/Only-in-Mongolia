@@ -3,6 +3,7 @@ import MediaThumbs from '@/components/media-thumbs';
 import PriceField from '@/components/price-field';
 import { priceOk } from '@/lib/format';
 import { useT } from '@/lib/i18n';
+import { ask } from '@/lib/confirm';
 import { useForm, usePage } from '@inertiajs/react';
 import { ImagePlus, LoaderCircle, Lock, Megaphone } from 'lucide-react';
 import { useRef, useState, type FormEvent } from 'react';
@@ -112,7 +113,11 @@ export default function MassMessage({ subscribers, followers, className = '' }: 
                         (!form.data.body.trim() && form.data.media.length === 0) ||
                         (priced && !priceOk(form.data.price, ppvLimits))
                     }
-                    onClick={(e) => !confirm(t('mm.confirm', { n: count })) && e.preventDefault()}
+                    onClick={async (e) => {
+                        e.preventDefault();
+                        const form = e.currentTarget.form;
+                        if (await ask({ message: t('mm.confirm', { n: count }), confirm: t('mm.send', { n: count }), cancel: t('dlg.cancel') })) form?.requestSubmit();
+                    }}
                 >
                     {form.processing && <LoaderCircle className="size-4 animate-spin" />}
                     {t('mm.send', { n: count })}

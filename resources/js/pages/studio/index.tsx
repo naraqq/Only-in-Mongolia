@@ -5,6 +5,7 @@ import PostEditor from '@/components/post-editor';
 import StudioLayout from '@/layouts/studio-layout';
 import { mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
+import { ask } from '@/lib/confirm';
 import { Link, router } from '@inertiajs/react';
 import { ArrowRight, Check, Copy, CreditCard, ExternalLink, Heart, PenSquare, ShieldCheck, UserPlus, Wallet, type LucideIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
@@ -117,8 +118,8 @@ export default function Studio({ creator, posts, stats }: { creator: StudioCreat
                                                 author={author}
                                                 onEdit={() => setEditing(p.id)}
                                                 onPin={() => router.post(route('studio.posts.pin', p.id), {}, { preserveScroll: true })}
-                                                onDelete={() =>
-                                                    confirm(t('st.confirmDelete')) &&
+                                                onDelete={async () =>
+                                                    (await ask({ message: t('st.confirmDelete'), confirm: t('po.delete'), cancel: t('dlg.cancel'), danger: true })) &&
                                                     router.delete(route('studio.posts.destroy', p.id), { preserveScroll: true })
                                                 }
                                             />

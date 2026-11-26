@@ -1,6 +1,7 @@
 import InputError from '@/components/input-error';
 import SocialLayout from '@/layouts/social-layout';
 import { useT } from '@/lib/i18n';
+import { ask } from '@/lib/confirm';
 import { Link, router, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, Check, Copy, KeyRound, LoaderCircle, ShieldAlert, ShieldCheck, Smartphone } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -178,9 +179,9 @@ function Disable({ recoveryLeft, required }: { recoveryLeft: number; required: b
         <section className="bg-card rounded-2xl p-5 shadow-xs">
             <p className="text-muted-foreground text-sm">{t('2fa.recoveryLeft', { n: recoveryLeft })}</p>
             <form
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                     e.preventDefault();
-                    if (confirm(t(required ? '2fa.offAdminConfirm' : '2fa.offConfirm')))
+                    if (await ask({ message: t(required ? '2fa.offAdminConfirm' : '2fa.offConfirm'), confirm: t('2fa.turnOff'), cancel: t('dlg.cancel'), danger: true }))
                         form.delete(route('two-factor.disable'), { preserveScroll: true });
                 }}
                 className="mt-4 flex flex-wrap items-start gap-2"

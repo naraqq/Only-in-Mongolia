@@ -1,5 +1,6 @@
 import AdminLayout from '@/layouts/admin-layout';
 import { useT, type TKey } from '@/lib/i18n';
+import { ask } from '@/lib/confirm';
 import { Link, router, useForm } from '@inertiajs/react';
 import { AlertTriangle, Ban, Check, ExternalLink, Image as ImageIcon, Trash2, X } from 'lucide-react';
 
@@ -53,8 +54,8 @@ export default function AdminReports({
                                     </span>
                                     <button
                                         type="button"
-                                        onClick={() =>
-                                            confirm(t('ar.confirmReinstate')) &&
+                                        onClick={async () =>
+                                            (await ask({ message: t('ar.confirmReinstate'), confirm: t('ar.reinstate'), cancel: t('dlg.cancel') })) &&
                                             router.post(route('admin.creators.reinstate', c.id), {}, { preserveScroll: true })
                                         }
                                         className="bg-muted rounded-full px-3 py-1 text-xs font-bold hover:bg-emerald-50"
@@ -89,8 +90,17 @@ export default function AdminReports({
 function Report({ r }: { r: Row }) {
     const { t } = useT();
     const form = useForm({ action: 'dismiss' as 'dismiss' | 'remove' | 'suspend', note: '' });
-    const act = (action: 'dismiss' | 'remove' | 'suspend') => {
-        if (action !== 'dismiss' && !confirm(t(action === 'remove' ? 'ar.confirmRemove' : 'ar.confirmSuspend'))) return;
+    const act = async (action: 'dismiss' | 'remove' | 'suspend') => {
+        if (
+            action !== 'dismiss' &&
+            !(await ask({
+                message: t(action === 'remove' ? 'ar.confirmRemove' : 'ar.confirmSuspend'),
+                confirm: t(action === 'remove' ? 'ar.remove' : 'ar.suspend'),
+                cancel: t('dlg.cancel'),
+                danger: true,
+            }))
+        )
+            return;
         form.transform((d) => ({ ...d, action }));
         form.post(route('admin.reports.act', r.id), { preserveScroll: true });
     };

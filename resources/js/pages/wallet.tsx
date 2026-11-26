@@ -4,6 +4,7 @@ import SocialLayout from '@/layouts/social-layout';
 import { mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
 import { toast } from '@/lib/toast';
+import { ask } from '@/lib/confirm';
 import { Link, router, usePage } from '@inertiajs/react';
 import {
     ArrowDownLeft,
@@ -291,9 +292,9 @@ function SubRow({ s, balance }: { s: Sub; balance: number }) {
     const canTap = balance >= s.price_monthly;
     const opts = { preserveScroll: true, onStart: () => setBusy(true), onFinish: () => setBusy(false) };
 
-    function renew() {
+    async function renew() {
         if (!canTap) return router.visit(route('creator.checkout', s.handle));
-        if (confirm(t('wal.renewConfirm', { amount: mnt(s.price_monthly), name: s.display_name })))
+        if (await ask({ message: t('wal.renewConfirm', { amount: mnt(s.price_monthly), name: s.display_name }), confirm: t('wal.renew'), cancel: t('dlg.cancel') }))
             router.post(route('wallet.renew', s.handle), {}, opts);
     }
 

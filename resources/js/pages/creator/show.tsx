@@ -421,8 +421,8 @@ export function SubscribeCard({
                 className="bg-primary text-primary-foreground flex w-full items-center justify-between gap-3 rounded-xl px-5 py-4 text-left transition hover:brightness-110 disabled:opacity-60"
             >
                 <span>
-                    <span className="block text-xs font-semibold tracking-wider text-white/80 uppercase">{t('cp.subscribeT')}</span>
-                    <span className="block text-sm text-white/90">{t('cp.unlock')}</span>
+                    <span className="block text-xs font-semibold tracking-wider text-primary-foreground/70 uppercase">{t('cp.subscribeT')}</span>
+                    <span className="block text-sm text-primary-foreground/85">{t('cp.unlock')}</span>
                 </span>
                 <span className="flex items-center gap-2 text-lg font-extrabold whitespace-nowrap">
                     {busy === 1 && <LoaderCircle className="size-5 animate-spin" />}

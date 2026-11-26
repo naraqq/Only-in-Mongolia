@@ -2,6 +2,7 @@ import UserAvatar from '@/components/user-avatar';
 import AdminLayout from '@/layouts/admin-layout';
 import { mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
+import { ask } from '@/lib/confirm';
 import { Link, router, useForm } from '@inertiajs/react';
 import { ArrowLeft, Ban, HandCoins, LockOpen, RotateCcw, ShieldCheck, ShieldOff, Star, type LucideIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
@@ -173,8 +174,15 @@ function Actions({ user, creator }: Pick<Props, 'user' | 'creator'>) {
                 {!user.banned_at && (
                     <button
                         type="button"
-                        onClick={() => {
-                            if (confirm(t(user.is_admin ? 'au.confirmUnadmin' : 'au.confirmAdmin', { name: user.name })))
+                        onClick={async () => {
+                            if (
+                                await ask({
+                                    message: t(user.is_admin ? 'au.confirmUnadmin' : 'au.confirmAdmin', { name: user.name }),
+                                    confirm: t(user.is_admin ? 'au.removeAdmin' : 'au.makeAdmin'),
+                                    cancel: t('dlg.cancel'),
+                                    danger: user.is_admin,
+                                })
+                            )
                                 post('admin.users.admin', user.id);
                         }}
                         className="hover:bg-muted bg-muted inline-flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold"
@@ -283,9 +291,9 @@ function Payment({ p, other, otherHref }: { p: PaymentRow; other: string; otherH
             {refunded && p.refund_reason && <p className="text-muted-foreground mt-1 text-xs">{p.refund_reason}</p>}
             {open && !refunded && (
                 <form
-                    onSubmit={(e) => {
+                    onSubmit={async (e) => {
                         e.preventDefault();
-                        if (confirm(t('au.confirmRefund', { amount: mnt(p.amount) })))
+                        if (await ask({ message: t('au.confirmRefund', { amount: mnt(p.amount) }), confirm: t('au.refund'), cancel: t('dlg.cancel'), danger: true }))
                             form.post(route('admin.payments.refund', p.id), { preserveScroll: true, onSuccess: () => setOpen(false) });
                     }}
                     className="mt-2 flex flex-col gap-2"
