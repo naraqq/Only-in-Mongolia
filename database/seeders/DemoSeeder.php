@@ -5,7 +5,10 @@ namespace Database\Seeders;
 use App\Models\CreatorProfile;
 use App\Models\Post;
 use App\Models\User;
+use App\Models\WalletEntry;
+use App\Payments\Wallet;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -14,7 +17,7 @@ use Illuminate\Support\Facades\Storage;
  *   99999999 → "Demo Fan" (follows five creators)
  *   88888888 → "Demo Creator" @demo (approved creator and admin)
  * Demo Fan is subscribed to two creators, and @demo has a few paying subscribers (see DemoSubscriptionsSeeder).
- * Run: php artisan migrate:fresh --seed
+ * Run locally: php artisan db:seed --class=DemoSeeder
  */
 class DemoSeeder extends Seeder
 {
@@ -81,6 +84,21 @@ class DemoSeeder extends Seeder
 
     public function run(): void
     {
+        if (! app()->environment('local', 'testing')) {
+            throw new \RuntimeException('Demo data is only available in local and testing environments.');
+        }
+
+        DB::transaction(fn () => $this->seedDemo());
+    }
+
+    private function seedDemo(): void
+    {
+        $handles = array_column(self::CREATORS, 0);
+        if (User::whereIn('phone', ['99999999', '88888888'])->exists()
+            || CreatorProfile::whereIn('handle', [...$handles, 'demo'])->exists()) {
+            throw new \RuntimeException('A demo phone number or creator handle already exists. No records were added.');
+        }
+
         $creators = collect(self::CREATORS)->map(function ($c, $i) {
             [$handle, $name, $bio, $price, $colors, $captions] = $c;
             $profile = $this->creator($this->user($name, null), $handle, $name, $bio, $price, reviewedDaysAgo: 30 - $i);
@@ -97,9 +115,12 @@ class DemoSeeder extends Seeder
         }
 
         // Followers, so counts and "most followed" mean something.
-        User::factory(40)->create(['birthdate' => '1998-01-01'])->each(
-            fn (User $u) => $u->following()->attach($creators->random(rand(1, 4))->pluck('id')),
-        );
+        $followers = collect(range(1, 40))->map(function (int $index) use ($creators) {
+            $user = $this->user("Demo Follower {$index}", null);
+            $user->following()->attach($creators->random(random_int(1, 4))->pluck('id'));
+
+            return $user;
+        });
 
         // Log in as these with the dev phone numbers.
         $fan = $this->user('Demo Fan', '99999999');
@@ -111,17 +132,27 @@ class DemoSeeder extends Seeder
         $this->post($mine, 'Миний анхны нийтлэл 👋', [[225, 29, 72], [124, 58, 237]], 0, hoursAgo: 2);
         $me->following()->attach($creators->take(3)->pluck('id'));
 
-        $this->call([DemoPhotosSeeder::class, DemoSubscriptionsSeeder::class, DemoMessagesSeeder::class, DemoPayPerViewSeeder::class, DemoEngagementSeeder::class]);
+        Wallet::credit($fan, 125000, WalletEntry::TOPUP, note: 'Demo wallet credit');
+        Wallet::credit($me, 50000, WalletEntry::TOPUP, note: 'Demo wallet credit');
+
+        $this->call([DemoPhotosSeeder::class, DemoSubscriptionsSeeder::class, DemoMessagesSeeder::class, DemoPayPerViewSeeder::class]);
+        $this->callWith(DemoEngagementSeeder::class, [
+            'creatorIds' => [...$creators->pluck('id'), $mine->id],
+            'fanIds' => $followers->pluck('id')->all(),
+        ]);
     }
 
     private function user(string $name, ?string $phone): User
     {
-        return User::factory()->create([
+        $user = (new User)->forceFill([
             'name' => $name,
             'phone' => $phone,
             'phone_verified_at' => now(),
             'birthdate' => '1995-05-05',
         ]);
+        $user->save();
+
+        return $user;
     }
 
     private function creator(User $user, string $handle, string $name, string $bio, int $price, int $reviewedDaysAgo): CreatorProfile

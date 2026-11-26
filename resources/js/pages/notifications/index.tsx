@@ -3,7 +3,22 @@ import SocialLayout from '@/layouts/social-layout';
 import { mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { Link } from '@inertiajs/react';
-import { Banknote, Bell, CalendarClock, HandCoins, ImagePlus, LockOpen, MessageCircle, Star, Undo2, UserPlus, type LucideIcon } from 'lucide-react';
+import {
+    Banknote,
+    Bell,
+    CalendarClock,
+    Gift,
+    HandCoins,
+    ImagePlus,
+    LockOpen,
+    MessageCircle,
+    RefreshCw,
+    Star,
+    Undo2,
+    UserPlus,
+    Wallet as WalletIcon,
+    type LucideIcon,
+} from 'lucide-react';
 
 type Kind =
     | 'followed'
@@ -12,7 +27,11 @@ type Kind =
     | 'purchased'
     | 'new_post'
     | 'commented'
+    | 'replied'
     | 'expiring'
+    | 'auto_renewed'
+    | 'trial_started'
+    | 'renew_failed'
     | 'payout_paid'
     | 'payout_rejected'
     | 'refunded'
@@ -38,7 +57,11 @@ const ICONS: Record<Kind, [LucideIcon, string]> = {
     purchased: [LockOpen, 'bg-orange-500'],
     new_post: [ImagePlus, 'bg-violet-500'],
     commented: [MessageCircle, 'bg-sky-500'],
+    replied: [MessageCircle, 'bg-sky-500'],
     expiring: [CalendarClock, 'bg-zinc-700'],
+    auto_renewed: [RefreshCw, 'bg-emerald-500'],
+    trial_started: [Gift, 'bg-emerald-500'],
+    renew_failed: [WalletIcon, 'bg-amber-500'],
 };
 
 /** The bell: who followed, subscribed, tipped or bought, new posts, and subscriptions about to end. */
@@ -57,6 +80,8 @@ export default function Notifications({ notifications }: { notifications: Item[]
                 return t('nt.tipped', { name, amount });
             case 'purchased':
                 return t('nt.purchased', { name, amount });
+            case 'replied':
+                return t('nt.replied', { name });
             case 'commented':
                 return t('nt.commented', { name });
             case 'new_post':
@@ -69,6 +94,12 @@ export default function Notifications({ notifications }: { notifications: Item[]
                 return t('nt.refunded', { name, amount });
             case 'charge_refunded':
                 return t('nt.chargeRefunded', { name, amount });
+            case 'trial_started':
+                return t('nt.trialStarted', { name });
+            case 'auto_renewed':
+                return t('nt.autoRenewed', { name, amount });
+            case 'renew_failed':
+                return t('nt.renewFailed', { name, amount });
             case 'expiring':
                 return t('nt.expiring', { name, date: (n.data.expires_at ?? '').slice(0, 10).replaceAll('-', '.') });
         }
@@ -84,7 +115,7 @@ export default function Notifications({ notifications }: { notifications: Item[]
                     {t('nt.empty')}
                 </div>
             ) : (
-                <ul className="divide-y">
+                <ul className="flex flex-col">
                     {notifications.map((n) => {
                         const [Icon, color] = ICONS[n.kind] ?? [Bell, 'bg-zinc-500'];
                         const body = (

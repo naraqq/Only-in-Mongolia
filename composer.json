@@ -1,8 +1,8 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/react-starter-kit",
+    "name": "naraqq/only-in-mongolia",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
+    "description": "A Mongolian-first creator membership platform.",
     "keywords": [
         "laravel",
         "framework"
@@ -13,6 +13,7 @@
         "inertiajs/inertia-laravel": "^2.0",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
+        "sentry/sentry-laravel": "^4.31",
         "tightenco/ziggy": "^2.4"
     },
     "require-dev": {

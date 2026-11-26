@@ -19,7 +19,7 @@ export default function Feed({ posts, followingCount }: { posts: FeedPost[]; fol
 
     return (
         <SocialLayout title={t('nav.home')} header={<h1 className="text-lg font-bold tracking-wide uppercase">{t('nav.home')}</h1>}>
-            {creator && <PostComposer adultAllowed={!!creator.adult_content} className="border-b p-4" />}
+            {creator && <PostComposer adultAllowed={!!creator.adult_content} className="bg-card m-4 rounded-2xl p-4 shadow-xs" />}
 
             {posts.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 p-10 text-center">
@@ -39,7 +39,7 @@ export default function Feed({ posts, followingCount }: { posts: FeedPost[]; fol
 
             {/* On narrow screens the right-hand suggestions column is hidden, so show them here while the feed is small. */}
             {followingCount < 3 && suggestions.length > 0 && (
-                <section className="border-t p-4 lg:hidden">
+                <section className="p-4 lg:hidden">
                     <h2 className="mb-3 font-medium">{t('fan.suggested')}</h2>
                     <div className="grid gap-4 sm:grid-cols-2">
                         {suggestions.map((c) => (

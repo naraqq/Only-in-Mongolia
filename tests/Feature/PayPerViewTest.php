@@ -58,7 +58,8 @@ class PayPerViewTest extends TestCase
         $payment = Payment::sole();
         $this->assertSame(['ppv', 15000, $post->id], [$payment->purpose, $payment->amount, $payment->post_id]);
         $this->get("/payments/{$payment->id}")->assertInertia(fn ($p) => $p->where('payment.purpose', 'ppv')->where('returnUrl', route('creator.show', 'artist')));
-        $this->post("/payments/{$payment->id}/fake-pay")->assertRedirect('/@artist')->assertSessionHas('status', 'unlocked');
+        $this->post("/payments/{$payment->id}/fake-pay")->assertRedirect("/payments/{$payment->id}")->assertSessionHas('status', 'unlocked');
+        $this->get("/payments/{$payment->id}")->assertInertia(fn ($p) => $p->where('payment.status', 'paid')->where('returnUrl', route('creator.show', 'artist')));
         $this->post("/payments/{$payment->id}/callback");
 
         $this->assertSame(1, Purchase::count());
@@ -104,7 +105,8 @@ class PayPerViewTest extends TestCase
         $this->post("/message/{$message->id}/buy")->assertRedirect();
         $payment = Payment::sole();
         $this->assertSame([$message->id, $creator->id, 8000], [$payment->message_id, $payment->creator_profile_id, $payment->amount]);
-        $this->post("/payments/{$payment->id}/fake-pay")->assertRedirect("/messages/{$conversation->id}");
+        $this->post("/payments/{$payment->id}/fake-pay")->assertRedirect("/payments/{$payment->id}");
+        $this->get("/payments/{$payment->id}")->assertInertia(fn ($p) => $p->where('returnUrl', route('messages.show', $conversation->id)));
         $this->get("/message-media/{$media->id}")->assertOk();
 
         // Fans can't sell messages, and nobody outside the chat can buy one.

@@ -50,7 +50,7 @@ class SubscriptionTest extends TestCase
         $this->getJson("/payments/{$payment->id}/status")->assertJson(['status' => 'pending']);
         $this->get('/@artist')->assertInertia(fn ($p) => $p->where('posts.0.locked', 'subscribe')->where('subscribed', false));
 
-        $this->post("/payments/{$payment->id}/fake-pay")->assertRedirect('/@artist');
+        $this->post("/payments/{$payment->id}/fake-pay")->assertRedirect("/payments/{$payment->id}");
 
         $this->assertSame('paid', $payment->fresh()->status);
         $this->getJson("/payments/{$payment->id}/status")->assertJson(['status' => 'paid']);

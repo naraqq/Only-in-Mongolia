@@ -26,7 +26,7 @@ export default function BarChart({ title, data, format }: { title: string; data:
     const day = (iso: string) => iso.slice(5).replace('-', '.');
 
     return (
-        <figure className="rounded-2xl border p-4">
+        <figure className="bg-card rounded-2xl p-4 shadow-xs">
             <figcaption className="flex items-baseline justify-between gap-3">
                 <span className="font-bold">{title}</span>
                 <span className="text-muted-foreground text-sm tabular-nums">{format(total)}</span>
@@ -38,7 +38,7 @@ export default function BarChart({ title, data, format }: { title: string; data:
                     {[0, 0.5, 1].map((f) => (
                         <g key={f}>
                             <line x1={PAD_LEFT} x2={W} y1={y(nice * f)} y2={y(nice * f)} className="stroke-border" strokeWidth={1} />
-                            <text x={PAD_LEFT - 6} y={y(nice * f) + 4} textAnchor="end" className="fill-muted-foreground text-[15px] tabular-nums">
+                            <text x={PAD_LEFT - 6} y={y(nice * f) + 4} textAnchor="end" className="fill-muted-foreground text-[11px] tabular-nums">
                                 {compact(nice * f)}
                             </text>
                         </g>
@@ -74,14 +74,14 @@ export default function BarChart({ title, data, format }: { title: string; data:
                     })}
                     {/* X labels: first, middle, last */}
                     {[0, Math.floor(data.length / 2), data.length - 1].map((i) => (
-                        <text key={i} x={PAD_LEFT + i * slot + slot / 2} y={H - 4} textAnchor="middle" className="fill-muted-foreground text-[15px]">
+                        <text key={i} x={PAD_LEFT + i * slot + slot / 2} y={H - 4} textAnchor="middle" className="fill-muted-foreground text-[11px]">
                             {data[i] && day(data[i].date)}
                         </text>
                     ))}
                 </svg>
                 {hover !== null && data[hover] && (
                     <div
-                        className="bg-popover text-popover-foreground pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-lg border px-2.5 py-1.5 text-xs shadow-md"
+                        className="bg-popover text-popover-foreground pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-lg px-2.5 py-1.5 text-xs shadow-md"
                         style={{ left: `${((PAD_LEFT + hover * slot + slot / 2) / W) * 100}%` }}
                     >
                         <p className="text-muted-foreground">{data[hover].date.replaceAll('-', '.')}</p>
@@ -97,7 +97,7 @@ export default function BarChart({ title, data, format }: { title: string; data:
                         {data
                             .filter((d) => d.value > 0)
                             .map((d) => (
-                                <tr key={d.date} className="border-t">
+                                <tr key={d.date}>
                                     <td className="py-1">{d.date.replaceAll('-', '.')}</td>
                                     <td className="py-1 text-right">{format(d.value)}</td>
                                 </tr>
@@ -123,5 +123,5 @@ function niceMax(v: number) {
 function compact(n: number) {
     if (n >= 1_000_000) return `${+(n / 1_000_000).toFixed(1)}M`;
     if (n >= 1_000) return `${+(n / 1_000).toFixed(1)}k`;
-    return String(Math.round(n));
+    return Number.isInteger(n) ? String(n) : n.toFixed(1); // small axes: 0, 0.5, 1 (not 0, 1, 1)
 }

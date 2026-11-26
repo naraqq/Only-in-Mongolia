@@ -99,4 +99,18 @@ class ProfileEditTest extends TestCase
         $this->actingAs($user)->patch('/profile', ['name' => 'Saraa', 'price_monthly' => 1])->assertSessionHasNoErrors();
         $this->assertSame('Saraa', $user->fresh()->name);
     }
+
+    public function test_everyone_has_a_profile_page_that_opens_in_edit_mode_on_request(): void
+    {
+        $creator = $this->creator();
+        $fan = User::factory()->create(['birthdate' => '1990-01-01']);
+        $fan->following()->attach($creator->id);
+
+        $this->actingAs($fan)->get('/profile')->assertInertia(fn ($p) => $p
+            ->component('profile/edit')
+            ->where('editing', false)
+            ->where('stats', ['following' => 1, 'subscriptions' => 0, 'saved' => 0])
+            ->has('profile.joined'));
+        $this->get('/profile?edit=1')->assertInertia(fn ($p) => $p->where('editing', true));
+    }
 }

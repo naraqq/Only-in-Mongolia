@@ -14,12 +14,13 @@ class Post extends Model
 
     protected $fillable = ['creator_profile_id', 'body', 'visibility', 'is_adult', 'price', 'publish_at', 'announced_at'];
 
-    protected $casts = ['is_adult' => 'boolean', 'price' => 'integer', 'publish_at' => 'datetime', 'announced_at' => 'datetime'];
+    protected $casts = ['is_adult' => 'boolean', 'price' => 'integer', 'publish_at' => 'datetime', 'announced_at' => 'datetime', 'held_at' => 'datetime'];
 
     /** Posts that are out (not scheduled for later). */
     public function scopePublished(\Illuminate\Database\Eloquent\Builder $q): \Illuminate\Database\Eloquent\Builder
     {
-        return $q->where(fn ($w) => $w->whereNull('publish_at')->orWhere('publish_at', '<=', now()));
+        // Out, and not held back by the automatic scan.
+        return $q->whereNull('held_at')->where(fn ($w) => $w->whereNull('publish_at')->orWhere('publish_at', '<=', now()));
     }
 
     public function isScheduled(): bool
@@ -74,8 +75,8 @@ class Post extends Model
         if ($viewer && ($viewer->is_admin || $viewer->id === $this->creator->user_id)) {
             return true;
         }
-        if ($this->isScheduled()) {
-            return false; // nobody else sees it before it's published
+        if ($this->isScheduled() || $this->held_at) {
+            return false; // nobody else sees it before it's published, or while it waits for review
         }
         if ($this->is_adult && ! $viewer) {
             return false;

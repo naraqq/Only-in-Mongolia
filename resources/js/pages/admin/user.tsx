@@ -1,6 +1,5 @@
-import AdminTabs from '@/components/admin-tabs';
 import UserAvatar from '@/components/user-avatar';
-import SocialLayout from '@/layouts/social-layout';
+import AdminLayout from '@/layouts/admin-layout';
 import { mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
 import { Link, router, useForm } from '@inertiajs/react';
@@ -65,9 +64,8 @@ export default function AdminUser({ user, creator, spent, paymentsMade, payments
     const { t } = useT();
 
     return (
-        <SocialLayout title={user.name} header={<h1 className="text-lg font-bold tracking-wide uppercase">{t('nav.adminHome')}</h1>} wide>
-            <div className="flex flex-col gap-6 p-4">
-                <AdminTabs />
+        <AdminLayout title={user.name} back={route('admin.users')}>
+            <div className="flex flex-col gap-6">
                 <Link href={route('admin.users')} className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm">
                     <ArrowLeft className="size-4" /> {t('au.back')}
                 </Link>
@@ -157,7 +155,7 @@ export default function AdminUser({ user, creator, spent, paymentsMade, payments
                     </Section>
                 )}
             </div>
-        </SocialLayout>
+        </AdminLayout>
     );
 }
 
@@ -179,7 +177,7 @@ function Actions({ user, creator }: Pick<Props, 'user' | 'creator'>) {
                             if (confirm(t(user.is_admin ? 'au.confirmUnadmin' : 'au.confirmAdmin', { name: user.name })))
                                 post('admin.users.admin', user.id);
                         }}
-                        className="hover:bg-muted inline-flex h-10 items-center gap-1.5 rounded-xl border px-3 text-sm font-semibold"
+                        className="hover:bg-muted bg-muted inline-flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold"
                     >
                         {user.is_admin ? <ShieldOff className="size-4" /> : <ShieldCheck className="size-4" />}
                         {t(user.is_admin ? 'au.removeAdmin' : 'au.makeAdmin')}
@@ -189,7 +187,7 @@ function Actions({ user, creator }: Pick<Props, 'user' | 'creator'>) {
                     <button
                         type="button"
                         onClick={() => post('admin.creators.reinstate', creator.id)}
-                        className="hover:bg-muted inline-flex h-10 items-center gap-1.5 rounded-xl border px-3 text-sm font-semibold"
+                        className="hover:bg-muted bg-muted inline-flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold"
                     >
                         <RotateCcw className="size-4" /> {t('au.reinstate')}
                     </button>
@@ -198,7 +196,7 @@ function Actions({ user, creator }: Pick<Props, 'user' | 'creator'>) {
                     <button
                         type="button"
                         onClick={() => post('admin.users.unban', user.id)}
-                        className="hover:bg-muted inline-flex h-10 items-center gap-1.5 rounded-xl border px-3 text-sm font-semibold"
+                        className="hover:bg-muted bg-muted inline-flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold"
                     >
                         <RotateCcw className="size-4" /> {t('au.unban')}
                     </button>
@@ -207,7 +205,7 @@ function Actions({ user, creator }: Pick<Props, 'user' | 'creator'>) {
                         <button
                             type="button"
                             onClick={() => setBanning((b) => !b)}
-                            className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-red-200 px-3 text-sm font-semibold text-red-600 hover:bg-red-50"
+                            className="bg-muted inline-flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-red-600 hover:bg-red-50"
                         >
                             <Ban className="size-4" /> {t('au.ban')}
                         </button>
@@ -228,7 +226,7 @@ function Actions({ user, creator }: Pick<Props, 'user' | 'creator'>) {
                         maxLength={300}
                         autoFocus
                         placeholder={t('au.banReason')}
-                        className="border-input focus:border-primary h-10 flex-1 rounded-xl border px-3 text-sm outline-none"
+                        className="bg-muted h-10 flex-1 rounded-xl px-3 text-sm outline-none"
                     />
                     <button
                         type="submit"
@@ -300,7 +298,7 @@ function Payment({ p, other, otherHref }: { p: PaymentRow; other: string; otherH
                             maxLength={300}
                             autoFocus
                             placeholder={t('au.refundReason')}
-                            className="border-input focus:border-primary h-10 flex-1 rounded-xl border px-3 text-sm outline-none"
+                            className="bg-muted h-10 flex-1 rounded-xl px-3 text-sm outline-none"
                         />
                         <button
                             type="submit"
@@ -335,7 +333,7 @@ function Report({ r }: { r: ReportRow }) {
 
 function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: string }) {
     return (
-        <div className="rounded-2xl border p-3">
+        <div className="bg-card rounded-2xl p-3 shadow-xs">
             <p className="text-muted-foreground text-xs">{label}</p>
             <p className="text-lg font-bold tabular-nums">{value}</p>
             {sub && <p className="text-muted-foreground text-xs">{sub}</p>}
@@ -349,9 +347,9 @@ function Section({ title, empty, children }: { title: string; empty: boolean; ch
         <section>
             <h3 className="text-muted-foreground mb-2 px-1 text-xs font-semibold tracking-wider uppercase">{title}</h3>
             {empty ? (
-                <p className="text-muted-foreground rounded-2xl border border-dashed p-6 text-center text-sm">{t('au.nothing')}</p>
+                <p className="text-muted-foreground bg-card rounded-2xl p-6 text-center text-sm shadow-xs">{t('au.nothing')}</p>
             ) : (
-                <ul className="divide-y rounded-2xl border">{children}</ul>
+                <ul className="bg-card rounded-2xl shadow-xs">{children}</ul>
             )}
         </section>
     );

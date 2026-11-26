@@ -1,9 +1,9 @@
 import InputError from '@/components/input-error';
-import SocialLayout from '@/layouts/social-layout';
+import StudioLayout from '@/layouts/studio-layout';
 import { mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
-import { Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, Banknote, Clock, Download, HandCoins, Landmark, LoaderCircle, LockOpen, Star } from 'lucide-react';
+import { useForm } from '@inertiajs/react';
+import { Banknote, Clock, Download, HandCoins, Landmark, LoaderCircle, LockOpen, Star } from 'lucide-react';
 import { type FormEvent } from 'react';
 
 type Balance = { available: number; onHold: number; nextRelease: string | null; requested: number; paidOut: number; earned: number };
@@ -54,24 +54,18 @@ export default function Earnings({
     }
 
     return (
-        <SocialLayout
+        <StudioLayout
             title={t('ea.title')}
-            header={
-                <>
-                    <Link href={route('studio')} className="hover:bg-muted -ml-2 grid size-9 place-items-center rounded-full">
-                        <ArrowLeft className="size-5" />
-                    </Link>
-                    <h1 className="text-lg font-bold">{t('ea.title')}</h1>
-                    <a
-                        href={route('studio.statement')}
-                        className="text-muted-foreground hover:text-foreground ml-auto inline-flex items-center gap-1.5 text-sm font-semibold"
-                    >
-                        <Download className="size-4" /> CSV
-                    </a>
-                </>
+            actions={
+                <a
+                    href={route('studio.statement')}
+                    className="bg-card hover:bg-muted inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-bold shadow-xs transition"
+                >
+                    <Download className="size-4" /> CSV
+                </a>
             }
         >
-            <div className="flex flex-col gap-6 p-4">
+            <div className="mx-auto flex max-w-3xl flex-col gap-6">
                 {/* Balance */}
                 <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 to-zinc-800 p-6 text-white shadow-xl">
                     <div
@@ -93,7 +87,7 @@ export default function Earnings({
                 </section>
 
                 {/* Request a payout */}
-                <section className="rounded-2xl border p-4">
+                <section className="bg-card rounded-2xl p-4 shadow-xs">
                     <h2 className="flex items-center gap-2 font-bold">
                         <Banknote className="text-primary size-5" /> {t('ea.request')}
                     </h2>
@@ -106,7 +100,7 @@ export default function Earnings({
                         </p>
                     ) : (
                         <form onSubmit={submit} className="mt-3 flex flex-col gap-2 sm:flex-row">
-                            <label className="border-input focus-within:border-primary flex h-12 flex-1 items-center rounded-xl border px-4">
+                            <label className="bg-muted flex h-12 flex-1 items-center rounded-xl px-4">
                                 <span className="text-muted-foreground font-semibold">₮</span>
                                 <input
                                     inputMode="numeric"
@@ -147,7 +141,7 @@ export default function Earnings({
                 {payouts.length > 0 && (
                     <section>
                         <h2 className="text-muted-foreground mb-2 px-1 text-xs font-semibold tracking-wider uppercase">{t('ea.payouts')}</h2>
-                        <ul className="divide-y rounded-2xl border">
+                        <ul className="bg-card rounded-2xl shadow-xs">
                             {payouts.map((p) => (
                                 <li key={p.id} className="flex items-center gap-3 px-4 py-3">
                                     <span className="min-w-0 flex-1">
@@ -170,9 +164,9 @@ export default function Earnings({
                 <section>
                     <h2 className="text-muted-foreground mb-2 px-1 text-xs font-semibold tracking-wider uppercase">{t('ea.recent')}</h2>
                     {recent.length === 0 ? (
-                        <p className="text-muted-foreground rounded-2xl border border-dashed p-8 text-center text-sm">{t('ea.none')}</p>
+                        <p className="text-muted-foreground bg-card rounded-2xl p-8 text-center text-sm shadow-xs">{t('ea.none')}</p>
                     ) : (
-                        <ul className="divide-y rounded-2xl border">
+                        <ul className="bg-card rounded-2xl shadow-xs">
                             {recent.map((r) => {
                                 const [label, Icon] = PURPOSE[r.purpose] ?? PURPOSE.subscription;
                                 return (
@@ -198,7 +192,7 @@ export default function Earnings({
                     )}
                 </section>
             </div>
-        </SocialLayout>
+        </StudioLayout>
     );
 }
 

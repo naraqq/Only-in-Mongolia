@@ -66,7 +66,7 @@ export default function PhoneName({ phone }: { phone: string }) {
             <form onSubmit={submit} className="flex flex-col gap-5">
                 {/* Name: floating label */}
                 <div>
-                    <label className="group border-input focus-within:border-primary focus-within:ring-primary/15 relative flex h-14 items-center gap-3 rounded-2xl border bg-white px-4 shadow-sm transition focus-within:ring-4 dark:bg-zinc-900">
+                    <label className="group focus-within:ring-primary/15 bg-card relative flex h-14 items-center gap-3 rounded-2xl px-4 shadow-sm transition focus-within:ring-4">
                         <UserRound className="text-muted-foreground group-focus-within:text-primary size-5 shrink-0 transition" />
                         <span className="relative flex-1 self-stretch">
                             <input
@@ -161,7 +161,7 @@ function DateBoxes({ value, onChange }: { value: Dob; onChange: (v: Dob) => void
             {PARTS.map((p, i) => (
                 <label
                     key={p.key}
-                    className={`${p.grow} border-input focus-within:border-primary focus-within:ring-primary/15 flex h-14 flex-col justify-center rounded-2xl border bg-white px-4 shadow-sm transition focus-within:ring-4 dark:bg-zinc-900`}
+                    className={`${p.grow} focus-within:ring-primary/15 bg-card flex h-14 flex-col justify-center rounded-2xl px-4 shadow-sm transition focus-within:ring-4`}
                 >
                     <span className="text-muted-foreground text-[10px] leading-tight font-semibold tracking-wider uppercase">{t(p.label)}</span>
                     <input

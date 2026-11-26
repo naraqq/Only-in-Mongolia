@@ -19,6 +19,11 @@ return [
     'min_tip' => (int) env('MIN_TIP', 1_000),
     'max_tip' => (int) env('MAX_TIP', 1_000_000),
 
+    // Fan wallets: one top-up, and the most a wallet may hold.
+    'min_topup' => (int) env('MIN_TOPUP', 1_000),
+    'max_topup' => (int) env('MAX_TOPUP', 1_000_000),
+    'max_wallet' => (int) env('MAX_WALLET', 3_000_000),
+
     // Pay-per-view price limits for posts and messages (₮).
     'min_ppv' => (int) env('MIN_PPV', 1_000),
     'max_ppv' => (int) env('MAX_PPV', 1_000_000),

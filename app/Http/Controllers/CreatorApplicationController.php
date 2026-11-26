@@ -30,6 +30,8 @@ class CreatorApplicationController extends Controller
             ] : null,
             'banks' => config('creators.banks'),
             'limits' => ['min' => config('creators.min_price'), 'max' => config('creators.max_price')],
+            'keep' => 100 - (int) config('creators.platform_fee_percent'),
+            'account_name' => $request->user()->name,
         ]);
     }
 

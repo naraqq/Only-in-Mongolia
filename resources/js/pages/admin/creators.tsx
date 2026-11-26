@@ -1,6 +1,5 @@
-import AdminTabs from '@/components/admin-tabs';
 import { Button } from '@/components/ui/button';
-import SocialLayout from '@/layouts/social-layout';
+import AdminLayout from '@/layouts/admin-layout';
 import { useT } from '@/lib/i18n';
 import { useForm } from '@inertiajs/react';
 import { AlertTriangle, Check, X } from 'lucide-react';
@@ -33,16 +32,13 @@ export default function CreatorReview({ pending, recent }: { pending: Applicant[
     const { t } = useT();
 
     return (
-        <SocialLayout title={t('ad.title')} header={<h1 className="text-lg font-bold tracking-wide uppercase">{t('nav.adminHome')}</h1>} wide>
-            <div className="p-4">
-                <AdminTabs />
-                <p className="text-muted-foreground mt-4">{t('ad.sub')}</p>
-
-                <h2 className="mt-8 mb-3 font-medium">
+        <AdminLayout title={t('nav.admin')} subtitle={t('ad.sub')}>
+            <div>
+                <h2 className="mt-2 mb-3 font-bold">
                     {t('ad.pending')} <span className="text-muted-foreground">({pending.length})</span>
                 </h2>
                 {pending.length === 0 ? (
-                    <p className="text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">{t('ad.none')}</p>
+                    <p className="text-muted-foreground bg-card rounded-lg p-8 text-center text-sm shadow-xs">{t('ad.none')}</p>
                 ) : (
                     <div className="flex flex-col gap-6">
                         {pending.map((a) => (
@@ -54,7 +50,7 @@ export default function CreatorReview({ pending, recent }: { pending: Applicant[
                 {recent.length > 0 && (
                     <>
                         <h2 className="mt-10 mb-3 font-medium">{t('ad.recent')}</h2>
-                        <ul className="divide-y rounded-lg border">
+                        <ul className="bg-card rounded-lg shadow-xs">
                             {recent.map((a) => (
                                 <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
                                     <span>
@@ -70,7 +66,7 @@ export default function CreatorReview({ pending, recent }: { pending: Applicant[
                     </>
                 )}
             </div>
-        </SocialLayout>
+        </AdminLayout>
     );
 }
 
@@ -85,7 +81,7 @@ function ApplicantCard({ a }: { a: Applicant }) {
     };
 
     return (
-        <article className="rounded-xl border p-5">
+        <article className="bg-card rounded-xl p-5 shadow-xs">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <div>
                     <h3 className="text-lg font-semibold">
@@ -107,7 +103,7 @@ function ApplicantCard({ a }: { a: Applicant }) {
                         key={k}
                         href={route('admin.creators.document', [a.id, k])}
                         target="_blank"
-                        className="bg-muted block overflow-hidden rounded-lg border"
+                        className="bg-muted block overflow-hidden rounded-lg"
                     >
                         <img src={route('admin.creators.document', [a.id, k])} alt={k} className="aspect-[4/3] w-full object-cover" />
                     </a>
@@ -136,7 +132,7 @@ function ApplicantCard({ a }: { a: Applicant }) {
 
             <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <input
-                    className="border-input h-9 flex-1 rounded-md border bg-transparent px-3 text-sm shadow-xs"
+                    className="bg-muted h-9 flex-1 rounded-lg px-3 text-sm outline-none"
                     placeholder={t('ad.notePh')}
                     value={form.data.note}
                     maxLength={500}
@@ -162,7 +158,7 @@ function ApplicantCard({ a }: { a: Applicant }) {
 
 function Row({ k, v, mono = false }: { k: string; v: string; mono?: boolean }) {
     return (
-        <div className="flex justify-between gap-3 border-b py-1 sm:border-0">
+        <div className="flex justify-between gap-3 py-1">
             <dt className="text-muted-foreground">{k}</dt>
             <dd className={mono ? 'font-mono' : ''}>{v}</dd>
         </div>

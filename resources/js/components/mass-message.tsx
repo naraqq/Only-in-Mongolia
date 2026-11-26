@@ -1,14 +1,14 @@
 import InputError from '@/components/input-error';
+import MediaThumbs from '@/components/media-thumbs';
 import PriceField from '@/components/price-field';
-import { Button } from '@/components/ui/button';
 import { priceOk } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { useForm, usePage } from '@inertiajs/react';
-import { ImagePlus, LoaderCircle, Lock, Megaphone, X } from 'lucide-react';
+import { ImagePlus, LoaderCircle, Lock, Megaphone } from 'lucide-react';
 import { useRef, useState, type FormEvent } from 'react';
 
 /** Studio: one message to every subscriber (or follower), delivered into each fan's own conversation. */
-export default function MassMessage({ subscribers, followers }: { subscribers: number; followers: number }) {
+export default function MassMessage({ subscribers, followers, className = '' }: { subscribers: number; followers: number; className?: string }) {
     const { t } = useT();
     const flash = usePage<{ flash?: { status?: string } }>().props.flash;
     const form = useForm({ body: '', audience: 'subscribers' as 'subscribers' | 'followers', media: [] as File[], price: 5000 });
@@ -33,9 +33,12 @@ export default function MassMessage({ subscribers, followers }: { subscribers: n
     }
 
     return (
-        <form onSubmit={submit} className="mt-6 rounded-2xl border p-4">
-            <div className="flex items-center gap-2 font-bold">
-                <Megaphone className="text-primary size-5" /> {t('mm.title')}
+        <form onSubmit={submit} className={`bg-card rounded-2xl p-4 shadow-xs ${className}`}>
+            <div className="flex items-center gap-2.5 font-bold">
+                <span className="bg-primary/10 text-primary grid size-9 place-items-center rounded-xl">
+                    <Megaphone className="size-[18px]" />
+                </span>
+                {t('mm.title')}
             </div>
             <div className="bg-muted mt-3 grid grid-cols-2 gap-1 rounded-xl p-1 text-sm">
                 {(['subscribers', 'followers'] as const).map((a) => (
@@ -43,7 +46,7 @@ export default function MassMessage({ subscribers, followers }: { subscribers: n
                         key={a}
                         type="button"
                         onClick={() => form.setData('audience', a)}
-                        className={`rounded-lg py-2 font-semibold transition ${form.data.audience === a ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}
+                        className={`rounded-lg py-2 font-semibold transition ${form.data.audience === a ? 'bg-card shadow-sm' : 'text-muted-foreground'}`}
                     >
                         {t(a === 'subscribers' ? 'pe.dmSubscribers' : 'pe.dmFollowers')} ({a === 'subscribers' ? subscribers : followers})
                     </button>
@@ -55,48 +58,38 @@ export default function MassMessage({ subscribers, followers }: { subscribers: n
                 rows={3}
                 maxLength={2000}
                 placeholder={t('mm.placeholder')}
-                className="placeholder:text-muted-foreground mt-3 w-full resize-y bg-transparent text-[15px] outline-none"
+                className="placeholder:text-muted-foreground bg-muted focus:ring-primary/25 mt-3 w-full resize-none rounded-xl px-3.5 py-2.5 text-[15px] outline-none focus:ring-2"
             />
-            {form.data.media.length > 0 && (
-                <ul className="mt-2 flex flex-wrap gap-2">
-                    {form.data.media.map((f, i) => (
-                        <li key={i} className="bg-muted flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs">
-                            <span className="max-w-32 truncate">{f.name}</span>
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    form.setData(
-                                        'media',
-                                        form.data.media.filter((_, j) => j !== i),
-                                    )
-                                }
-                            >
-                                <X className="size-3.5" />
-                            </button>
-                        </li>
-                    ))}
-                </ul>
-            )}
+            <MediaThumbs
+                files={form.data.media}
+                onRemove={(i) =>
+                    form.setData(
+                        'media',
+                        form.data.media.filter((_, j) => j !== i),
+                    )
+                }
+                className="mt-2"
+            />
             <InputError message={form.errors.body} />
             {form.data.media.length > 0 && (
                 <div className="mt-2 flex items-center gap-2">
                     <button
                         type="button"
                         onClick={() => setPpv(!ppv)}
-                        className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm font-semibold transition ${ppv ? 'border-amber-300 text-amber-700' : 'text-muted-foreground hover:bg-muted'}`}
+                        className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm font-semibold transition ${ppv ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
                     >
                         <Lock className="size-3.5" /> {t('ppv.lockMedia')}
                     </button>
                     {ppv && <PriceField value={form.data.price} onChange={(v) => form.setData('price', v)} />}
                 </div>
             )}
-            <div className="mt-3 flex items-center gap-3 border-t pt-3">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button
                     type="button"
                     onClick={() => files.current?.click()}
-                    className="hover:bg-muted inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm"
+                    className="hover:bg-muted inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-emerald-600 transition dark:text-emerald-400"
                 >
-                    <ImagePlus className="size-4" /> {t('st.addMedia')}
+                    <ImagePlus className="size-[18px]" /> {t('st.addMedia')}
                 </button>
                 <input
                     ref={files}
@@ -110,10 +103,9 @@ export default function MassMessage({ subscribers, followers }: { subscribers: n
                     }}
                 />
                 {sent !== null && !form.isDirty && <span className="text-sm font-semibold text-emerald-600">{t('mm.sent', { n: sent })}</span>}
-                <Button
+                <button
                     type="submit"
-                    size="sm"
-                    className="ml-auto rounded-full px-5"
+                    className="bg-primary ml-auto inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-40"
                     disabled={
                         form.processing ||
                         count === 0 ||
@@ -124,7 +116,7 @@ export default function MassMessage({ subscribers, followers }: { subscribers: n
                 >
                     {form.processing && <LoaderCircle className="size-4 animate-spin" />}
                     {t('mm.send', { n: count })}
-                </Button>
+                </button>
             </div>
         </form>
     );

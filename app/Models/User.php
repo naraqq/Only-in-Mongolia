@@ -40,6 +40,8 @@ class User extends Authenticatable
         'remember_token',
         'avatar_path',
         'cover_path',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     /** Sent to the browser with the user (e.g. auth.user.avatar_url). */
@@ -64,6 +66,10 @@ class User extends Authenticatable
             'is_admin' => 'boolean',
             'banned_at' => 'datetime',
             'password' => 'hashed',
+            'wallet_balance' => 'integer',
+            'two_factor_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
+            'two_factor_confirmed_at' => 'datetime',
         ];
     }
 
@@ -88,6 +94,18 @@ class User extends Authenticatable
     public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class);
+    }
+
+    /** Signing in also needs a code from an authenticator app. */
+    public function hasTwoFactor(): bool
+    {
+        return $this->two_factor_confirmed_at !== null && $this->two_factor_secret !== null;
+    }
+
+    /** Every change to this person's wallet balance. */
+    public function walletEntries(): HasMany
+    {
+        return $this->hasMany(WalletEntry::class);
     }
 
     public function creatorProfile(): HasOne

@@ -1,14 +1,30 @@
+import MediaThumbs from '@/components/media-thumbs';
 import MoreMenu from '@/components/more-menu';
 import PriceField from '@/components/price-field';
 import TipButton from '@/components/tip-button';
+import UnlockButton from '@/components/unlock-button';
 import UserAvatar from '@/components/user-avatar';
 import SocialLayout from '@/layouts/social-layout';
-import { mnt, priceOk } from '@/lib/format';
+import StudioLayout from '@/layouts/studio-layout';
+import { mnt, priceOk, timeAgo } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
 import { type SharedData } from '@/types';
 import { Link, useForm, usePage, usePoll } from '@inertiajs/react';
-import { ArrowLeft, BadgeCheck, HandCoins, ImageIcon, ImagePlus, LoaderCircle, Lock, MessageCircle, SendHorizontal, X } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import {
+    ArrowLeft,
+    BadgeCheck,
+    Compass,
+    ExternalLink,
+    HandCoins,
+    ImagePlus,
+    LoaderCircle,
+    Lock,
+    Megaphone,
+    MessageCircle,
+    Search,
+    SendHorizontal,
+} from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 
 type Person = { id: number; name: string; handle: string | null; avatar_url: string | null };
 type Item = { id: number; other: Person; last: { mine: boolean; body: string | null; has_media: boolean; at: string } | null; unread: number };
@@ -38,84 +54,129 @@ const REASONS: Record<string, TKey> = {
     self: 'dm.closed',
 };
 
-/** Inbox on the left, the open conversation on the right. Phones show one or the other. New messages arrive by polling. */
-export default function Messages({ conversations, thread, me }: { conversations: Item[]; thread: Thread | null; me: number }) {
+/** Messages within this long of each other (same sender) form one group: one avatar, one time. */
+const GROUP_MS = 5 * 60 * 1000;
+
+/** Inbox on the left, the open conversation on the right, each in its own panel. Phones show one or the other. */
+export default function Messages({
+    conversations,
+    thread,
+    me,
+    area = 'social',
+}: {
+    conversations: Item[];
+    thread: Thread | null;
+    me: number;
+    /** Opened from the studio: same inbox, in the studio layout, links stay in the studio. */
+    area?: 'social' | 'studio';
+}) {
     const { t } = useT();
+    const [q, setQ] = useState('');
     usePoll(4000, { only: ['conversations', 'thread', 'unreadMessages'] });
+    const shown = conversations.filter((c) => !q.trim() || `${c.other.name} ${c.other.handle ?? ''}`.toLowerCase().includes(q.trim().toLowerCase()));
 
     return (
-        <SocialLayout title={thread ? thread.other.name : t('nav.messages')} wide>
-            <div className="flex h-[calc(100svh-3.5rem-5rem)] md:h-svh">
+        <Shell area={area} title={thread ? thread.other.name : t('nav.messages')}>
+            <div className={`flex gap-4 ${area === 'studio' ? 'h-[calc(100svh-6.5rem)] pb-2' : 'h-[calc(100svh-3.5rem-4rem)] md:h-svh md:py-4'}`}>
                 {/* Inbox */}
-                <aside className={`w-full shrink-0 flex-col border-r md:flex md:w-80 ${thread ? 'hidden' : 'flex'}`}>
-                    <div className="flex h-14 items-center border-b px-5">
-                        <h1 className="text-lg font-bold">{t('nav.messages')}</h1>
+                <aside
+                    className={`bg-card w-full shrink-0 flex-col overflow-hidden md:flex md:w-[340px] md:rounded-2xl md:shadow-xs ${thread ? 'hidden' : 'flex'}`}
+                >
+                    <div className="px-4 pt-4 pb-3">
+                        {area === 'social' && <h1 className="text-2xl font-extrabold tracking-tight">{t('nav.messages')}</h1>}
+                        {conversations.length > 0 && (
+                            <label className="bg-muted focus-within:ring-primary/25 mt-3 flex h-10 items-center gap-2 rounded-full px-3.5 focus-within:ring-2">
+                                <Search className="text-muted-foreground size-4 shrink-0" />
+                                <input
+                                    value={q}
+                                    onChange={(e) => setQ(e.target.value)}
+                                    placeholder={t('dm.search')}
+                                    className="placeholder:text-muted-foreground w-full bg-transparent text-sm outline-none"
+                                />
+                            </label>
+                        )}
                     </div>
                     {conversations.length === 0 ? (
-                        <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center text-sm">
-                            <MessageCircle className="size-10 opacity-40" />
-                            {t('dm.empty')}
+                        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+                            <span className="bg-primary/10 text-primary grid size-16 place-items-center rounded-full">
+                                <MessageCircle className="size-8" />
+                            </span>
+                            <p className="font-bold">{t('dm.emptyTitle')}</p>
+                            <p className="text-muted-foreground text-sm">{t(area === 'studio' ? 'dm.emptyCreator' : 'dm.empty')}</p>
+                            <Link
+                                href={route(area === 'studio' ? 'studio' : 'creators')}
+                                className="bg-primary mt-1 inline-flex h-10 items-center gap-2 rounded-full px-5 text-sm font-bold text-white"
+                            >
+                                {area === 'studio' ? <Megaphone className="size-4" /> : <Compass className="size-4" />}{' '}
+                                {t(area === 'studio' ? 'mm.title' : 'wal.discover')}
+                            </Link>
                         </div>
                     ) : (
-                        <ul className="flex-1 overflow-y-auto">
-                            {conversations.map((c) => (
-                                <li key={c.id}>
-                                    <Link
-                                        href={route('messages.show', c.id)}
-                                        preserveScroll
-                                        className={`hover:bg-muted/60 flex items-center gap-3 px-4 py-3 transition ${thread?.id === c.id ? 'bg-muted' : ''}`}
-                                    >
-                                        <UserAvatar
-                                            name={c.other.name}
-                                            src={c.other.avatar_url}
-                                            seed={c.other.handle ?? c.other.name}
-                                            className="size-12 text-lg"
-                                        />
-                                        <span className="min-w-0 flex-1">
-                                            <span className="flex items-center justify-between gap-2">
-                                                <span className={`truncate ${c.unread ? 'font-bold' : 'font-semibold'}`}>{c.other.name}</span>
-                                                {c.last && <span className="text-muted-foreground shrink-0 text-xs">{ago(c.last.at)}</span>}
-                                            </span>
-                                            <span className="flex items-center justify-between gap-2">
-                                                <span
-                                                    className={`truncate text-sm ${c.unread ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}
-                                                >
-                                                    {c.last && (c.last.mine ? `${t('dm.you')}: ` : '')}
-                                                    {c.last?.body ?? (c.last?.has_media ? `📷 ${t('dm.photo')}` : '')}
+                        <ul className="flex-1 overflow-y-auto px-2 pb-2">
+                            {shown.map((c) => {
+                                const active = thread?.id === c.id;
+                                return (
+                                    <li key={c.id}>
+                                        <Link
+                                            href={route(area === 'studio' ? 'studio.messages.show' : 'messages.show', c.id)}
+                                            preserveScroll
+                                            prefetch
+                                            className={`flex items-center gap-3 rounded-xl px-2.5 py-2.5 transition ${active ? 'bg-primary/10' : 'hover:bg-muted/60'}`}
+                                        >
+                                            <UserAvatar
+                                                name={c.other.name}
+                                                src={c.other.avatar_url}
+                                                seed={c.other.handle ?? c.other.name}
+                                                className="size-14 shrink-0 text-lg"
+                                            />
+                                            <span className="min-w-0 flex-1">
+                                                <span className={`block truncate text-[15px] ${c.unread ? 'font-bold' : 'font-semibold'}`}>
+                                                    {c.other.name}
                                                 </span>
-                                                {c.unread > 0 && (
-                                                    <span className="bg-primary grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1.5 text-[11px] font-bold text-white">
-                                                        {c.unread}
+                                                <span
+                                                    className={`flex min-w-0 items-center gap-1 text-[13px] ${c.unread ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}
+                                                >
+                                                    <span className="truncate">
+                                                        {c.last && (c.last.mine ? `${t('dm.you')}: ` : '')}
+                                                        {c.last?.body ?? (c.last?.has_media ? `📷 ${t('dm.photo')}` : '')}
                                                     </span>
-                                                )}
+                                                    {c.last && <span className="shrink-0">· {timeAgo(c.last.at, t)}</span>}
+                                                </span>
                                             </span>
-                                        </span>
-                                    </Link>
-                                </li>
-                            ))}
+                                            {c.unread > 0 && (
+                                                <span className="bg-primary size-3 shrink-0 rounded-full" aria-label={String(c.unread)} />
+                                            )}
+                                        </Link>
+                                    </li>
+                                );
+                            })}
+                            {shown.length === 0 && <li className="text-muted-foreground p-6 text-center text-sm">{t('dm.noMatch')}</li>}
                         </ul>
                     )}
                 </aside>
 
                 {/* Conversation */}
-                <section className={`min-w-0 flex-1 flex-col ${thread ? 'flex' : 'hidden md:flex'}`}>
+                <section
+                    className={`bg-card min-w-0 flex-1 flex-col overflow-hidden md:rounded-2xl md:shadow-xs ${thread ? 'flex' : 'hidden md:flex'}`}
+                >
                     {thread ? (
-                        <Conversation thread={thread} me={me} />
+                        <Conversation thread={thread} me={me} area={area} />
                     ) : (
-                        <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-3 text-sm">
-                            <span className="bg-muted grid size-16 place-items-center rounded-full">
-                                <MessageCircle className="size-7" />
+                        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+                            <span className="bg-muted text-muted-foreground grid size-20 place-items-center rounded-full">
+                                <MessageCircle className="size-9" />
                             </span>
-                            {t('dm.pick')}
+                            <p className="text-lg font-bold">{t('dm.pickTitle')}</p>
+                            <p className="text-muted-foreground max-w-xs text-sm">{t('dm.pick')}</p>
                         </div>
                     )}
                 </section>
             </div>
-        </SocialLayout>
+        </Shell>
     );
 }
 
-function Conversation({ thread, me }: { thread: Thread; me: number }) {
+function Conversation({ thread, me, area }: { thread: Thread; me: number; area: 'social' | 'studio' }) {
     const { t } = useT();
     const scroller = useRef<HTMLDivElement>(null);
     const lastId = thread.messages.at(-1)?.id;
@@ -127,19 +188,20 @@ function Conversation({ thread, me }: { thread: Thread; me: number }) {
 
     const o = thread.other;
     const lastFromThem = [...thread.messages].reverse().find((m) => m.sender_id !== me)?.id;
+    const avatar = (size: string) => <UserAvatar name={o.name} src={o.avatar_url} seed={o.handle ?? o.name} className={size} />;
 
     return (
         <>
-            <header className="flex h-14 shrink-0 items-center gap-3 border-b px-3">
+            <header className="z-10 flex h-16 shrink-0 items-center gap-3 px-3 shadow-[0_1px_4px_rgb(0_0_0/0.06)]">
                 <Link
-                    href={route('messages.index')}
+                    href={route(area === 'studio' ? 'studio.messages' : 'messages.index')}
                     className="hover:bg-muted grid size-9 place-items-center rounded-full md:hidden"
                     aria-label="Back"
                 >
                     <ArrowLeft className="size-5" />
                 </Link>
-                <UserAvatar name={o.name} src={o.avatar_url} seed={o.handle ?? o.name} className="size-9" />
-                <div className="min-w-0">
+                {o.handle ? <Link href={route('creator.show', o.handle)}>{avatar('size-10')}</Link> : avatar('size-10')}
+                <div className="min-w-0 flex-1">
                     {o.handle ? (
                         <Link href={route('creator.show', o.handle)} className="flex items-center gap-1 font-bold hover:underline">
                             <span className="truncate">{o.name}</span>
@@ -148,53 +210,80 @@ function Conversation({ thread, me }: { thread: Thread; me: number }) {
                     ) : (
                         <p className="truncate font-bold">{o.name}</p>
                     )}
-                    {o.handle && <p className="text-muted-foreground text-xs">@{o.handle}</p>}
+                    {o.handle && <p className="text-muted-foreground truncate text-xs">@{o.handle}</p>}
                 </div>
-                <MoreMenu
-                    report={lastFromThem ? { type: 'message', id: lastFromThem } : undefined}
-                    blockUserId={o.id}
-                    blocked={thread.iBlocked}
-                    className={o.handle ? 'order-last' : 'ml-auto'}
-                />
                 {o.handle && (
-                    <TipButton
-                        handle={o.handle}
-                        name={o.name}
-                        className="ml-auto inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold text-amber-600 transition hover:bg-amber-50 dark:hover:bg-amber-950/40"
-                    />
+                    <>
+                        <TipButton
+                            handle={o.handle}
+                            name={o.name}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-bold text-amber-600 transition hover:bg-amber-500/10 dark:text-amber-400"
+                        />
+                        <Link
+                            href={route('creator.show', o.handle)}
+                            className="text-muted-foreground hover:bg-muted hover:text-foreground hidden size-9 place-items-center rounded-full transition sm:grid"
+                            aria-label={t('dm.viewPage')}
+                            title={t('dm.viewPage')}
+                        >
+                            <ExternalLink className="size-[18px]" />
+                        </Link>
+                    </>
                 )}
+                <MoreMenu report={lastFromThem ? { type: 'message', id: lastFromThem } : undefined} blockUserId={o.id} blocked={thread.iBlocked} />
             </header>
 
             <div ref={scroller} className="flex-1 overflow-y-auto px-4 py-4">
-                {thread.messages.length === 0 && <p className="text-muted-foreground py-10 text-center text-sm">{t('dm.start', { name: o.name })}</p>}
-                <div className="flex flex-col gap-1.5">
+                {/* Who you're talking to, at the top of the thread */}
+                <div className="flex flex-col items-center gap-2 pt-4 pb-8 text-center">
+                    {avatar('size-20 text-2xl')}
+                    <p className="text-lg font-bold">{o.name}</p>
+                    {o.handle && (
+                        <Link
+                            href={route('creator.show', o.handle)}
+                            className="bg-muted hover:bg-muted/70 rounded-full px-4 py-1.5 text-sm font-semibold"
+                        >
+                            {t('dm.viewPage')}
+                        </Link>
+                    )}
+                    {thread.messages.length === 0 && <p className="text-muted-foreground mt-2 text-sm">{t('dm.start', { name: o.name })}</p>}
+                </div>
+
+                <div className="flex flex-col">
                     {thread.messages.map((m, i) => {
                         const mine = m.sender_id === me;
                         const prev = thread.messages[i - 1];
+                        const next = thread.messages[i + 1];
+                        const at = new Date(m.created_at).getTime();
                         const newDay = !prev || prev.created_at.slice(0, 10) !== m.created_at.slice(0, 10);
+                        const joinsPrev = !newDay && prev && prev.sender_id === m.sender_id && at - new Date(prev.created_at).getTime() < GROUP_MS;
+                        const endsGroup =
+                            !next ||
+                            next.sender_id !== m.sender_id ||
+                            new Date(next.created_at).getTime() - at >= GROUP_MS ||
+                            next.created_at.slice(0, 10) !== m.created_at.slice(0, 10);
                         return (
-                            <div key={m.id}>
+                            <div key={m.id} className={joinsPrev ? 'mt-0.5' : 'mt-3'}>
                                 {newDay && (
-                                    <p className="text-muted-foreground my-3 text-center text-[11px] font-semibold tracking-wider uppercase">
+                                    <p className="text-muted-foreground my-4 text-center text-xs font-semibold">
                                         {m.created_at.slice(0, 10).replaceAll('-', '.')}
                                     </p>
                                 )}
-                                <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[78%] ${mine ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
+                                <div className={`flex items-end gap-2 ${mine ? 'justify-end' : 'justify-start'}`}>
+                                    {!mine && <span className="mb-[18px] size-7 shrink-0">{endsGroup && avatar('size-7 text-[11px]')}</span>}
+                                    <div className={`flex max-w-[75%] flex-col gap-1 ${mine ? 'items-end' : 'items-start'}`}>
                                         {m.locked && (
                                             <div className="flex w-64 flex-col items-center gap-2 rounded-2xl bg-gradient-to-br from-zinc-800 to-black p-5 text-center text-white">
                                                 <Lock className="size-6" />
                                                 <span className="text-sm text-white/70">
                                                     {m.counts.image > 0 && `📷 ${m.counts.image}`} {m.counts.video > 0 && `🎬 ${m.counts.video}`}
                                                 </span>
-                                                <Link
+                                                <UnlockButton
                                                     href={route('messages.buy', m.id)}
-                                                    method="post"
-                                                    as="button"
+                                                    price={m.price ?? 0}
                                                     className="rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 text-sm font-bold transition hover:brightness-110"
                                                 >
                                                     {t('ppv.unlock', { price: mnt(m.price ?? 0) })}
-                                                </Link>
+                                                </UnlockButton>
                                             </div>
                                         )}
                                         {mine && m.price && (
@@ -234,16 +323,15 @@ function Conversation({ thread, me }: { thread: Thread; me: number }) {
                                         )}
                                         {m.body && (
                                             <p
-                                                className={`rounded-2xl px-3.5 py-2 text-[15px] leading-snug break-words whitespace-pre-line ${
-                                                    mine
-                                                        ? 'from-primary rounded-br-md bg-gradient-to-br to-rose-500 text-white'
-                                                        : 'bg-muted rounded-bl-md'
-                                                }`}
+                                                className={`rounded-[20px] px-3.5 py-2 text-[15px] leading-snug break-words whitespace-pre-line ${
+                                                    mine ? 'from-primary bg-gradient-to-br to-rose-500 text-white' : 'bg-muted'
+                                                } ${joinsPrev ? (mine ? 'rounded-tr-md' : 'rounded-tl-md') : ''} ${endsGroup ? '' : mine ? 'rounded-br-md' : 'rounded-bl-md'}`}
+                                                title={m.created_at.slice(0, 16).replace('T', ' ').replaceAll('-', '.')}
                                             >
                                                 {m.body}
                                             </p>
                                         )}
-                                        <span className="text-muted-foreground px-1 text-[10px]">{m.created_at.slice(11, 16)}</span>
+                                        {endsGroup && <span className="text-muted-foreground px-1 text-[11px]">{m.created_at.slice(11, 16)}</span>}
                                     </div>
                                 </div>
                             </div>
@@ -253,11 +341,25 @@ function Conversation({ thread, me }: { thread: Thread; me: number }) {
             </div>
 
             {thread.cannotSend ? (
-                <p className="bg-muted/60 text-muted-foreground border-t p-4 text-center text-sm">{t(REASONS[thread.cannotSend] ?? 'dm.closed')}</p>
+                <p className="bg-muted/60 text-muted-foreground p-4 text-center text-sm">{t(REASONS[thread.cannotSend] ?? 'dm.closed')}</p>
             ) : (
                 <Composer conversationId={thread.id} />
             )}
         </>
+    );
+}
+
+/** The social layout, or the studio's (no inbox on phones there: the studio has its own menu). */
+function Shell({ area, title, children }: { area: 'social' | 'studio'; title: string; children: ReactNode }) {
+    const { t } = useT();
+    return area === 'studio' ? (
+        <StudioLayout title={title} heading={t('nav.messages')} subtitle={t('stu.messagesSub')}>
+            {children}
+        </StudioLayout>
+    ) : (
+        <SocialLayout title={title} wide>
+            {children}
+        </SocialLayout>
     );
 }
 
@@ -307,35 +409,23 @@ function Composer({ conversationId }: { conversationId: number }) {
     const error = form.errors.body ?? Object.entries(form.errors).find(([k]) => k.startsWith('media'))?.[1];
 
     return (
-        <form onSubmit={submit} className="shrink-0 border-t p-3">
-            {form.data.media.length > 0 && (
-                <ul className="mb-2 flex flex-wrap gap-2">
-                    {form.data.media.map((f, i) => (
-                        <li key={i} className="bg-muted flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs">
-                            <ImageIcon className="size-3.5" />
-                            <span className="max-w-32 truncate">{f.name}</span>
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    form.setData(
-                                        'media',
-                                        form.data.media.filter((_, j) => j !== i),
-                                    )
-                                }
-                                aria-label={t('po.delete')}
-                            >
-                                <X className="size-3.5" />
-                            </button>
-                        </li>
-                    ))}
-                </ul>
-            )}
+        <form onSubmit={submit} className="shrink-0 px-3 pt-2 pb-3">
+            <MediaThumbs
+                files={form.data.media}
+                onRemove={(i) =>
+                    form.setData(
+                        'media',
+                        form.data.media.filter((_, j) => j !== i),
+                    )
+                }
+                className="mb-2"
+            />
             {isCreator && form.data.media.length > 0 && (
                 <div className="mb-2 flex items-center gap-2">
                     <button
                         type="button"
                         onClick={() => setPpv(!ppv)}
-                        className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm font-semibold transition ${ppv ? 'border-amber-300 text-amber-700' : 'text-muted-foreground hover:bg-muted'}`}
+                        className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm font-semibold transition ${ppv ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
                     >
                         <Lock className="size-3.5" /> {t('ppv.lockMedia')}
                     </button>
@@ -347,7 +437,7 @@ function Composer({ conversationId }: { conversationId: number }) {
                 <button
                     type="button"
                     onClick={() => files.current?.click()}
-                    className="text-muted-foreground hover:text-primary hover:bg-muted grid size-10 shrink-0 place-items-center rounded-full transition"
+                    className="text-primary hover:bg-primary/10 grid size-10 shrink-0 place-items-center rounded-full transition"
                     aria-label={t('st.addMedia')}
                     title={t('st.addMedia')}
                 >
@@ -372,7 +462,7 @@ function Composer({ conversationId }: { conversationId: number }) {
                     onKeyDown={onKey}
                     maxLength={2000}
                     placeholder={t('dm.placeholder')}
-                    className="bg-muted focus:ring-primary/20 max-h-40 min-h-10 flex-1 resize-none rounded-2xl px-4 py-2.5 text-[15px] outline-none focus:ring-2"
+                    className="bg-muted focus:ring-primary/20 max-h-40 min-h-10 flex-1 resize-none rounded-[20px] px-4 py-2.5 text-[15px] outline-none focus:ring-2"
                 />
                 <button
                     type="submit"
@@ -385,14 +475,4 @@ function Composer({ conversationId }: { conversationId: number }) {
             </div>
         </form>
     );
-}
-
-/** "now", "5m", "3h", "2d", or the date. */
-function ago(iso: string) {
-    const s = (Date.now() - new Date(iso).getTime()) / 1000;
-    if (s < 60) return '•';
-    if (s < 3600) return `${Math.floor(s / 60)}m`;
-    if (s < 86400) return `${Math.floor(s / 3600)}h`;
-    if (s < 7 * 86400) return `${Math.floor(s / 86400)}d`;
-    return iso.slice(5, 10).replace('-', '.');
 }

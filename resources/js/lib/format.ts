@@ -34,3 +34,6 @@ export const toLocalInput = (iso: string | null) => {
     const pad = (n: number) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
+
+/** Background behind a cover photo: plain gray while the photo loads, the creator's colour when there is no photo. */
+export const coverBg = (key: string, hasPhoto: boolean) => (hasPhoto ? 'bg-zinc-200 dark:bg-zinc-800' : `bg-gradient-to-br ${avatarGradient(key)}`);

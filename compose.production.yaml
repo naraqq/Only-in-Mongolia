@@ -1,0 +1,95 @@
+x-logging: &log-rotation
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-redis-client: &redis-client
+  CACHE_STORE: redis
+  REDIS_CLIENT: phpredis
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  REDIS_PASSWORD: ${REDIS_PASSWORD:?Production Redis password is missing}
+  MYSQL_ROOT_PASSWORD: ""
+  DB_QUEUE_RETRY_AFTER: "120"
+
+x-backends: &backends
+  - default
+  - data
+
+x-health: &health
+  interval: 15s
+  timeout: 5s
+  retries: 4
+  start_period: 15s
+
+services:
+  proxy:
+    logging: *log-rotation
+    healthcheck:
+      <<: *health
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2016/healthz"]
+  app:
+    logging: *log-rotation
+    networks: *backends
+    environment: *redis-client
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      <<: *health
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1/up && php docker/health.php"]
+  migrate:
+    logging: *log-rotation
+    networks: *backends
+    environment: *redis-client
+    depends_on:
+      redis:
+        condition: service_healthy
+  worker:
+    logging: *log-rotation
+    networks: *backends
+    environment: *redis-client
+    scale: ${QUEUE_WORKERS:-2}
+    healthcheck:
+      <<: *health
+      test: ["CMD", "php", "docker/health.php", "queue:work"]
+  scheduler:
+    logging: *log-rotation
+    networks: *backends
+    environment: *redis-client
+    healthcheck:
+      <<: *health
+      test: ["CMD", "php", "docker/health.php", "schedule:work"]
+  db:
+    logging: *log-rotation
+    networks: [data]
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: ""
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Production MySQL root password is missing}
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    user: redis
+    read_only: true
+    tmpfs: [/tmp]
+    networks: [data]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Production Redis password is missing}
+    command:
+      - sh
+      - -ec
+      - |
+        case "$$REDIS_PASSWORD" in *[!0-9a-f]*|'') exit 1;; esac
+        [ "$${#REDIS_PASSWORD}" -eq 64 ]
+        umask 077
+        printf 'requirepass %s\nsave ""\nappendonly no\nmaxmemory 128mb\nmaxmemory-policy allkeys-lru\n' "$$REDIS_PASSWORD" > /tmp/redis.conf
+        exec redis-server /tmp/redis.conf
+    logging: *log-rotation
+    healthcheck:
+      <<: *health
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -qx PONG"]
+
+networks:
+  data:
+    internal: true

@@ -1,6 +1,5 @@
-import AdminTabs from '@/components/admin-tabs';
 import UserAvatar from '@/components/user-avatar';
-import SocialLayout from '@/layouts/social-layout';
+import AdminLayout from '@/layouts/admin-layout';
 import { mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
 import { Link, router } from '@inertiajs/react';
@@ -51,11 +50,10 @@ export default function AdminUsers({ users, q, filter }: { users: Page; q: strin
     }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
-        <SocialLayout title={t('au.title')} header={<h1 className="text-lg font-bold tracking-wide uppercase">{t('nav.adminHome')}</h1>} wide>
-            <div className="flex flex-col gap-4 p-4">
-                <AdminTabs />
+        <AdminLayout title={t('au.title')}>
+            <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <label className="border-input focus-within:border-primary flex h-11 flex-1 items-center gap-2 rounded-xl border px-3">
+                    <label className="bg-muted flex h-11 flex-1 items-center gap-2 rounded-xl px-3">
                         <Search className="text-muted-foreground size-4" />
                         <input
                             value={query}
@@ -82,9 +80,9 @@ export default function AdminUsers({ users, q, filter }: { users: Page; q: strin
                 <p className="text-muted-foreground text-xs">{t('au.count', { n: users.total })}</p>
 
                 {users.data.length === 0 ? (
-                    <p className="text-muted-foreground rounded-2xl border border-dashed p-10 text-center text-sm">{t('au.none')}</p>
+                    <p className="text-muted-foreground bg-card rounded-2xl p-10 text-center text-sm shadow-xs">{t('au.none')}</p>
                 ) : (
-                    <ul className="divide-y rounded-2xl border">
+                    <ul className="bg-card rounded-2xl shadow-xs">
                         {users.data.map((u) => (
                             <li key={u.id}>
                                 <Link href={route('admin.users.show', u.id)} className="hover:bg-muted/50 flex items-center gap-3 px-4 py-3">
@@ -136,6 +134,6 @@ export default function AdminUsers({ users, q, filter }: { users: Page; q: strin
                     </nav>
                 )}
             </div>
-        </SocialLayout>
+        </AdminLayout>
     );
 }

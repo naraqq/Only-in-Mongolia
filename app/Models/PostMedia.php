@@ -9,7 +9,9 @@ class PostMedia extends Model
 {
     protected $table = 'post_media';
 
-    protected $fillable = ['post_id', 'type', 'path', 'mime', 'position'];
+    protected $fillable = ['post_id', 'type', 'path', 'mime', 'position', 'sha256'];
+
+    protected $casts = ['scan_labels' => 'array'];
 
     protected $hidden = ['path'];
 

@@ -8,8 +8,9 @@ import TipButton from '@/components/tip-button';
 import { Button } from '@/components/ui/button';
 import UserAvatar from '@/components/user-avatar';
 import SocialLayout from '@/layouts/social-layout';
-import { avatarGradient, mnt } from '@/lib/format';
+import { coverBg, mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
+import { toast } from '@/lib/toast';
 import { usePostState } from '@/lib/use-post-state';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
@@ -17,6 +18,7 @@ import {
     BadgeCheck,
     CalendarCheck,
     Copy,
+    Gift,
     HandCoins,
     Image as ImageIcon,
     LoaderCircle,
@@ -26,7 +28,7 @@ import {
     Play,
     Users,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type Option = { months: number; discount: number; price: number };
 
@@ -39,6 +41,7 @@ type Creator = {
     price_monthly: number;
     adult_content: boolean;
     options: Option[];
+    trial_days: number | null;
     joined: string;
     posts_count: number;
     media_count: number;
@@ -80,12 +83,15 @@ export default function CreatorPage({
     const { t } = useT();
     const price = mnt(creator.price_monthly);
     const author = { name: creator.display_name, handle: creator.handle, avatar_url: creator.avatar_url };
-    const g = avatarGradient(creator.handle);
+    const flash = usePage<{ flash?: { status?: string } }>().props.flash;
+    useEffect(() => {
+        if (flash?.status === 'trial-started') toast(t('pro.trialStarted'), { tone: 'success' });
+    }, [flash?.status, t]);
 
     return (
         <SocialLayout title={`${creator.display_name} (@${creator.handle})`}>
             {/* Cover + avatar */}
-            <div className={`relative h-36 overflow-hidden bg-gradient-to-br sm:h-44 ${g}`}>
+            <div className={`relative h-36 overflow-hidden sm:h-44 ${coverBg(creator.handle, !!creator.cover_url)}`}>
                 {creator.cover_url ? (
                     <img src={creator.cover_url} alt="" className="size-full object-cover" />
                 ) : (
@@ -98,13 +104,13 @@ export default function CreatorPage({
                         name={creator.display_name}
                         src={creator.avatar_url}
                         seed={creator.handle}
-                        className="size-24 text-4xl shadow-lg ring-4 ring-white dark:ring-zinc-950"
+                        className="ring-background size-24 text-4xl shadow-lg ring-4"
                     />
                     <div className="pb-1">
                         {isOwner ? (
                             <div className="flex gap-2">
                                 <Button asChild variant="outline" className="rounded-full">
-                                    <Link href={route('me.edit')}>{t('nav.editProfile')}</Link>
+                                    <Link href={route('me.edit', { edit: 1 })}>{t('nav.editProfile')}</Link>
                                 </Button>
                                 <Button asChild variant="outline" className="rounded-full">
                                     <Link href={route('studio')}>
@@ -117,7 +123,7 @@ export default function CreatorPage({
                                 <TipButton
                                     handle={creator.handle}
                                     name={creator.display_name}
-                                    className="hover:bg-muted grid size-9 place-items-center rounded-full border text-amber-600 transition"
+                                    className="hover:bg-muted bg-muted grid size-9 place-items-center rounded-full text-amber-600 transition"
                                 >
                                     <HandCoins className="size-4" />
                                 </TipButton>
@@ -126,7 +132,7 @@ export default function CreatorPage({
                                     report={{ type: 'creator', id: creatorId }}
                                     blockUserId={creatorUserId}
                                     blocked={blocked}
-                                    className="size-9 border"
+                                    className="bg-muted size-9"
                                 />
                                 <FollowButton handle={creator.handle} initial={following} />
                             </div>
@@ -152,19 +158,26 @@ export default function CreatorPage({
                 </div>
 
                 {!isOwner && (
-                    <SubscribeCard handle={creator.handle} price={price} options={creator.options} subscribed={subscribed} until={subscribedUntil} />
+                    <SubscribeCard
+                        handle={creator.handle}
+                        price={price}
+                        options={creator.options}
+                        subscribed={subscribed}
+                        until={subscribedUntil}
+                        trialDays={creator.trial_days}
+                    />
                 )}
             </div>
 
-            <div className="mt-6 border-t">
+            <div className="mt-6">
                 {!gated && (
-                    <div className="flex border-b" role="tablist">
+                    <div className="flex" role="tablist">
                         {(['posts', 'media'] as const).map((k) => (
                             <Link
                                 key={k}
                                 href={route('creator.show', { handle: creator.handle, ...(k === 'media' ? { tab: k } : {}) })}
                                 preserveScroll
-                                className={`-mb-px flex-1 border-b-2 py-3 text-center text-sm font-bold transition ${tab === k ? 'border-primary text-foreground' : 'text-muted-foreground hover:text-foreground border-transparent'}`}
+                                className={`-mb-px flex-1 py-3 text-center text-sm font-bold transition ${tab === k ? 'text-foreground shadow-[inset_0_-3px_0_var(--primary)]' : 'text-muted-foreground hover:text-foreground'}`}
                                 role="tab"
                                 aria-selected={tab === k}
                             >
@@ -254,7 +267,7 @@ function MediaGrid({ posts, handle, author }: { posts: PostItem[]; handle: strin
                 const tile = 'group relative aspect-square overflow-hidden bg-zinc-900';
                 // Visible media opens in the full-screen viewer; locked tiles go to the post to unlock it.
                 return first ? (
-                    <button key={p.id} type="button" onClick={() => setOpen(p)} className={`${tile} cursor-zoom-in`}>
+                    <button key={p.id} type="button" onClick={() => setOpen(p)} className={`${tile} cursor-pointer`}>
                         {inner}
                     </button>
                 ) : (
@@ -268,12 +281,20 @@ function MediaGrid({ posts, handle, author }: { posts: PostItem[]; handle: strin
     );
 }
 
-/** Opens the conversation; if the creator's settings don't allow it yet, says what's needed. */
+/**
+ * Opens the conversation. When the creator's settings don't allow it yet, a tap says why (instead of doing nothing)
+ * and offers the fix: follow, or subscribe.
+ */
 function MessageButton({ handle, block }: { handle: string; block: string | null }) {
     const { t } = useT();
-    const { errors } = usePage<{ errors: Record<string, string> }>().props;
-    const why: Record<string, TKey> = { follow: 'dm.needFollow', subscribe: 'dm.needSubscribe', closed: 'dm.closed', self: 'dm.closed' };
-    const cls = 'grid size-9 place-items-center rounded-full border transition hover:bg-muted';
+    const why: Record<string, TKey> = {
+        follow: 'dm.needFollow',
+        subscribe: 'dm.needSubscribe',
+        closed: 'dm.closed',
+        self: 'dm.closed',
+        blocked: 'bl.chatBlocked',
+    };
+    const cls = 'bg-muted hover:bg-muted/70 relative grid size-9 place-items-center rounded-full transition';
 
     if (block === 'login') {
         return (
@@ -282,20 +303,35 @@ function MessageButton({ handle, block }: { handle: string; block: string | null
             </Link>
         );
     }
-    const reason = block ? t(why[block] ?? 'dm.closed') : errors.message ? t(why[errors.message.replace('cannot.', '')] ?? 'dm.closed') : null;
+
+    function explain(reason: string) {
+        const action =
+            reason === 'follow'
+                ? { label: t('fan.follow'), onClick: () => router.post(route('creator.follow', handle), {}, { preserveScroll: true }) }
+                : reason === 'subscribe'
+                  ? { label: t('dm.subscribeCta'), onClick: () => router.visit(route('creator.checkout', handle)) }
+                  : undefined;
+        toast(t(why[reason] ?? 'dm.closed'), { icon: 'lock', action });
+    }
+
+    function open() {
+        if (block) return explain(block);
+        router.post(
+            route('creator.message', handle),
+            {},
+            { preserveScroll: true, onError: (e) => e.message && explain(String(e.message).replace('cannot.', '')) },
+        );
+    }
 
     return (
-        <Link
-            href={route('creator.message', handle)}
-            method="post"
-            as="button"
-            preserveScroll
-            className={`${cls} ${block ? 'opacity-50' : ''}`}
-            aria-label={reason ?? t('dm.message')}
-            title={reason ?? t('dm.message')}
-        >
-            <MessageCircle className="size-4" />
-        </Link>
+        <button type="button" onClick={open} className={cls} aria-label={block ? t(why[block] ?? 'dm.closed') : t('dm.message')}>
+            <MessageCircle className={`size-4 ${block ? 'opacity-60' : ''}`} />
+            {block && (
+                <span className="bg-card absolute -right-0.5 -bottom-0.5 grid size-4 place-items-center rounded-full shadow-sm">
+                    <Lock className="size-2.5" />
+                </span>
+            )}
+        </button>
     );
 }
 
@@ -306,12 +342,14 @@ export function SubscribeCard({
     options,
     subscribed,
     until,
+    trialDays = null,
 }: {
     handle: string;
     price: string;
     options: Option[];
     subscribed: boolean;
     until: string | null;
+    trialDays?: number | null;
 }) {
     const { t } = useT();
     const { auth, errors } = usePage<SharedData & { errors: Record<string, string> }>().props;
@@ -320,7 +358,10 @@ export function SubscribeCard({
 
     const subscribe = (months = 1) => {
         if (!auth.user) return router.visit(route('login'));
-        router.post(route('creator.subscribe', handle), { months }, { onStart: () => setBusy(months), onFinish: () => setBusy(null) });
+        router.visit(route('creator.checkout', { handle, ...(months > 1 ? { months } : {}) }), {
+            onStart: () => setBusy(months),
+            onFinish: () => setBusy(null),
+        });
     };
 
     // Several months at once, cheaper per month. Shown under the main button (and for renewing).
@@ -334,7 +375,7 @@ export function SubscribeCard({
                         type="button"
                         onClick={() => subscribe(b.months)}
                         disabled={busy !== null}
-                        className="hover:border-primary hover:bg-primary/5 relative flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition disabled:opacity-60 sm:flex-col sm:items-start"
+                        className="hover:bg-primary/5 bg-muted relative flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left transition disabled:opacity-60 sm:flex-col sm:items-start"
                     >
                         <span>
                             <span className="block text-sm font-bold">{t('cp.months', { n: b.months })}</span>
@@ -358,7 +399,7 @@ export function SubscribeCard({
 
     if (subscribed && until) {
         return (
-            <div className="mt-5 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/40">
+            <div className="mt-5 flex items-center gap-3 rounded-2xl bg-emerald-50 p-4 dark:bg-emerald-950/40">
                 <CalendarCheck className="size-6 shrink-0 text-emerald-600" />
                 <div className="min-w-0 flex-1">
                     <p className="font-bold text-emerald-800 dark:text-emerald-300">{t('cp.subscribed')}</p>
@@ -377,7 +418,7 @@ export function SubscribeCard({
                 type="button"
                 onClick={() => subscribe()}
                 disabled={busy !== null}
-                className="from-primary shadow-primary/25 flex w-full items-center justify-between gap-3 rounded-2xl bg-gradient-to-r to-rose-500 px-5 py-4 text-left text-white shadow-lg transition hover:brightness-110 disabled:opacity-60"
+                className="bg-primary text-primary-foreground flex w-full items-center justify-between gap-3 rounded-xl px-5 py-4 text-left transition hover:brightness-110 disabled:opacity-60"
             >
                 <span>
                     <span className="block text-xs font-semibold tracking-wider text-white/80 uppercase">{t('cp.subscribeT')}</span>
@@ -388,8 +429,21 @@ export function SubscribeCard({
                     {t('cp.perMonth', { price })}
                 </span>
             </button>
+            {trialDays && (
+                <button
+                    type="button"
+                    onClick={() => router.post(route('creator.trial', handle), {}, { preserveScroll: true })}
+                    className="mt-2 flex w-full items-center gap-3 rounded-2xl bg-emerald-50 px-4 py-3 text-left transition hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/60"
+                >
+                    <Gift className="size-5 shrink-0 text-emerald-600" />
+                    <span className="min-w-0 flex-1 text-sm font-bold text-emerald-800 dark:text-emerald-200">
+                        {t('pro.tryFree', { n: trialDays })}
+                    </span>
+                    <span className="shrink-0 rounded-full bg-emerald-600 px-3 py-1 text-xs font-bold text-white">{t('pro.startTrial')}</span>
+                </button>
+            )}
             {bundleRow}
-            <InputError message={errors.payment} className="mt-2" />
+            <InputError message={errors.payment ?? errors.trial} className="mt-2" />
         </div>
     );
 }

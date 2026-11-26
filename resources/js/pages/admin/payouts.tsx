@@ -1,5 +1,4 @@
-import AdminTabs from '@/components/admin-tabs';
-import SocialLayout from '@/layouts/social-layout';
+import AdminLayout from '@/layouts/admin-layout';
 import { mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { Link, useForm } from '@inertiajs/react';
@@ -25,13 +24,10 @@ export default function AdminPayouts({ open, done }: { open: Row[]; done: Row[] 
     const { t } = useT();
 
     return (
-        <SocialLayout title={t('nav.payouts')} header={<h1 className="text-lg font-bold tracking-wide uppercase">{t('nav.adminHome')}</h1>} wide>
-            <div className="flex flex-col gap-6 p-4">
-                <AdminTabs />
-                <p className="text-muted-foreground text-sm">{t('ap.sub')}</p>
-
+        <AdminLayout title={t('nav.payouts')} subtitle={t('ap.sub')}>
+            <div className="flex flex-col gap-6">
                 {open.length === 0 ? (
-                    <p className="text-muted-foreground rounded-2xl border border-dashed p-10 text-center text-sm">{t('ap.empty')}</p>
+                    <p className="text-muted-foreground bg-card rounded-2xl p-10 text-center text-sm shadow-xs">{t('ap.empty')}</p>
                 ) : (
                     open.map((p) => <Request key={p.id} p={p} />)
                 )}
@@ -39,7 +35,7 @@ export default function AdminPayouts({ open, done }: { open: Row[]; done: Row[] 
                 {done.length > 0 && (
                     <section>
                         <h2 className="text-muted-foreground mb-2 px-1 text-xs font-semibold tracking-wider uppercase">{t('ap.history')}</h2>
-                        <ul className="divide-y rounded-2xl border text-sm">
+                        <ul className="bg-card rounded-2xl text-sm shadow-xs">
                             {done.map((p) => (
                                 <li key={p.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
                                     <span className="w-28 font-bold tabular-nums">{mnt(p.amount)}</span>
@@ -59,7 +55,7 @@ export default function AdminPayouts({ open, done }: { open: Row[]; done: Row[] 
                     </section>
                 )}
             </div>
-        </SocialLayout>
+        </AdminLayout>
     );
 }
 
@@ -75,7 +71,7 @@ function Request({ p }: { p: Row }) {
     };
 
     return (
-        <article className="rounded-2xl border p-4">
+        <article className="bg-card rounded-2xl p-4 shadow-xs">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <p className="text-2xl font-extrabold tabular-nums">{mnt(p.amount)}</p>
@@ -118,7 +114,7 @@ function Request({ p }: { p: Row }) {
                     onChange={(e) => form.setData('reference', e.target.value)}
                     maxLength={120}
                     placeholder={t('ap.reference')}
-                    className="border-input focus:border-primary h-11 flex-1 rounded-xl border px-3 text-sm outline-none"
+                    className="bg-muted h-11 flex-1 rounded-xl px-3 text-sm outline-none"
                 />
                 <button
                     type="button"
@@ -132,7 +128,7 @@ function Request({ p }: { p: Row }) {
                     type="button"
                     disabled={!form.data.reference.trim() || form.processing}
                     onClick={() => decide('rejected')}
-                    className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border px-4 text-sm font-bold text-red-600 hover:bg-red-50 disabled:opacity-40"
+                    className="bg-muted inline-flex h-11 items-center justify-center gap-1.5 rounded-xl px-4 text-sm font-bold text-red-600 hover:bg-red-50 disabled:opacity-40"
                 >
                     <X className="size-4" /> {t('ap.reject')}
                 </button>

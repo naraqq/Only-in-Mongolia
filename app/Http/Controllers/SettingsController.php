@@ -21,6 +21,7 @@ class SettingsController extends Controller
         return Inertia::render('settings/index', [
             'phone' => $user->phone,
             'isCreator' => $user->creatorProfile()->exists(),
+            'twoFactor' => $user->hasTwoFactor(),
             'deleteWord' => self::DELETE_WORD,
             'blocked' => \App\Models\User::whereIn('id', \Illuminate\Support\Facades\DB::table('blocks')->where('blocker_id', $user->id)->select('blocked_id'))
                 ->with('creatorProfile:id,user_id,handle,display_name,status')->get()

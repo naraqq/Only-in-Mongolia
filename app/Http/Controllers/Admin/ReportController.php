@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Moderation\Moderation;
 use App\Http\Controllers\Controller;
 use App\Models\CreatorProfile;
 use App\Models\Message;
@@ -46,7 +47,16 @@ class ReportController extends Controller
 
         DB::transaction(function () use ($report, $target, $data, $request) {
             if ($data['action'] === 'remove') {
+                // The files can never be uploaded again, by anyone.
+                if ($target instanceof Post || $target instanceof Message) {
+                    Moderation::block($target->media, $report->reason, "report:{$report->id}", $request->user()->id);
+                }
                 $this->remove($target);
+            }
+            // Dismissing a report from the automatic scan releases what it held back.
+            if ($data['action'] === 'dismiss' && $target instanceof Post && $target->held_at) {
+                $target->forceFill(['held_at' => null])->saveQuietly();
+                $target->media()->where('scan_status', 'flagged')->update(['scan_status' => 'ok']);
             }
             if ($data['action'] === 'suspend') {
                 $creator = $this->creatorOf($target);
@@ -127,7 +137,7 @@ class ReportController extends Controller
                 default => ['text' => $r->url],
             },
             'creator' => $creator ? ['handle' => $creator->handle, 'status' => $creator->status] : null,
-            'reporter' => $r->reporter?->name ?? $r->contact_name,
+            'reporter' => $r->reporter?->name ?? $r->contact_name ?? (str_starts_with((string) $r->details, 'Automatic scan') ? '🤖 Auto scan' : null),
             'contact_email' => $r->contact_email,
             'status' => $r->status,
             'resolution' => $r->resolution,

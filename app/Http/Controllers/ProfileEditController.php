@@ -11,7 +11,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
 
-/** "Edit profile": everyone has a name, photo and cover; approved creators also a bio, price and message settings. */
+/** "My profile" with its edit form: everyone has a name, photo and cover; approved creators also a bio, price and message settings. */
 class ProfileEditController extends Controller
 {
     public const DM_POLICIES = ['everyone', 'followers', 'subscribers'];
@@ -20,12 +20,24 @@ class ProfileEditController extends Controller
     {
         $user = $request->user();
         $creator = $user->creatorProfile()->where('status', 'approved')->first();
+        // Opened from the studio: creators only, always the form, in the studio layout.
+        $studio = $request->routeIs('studio.*');
+        abort_if($studio && ! $creator, 404);
 
         return Inertia::render('profile/edit', [
+            'area' => $studio ? 'studio' : 'social',
+            // The page shows the profile; ?edit opens the form straight away (e.g. from the creator page's edit button).
+            'editing' => $studio || $request->boolean('edit'),
             'profile' => [
                 'name' => $user->name,
                 'avatar_url' => $user->avatar_url,
                 'cover_url' => $user->cover_path ? Storage::disk('public')->url($user->cover_path) : null,
+                'joined' => $user->created_at->toIso8601String(),
+            ],
+            'stats' => [
+                'following' => $user->following()->count(),
+                'subscriptions' => $user->subscriptions()->active()->count(),
+                'saved' => $user->bookmarks()->count(),
             ],
             'creator' => $creator ? [
                 ...$creator->only('handle', 'display_name', 'bio', 'price_monthly', 'dm_policy'),

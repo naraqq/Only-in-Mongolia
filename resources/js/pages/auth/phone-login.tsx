@@ -42,22 +42,22 @@ function PhoneStep() {
     }
 
     return (
-        <form onSubmit={submit} className="flex flex-col gap-4">
+        <form onSubmit={submit} className="flex flex-col gap-5">
             <div className="grid gap-2">
-                <label htmlFor="phone" className="sr-only">
+                <label htmlFor="phone" className="text-sm font-bold">
                     {t('ph.phone')}
                 </label>
-                <div className="border-input focus-within:border-primary focus-within:ring-primary/15 flex h-14 overflow-hidden rounded-2xl border bg-white shadow-sm transition focus-within:ring-4 dark:bg-zinc-900">
-                    <span className="text-muted-foreground grid place-items-center pr-1 pl-5 text-[17px] font-semibold">+976</span>
+                <div className="focus-within:border-ring focus-within:ring-ring/15 flex h-15 items-center rounded-2xl border border-zinc-300 bg-white transition focus-within:ring-4 dark:border-white/15 dark:bg-white/5">
+                    <span className="ml-4 shrink-0 border-r border-zinc-200 pr-3 text-sm font-bold dark:border-white/15">+976</span>
                     <input
                         id="phone"
                         type="tel"
                         inputMode="numeric"
                         autoComplete="tel-national"
-                        autoFocus
                         required
+                        aria-invalid={Boolean(errors.phone)}
                         placeholder="9911 2233"
-                        className="placeholder:text-muted-foreground/40 w-full bg-transparent px-3 text-[17px] font-semibold tracking-[0.12em] outline-none"
+                        className="h-full w-full min-w-0 bg-transparent px-3 text-base font-semibold tracking-[0.1em] outline-none placeholder:text-zinc-500 dark:placeholder:text-zinc-400"
                         value={data.phone}
                         onChange={(e) => setData('phone', formatPhone(e.target.value))}
                     />
@@ -67,7 +67,7 @@ function PhoneStep() {
 
             <Button
                 type="submit"
-                className="from-primary shadow-primary/25 group h-14 w-full rounded-2xl bg-gradient-to-r to-rose-500 text-base font-bold shadow-lg transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
+                className="group bg-brand-2 hover:bg-brand-2/80 focus-visible:ring-ring h-15 w-full justify-between rounded-2xl px-5 text-base font-bold text-[#20251e] transition disabled:opacity-65"
                 disabled={processing || data.phone.replace(/\D/g, '').length < 8}
             >
                 {t('ph.continue')}
@@ -92,7 +92,7 @@ function SmsStep({ v }: { v: Verification }) {
     const [status, setStatus] = useState<Status>(v.status);
     const [left, setLeft] = useState(() => secondsLeft(v.expires_at));
     const [total] = useState(() => Math.max(1, secondsLeft(v.expires_at)));
-    const completing = useRef(false);
+    const completeForm = useRef<HTMLFormElement>(null);
 
     // Countdown to expiresAt.
     useEffect(() => {
@@ -136,21 +136,33 @@ function SmsStep({ v }: { v: Verification }) {
 
     // Verified → finish login (the server re-checks with verify.mn before logging in).
     useEffect(() => {
-        if (status === 'VERIFIED' && !completing.current) {
-            completing.current = true;
-            router.post(route('login.phone.complete'));
-        }
+        if (status !== 'VERIFIED') return;
+        // Allow the Inertia visit that displayed this step to finish before navigating.
+        const timer = setTimeout(() => completeForm.current?.requestSubmit(), 0);
+        return () => clearTimeout(timer);
     }, [status]);
 
     const newCode = () => router.post(route('login.phone.start'), { phone: v.phone });
     const cancel = () => router.post(route('login.phone.cancel'));
 
     if (status === 'VERIFIED') {
+        const csrf = typeof document === 'undefined' ? '' : document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
         return (
-            <div className="flex flex-col items-center gap-3 py-6 text-center">
-                <CircleCheck className="size-12 text-emerald-600" aria-hidden />
-                <p className="font-medium text-emerald-700">{t('ph.verified')}</p>
-            </div>
+            <form
+                ref={completeForm}
+                method="post"
+                action={route('login.phone.complete')}
+                className="flex flex-col items-center gap-4 py-6 text-center"
+            >
+                <input type="hidden" name="_token" value={csrf ?? ''} />
+                <CircleCheck className="text-primary size-12" aria-hidden />
+                <p className="text-primary font-medium" role="status">
+                    {t('ph.verified')}
+                </p>
+                <Button type="submit" className="w-full">
+                    {t('ph.continue')}
+                </Button>
+            </form>
         );
     }
 
@@ -158,7 +170,7 @@ function SmsStep({ v }: { v: Verification }) {
         return (
             <div className="flex flex-col gap-4 text-center">
                 <Hourglass className="text-muted-foreground mx-auto size-10" aria-hidden />
-                <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{t('ph.expired')}</p>
+                <p className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-800">{t('ph.expired')}</p>
                 <Button onClick={newCode} className="h-14 w-full rounded-2xl text-base font-bold">
                     {t('ph.newCode')}
                 </Button>
@@ -189,10 +201,7 @@ function SmsStep({ v }: { v: Verification }) {
                 </div>
             </div>
 
-            <Button
-                asChild
-                className="from-primary shadow-primary/25 h-14 w-full rounded-2xl bg-gradient-to-r to-rose-500 text-base font-bold shadow-lg hover:brightness-110"
-            >
+            <Button asChild className="h-14 w-full rounded-xl text-base font-bold">
                 <a href={v.sms_uri}>
                     <MessageSquare className="size-5" aria-hidden /> {t('ph.send')}
                 </a>

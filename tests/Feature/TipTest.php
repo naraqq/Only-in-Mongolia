@@ -43,7 +43,7 @@ class TipTest extends TestCase
         $this->get("/payments/{$payment->id}")->assertInertia(fn ($p) => $p->where('payment.purpose', 'tip')->where('payment.note', 'Гоё зураг!'));
         $this->assertSame(0, Message::count()); // nothing until it's paid
 
-        $this->post("/payments/{$payment->id}/fake-pay")->assertRedirect('/@artist')->assertSessionHas('status', 'tipped');
+        $this->post("/payments/{$payment->id}/fake-pay")->assertRedirect("/payments/{$payment->id}")->assertSessionHas('status', 'tipped');
         $this->post("/payments/{$payment->id}/callback"); // settling again changes nothing
 
         $message = Message::sole();

@@ -22,7 +22,8 @@ class DashboardController extends Controller
     public function index(): Response
     {
         $monthStart = now()->startOfMonth();
-        $paid = fn () => Payment::where('status', Payment::PAID);
+        // Sales to creators; wallet top-ups aren't sales (the money is counted when it's spent).
+        $paid = fn () => Payment::where('status', Payment::PAID)->whereIn('purpose', Payment::SALES);
         $since = now()->subDays(self::DAYS - 1)->startOfDay();
 
         return Inertia::render('admin/dashboard', [
@@ -34,6 +35,8 @@ class DashboardController extends Controller
                 'gmvMonth' => (int) $paid()->where('paid_at', '>=', $monthStart)->sum('amount'),
                 'feeMonth' => (int) $paid()->where('paid_at', '>=', $monthStart)->sum('platform_fee'),
                 'gmvAll' => (int) $paid()->sum('amount'),
+                // What fans hold in their wallets: money the platform owes them until they spend it.
+                'walletHeld' => (int) User::sum('wallet_balance'),
             ],
             'todo' => [
                 'applications' => CreatorProfile::where('status', CreatorProfile::PENDING)->count(),

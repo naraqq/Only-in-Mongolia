@@ -6,6 +6,7 @@ use App\Models\Conversation;
 use App\Models\CreatorProfile;
 use App\Models\Message;
 use App\Models\MessageMedia;
+use App\Moderation\Moderation;
 use App\Models\User;
 use App\Support\Messaging;
 use Illuminate\Http\RedirectResponse;
@@ -25,6 +26,9 @@ class MessageController extends Controller
     {
         $me = $request->user();
         abort_if($conversation && ! $conversation->includes($me), 404);
+        // Opened from the studio: only for approved creators, shown in the studio layout.
+        $studio = $request->routeIs('studio.*');
+        abort_if($studio && ! $me->creatorProfile()->where('status', CreatorProfile::APPROVED)->exists(), 404);
 
         $thread = null;
         if ($conversation) {
@@ -43,6 +47,7 @@ class MessageController extends Controller
             'conversations' => $this->inbox($me),
             'thread' => $thread,
             'me' => $me->id,
+            'area' => $studio ? 'studio' : 'social',
         ]);
     }
 
@@ -71,7 +76,8 @@ class MessageController extends Controller
         if (isset($data['price']) && ! $me->creatorProfile()->where('status', CreatorProfile::APPROVED)->exists()) {
             return back()->withErrors(['price' => 'Only creators can sell messages.']);
         }
-        $this->deliver($conversation, $me, ($data['body'] ?? null), $this->storeFiles($request, $me), price: $data['price'] ?? null);
+        $message = $this->deliver($conversation, $me, ($data['body'] ?? null), $this->storeFiles($request, $me), price: $data['price'] ?? null);
+        Moderation::queue(...$message->media()->get()->all());
         $conversation->markRead($me);
 
         return back();
@@ -91,14 +97,20 @@ class MessageController extends Controller
         $files = $this->storeFiles($request, $me); // stored once, shared by every copy
 
         $sent = 0;
+        $first = null;
         $recipients->where('users.id', '!=', $me->id)->select('users.*')->chunkById(200, function ($users) use ($me, $data, $files, &$sent) {
             foreach ($users as $user) {
                 $conversation = Conversation::between($me, $user);
-                $this->deliver($conversation, $me, ($data['body'] ?? null), $files, mass: true, price: $data['price'] ?? null);
+                $message = $this->deliver($conversation, $me, ($data['body'] ?? null), $files, mass: true, price: $data['price'] ?? null);
+                $first ??= $message;
                 $conversation->markRead($me);
                 $sent++;
             }
         }, 'users.id', 'id');
+        // The files are shared by every copy, so one scan covers them all.
+        if ($first) {
+            Moderation::queue(...$first->media()->get()->all());
+        }
 
         return back()->with('status', "mass-sent:$sent");
     }
@@ -109,6 +121,8 @@ class MessageController extends Controller
         $conversation = $media->message->conversation;
         abort_unless($conversation->includes($request->user()), 404);
         abort_unless($media->message->isUnlockedFor($request->user()), 403);
+        // Flagged by the automatic scan (copies of a mass message share files): not served while it waits for review.
+        abort_if(! $request->user()->is_admin && MessageMedia::where('path', $media->path)->where('scan_status', 'flagged')->exists(), 404);
         abort_unless(Storage::exists($media->path), 404);
 
         return response()->file(Storage::path($media->path), [
@@ -132,10 +146,13 @@ class MessageController extends Controller
     /** @return array<int, array{type: string, path: string, mime: string}> */
     private function storeFiles(Request $request, User $me): array
     {
-        return collect($request->file('media', []))->map(fn ($file) => [
+        $hashes = Moderation::screen($request->file('media', []));
+
+        return collect($request->file('media', []))->map(fn ($file, $i) => [
             'type' => str_starts_with($file->getMimeType(), 'video/') ? 'video' : 'image',
             'path' => $file->store("messages/{$me->id}"), // private disk
             'mime' => $file->getMimeType(),
+            'sha256' => $hashes[$i],
         ])->all();
     }
 

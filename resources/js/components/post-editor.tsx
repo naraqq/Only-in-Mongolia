@@ -31,7 +31,7 @@ export default function PostEditor({ post, onDone }: { post: PostItem; onDone: (
     }
 
     return (
-        <form onSubmit={submit} className="border-primary/40 rounded-2xl border-2 p-4">
+        <form onSubmit={submit} className="bg-card rounded-2xl p-4 shadow-xs">
             <textarea
                 value={form.data.body}
                 onChange={(e) => form.setData('body', e.target.value)}
@@ -41,14 +41,14 @@ export default function PostEditor({ post, onDone }: { post: PostItem; onDone: (
                 className="w-full resize-y bg-transparent text-[15px] outline-none"
             />
             <InputError message={form.errors.body} />
-            <div className="mt-3 flex flex-wrap items-center gap-3 border-t pt-3">
+            <div className="mt-3 flex flex-wrap items-center gap-3 pt-3">
                 <select
                     value={ppv ? 'ppv' : form.data.visibility}
                     onChange={(e) => {
                         setPpv(e.target.value === 'ppv');
                         if (e.target.value !== 'ppv') form.setData('visibility', e.target.value as 'public' | 'subscribers');
                     }}
-                    className="border-input h-8 rounded-md border bg-transparent px-2 text-sm"
+                    className="bg-muted h-8 rounded-lg px-2 text-sm outline-none"
                 >
                     <option value="subscribers">{t('po.subscribers')}</option>
                     <option value="public">{t('po.public')}</option>
@@ -64,7 +64,7 @@ export default function PostEditor({ post, onDone }: { post: PostItem; onDone: (
                                 type="datetime-local"
                                 value={form.data.publish_at}
                                 onChange={(e) => form.setData('publish_at', e.target.value)}
-                                className="border-input h-8 rounded-md border bg-transparent px-2"
+                                className="bg-muted h-8 rounded-lg px-2 outline-none"
                             />
                         ) : (
                             t('sch.now')

@@ -46,6 +46,7 @@ class CreatorPageController extends Controller
                 'avatar_url' => $creator->avatarUrl(),
                 'cover_url' => $creator->coverUrl(),
                 'options' => $creator->subscriptionOptions(),
+                'trial_days' => $creator->trialFor($viewer),
                 'posts_count' => $creator->posts()->published()->count(),
                 'media_count' => $creator->posts()->published()->has('media')->count(),
                 'followers_count' => $creator->followers()->count(),

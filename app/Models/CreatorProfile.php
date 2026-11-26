@@ -21,7 +21,7 @@ class CreatorProfile extends Model
         'user_id', 'handle', 'display_name', 'bio', 'price_monthly', 'adult_content', 'dm_policy', 'bundles',
         'legal_name', 'register_number', 'id_front_path', 'id_back_path', 'selfie_path',
         'bank_name', 'bank_account', 'account_holder', 'consented_at', 'consent_ip',
-        'status', 'review_note', 'reviewed_at', 'reviewed_by',
+        'status', 'review_note', 'reviewed_at', 'reviewed_by', 'trial_days',
     ];
 
     protected $casts = [
@@ -106,6 +106,23 @@ class CreatorProfile extends Model
         $discount = $this->bundleDiscount($months);
 
         return $discount === null ? null : intdiv($this->price_monthly * $months * (100 - $discount), 100 * 100) * 100;
+    }
+
+    public function promoCodes(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PromoCode::class);
+    }
+
+    /** The free trial $fan can start (its length in days), or null: only for fans who never subscribed before. */
+    public function trialFor(?User $fan): ?int
+    {
+        if (! $this->trial_days || ! $fan || $fan->id === $this->user_id) {
+            return null;
+        }
+        $had = Subscription::where('user_id', $fan->id)->where('creator_profile_id', $this->id)->exists()
+            || \Illuminate\Support\Facades\DB::table('subscription_trials')->where('user_id', $fan->id)->where('creator_profile_id', $this->id)->exists();
+
+        return $had ? null : $this->trial_days;
     }
 
     /** The plain month plus every bundle on offer: [{months, discount, price}]. */

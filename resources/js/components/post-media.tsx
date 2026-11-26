@@ -9,7 +9,17 @@ type Media = { id: number; type: 'image' | 'video'; url: string };
  * A post's photos and videos. One item keeps its own shape; several become a swipeable carousel with dots.
  * Click a photo to see it full screen; double-click (or double-tap) to like.
  */
-export default function PostMedia({ media, onDoubleLike, aside }: { media: Media[]; onDoubleLike?: () => void; aside?: ReactNode }) {
+export default function PostMedia({
+    media,
+    onDoubleLike,
+    aside,
+    className = 'mx-4 mt-3 rounded-2xl',
+}: {
+    media: Media[];
+    onDoubleLike?: () => void;
+    aside?: ReactNode;
+    className?: string;
+}) {
     const { t } = useT();
     const track = useRef<HTMLDivElement>(null);
     const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -38,7 +48,7 @@ export default function PostMedia({ media, onDoubleLike, aside }: { media: Media
     };
 
     return (
-        <div className="relative mx-4 mt-3 overflow-hidden rounded-2xl bg-zinc-100 select-none dark:bg-zinc-900">
+        <div className={`relative overflow-hidden bg-zinc-200 select-none dark:bg-zinc-800 ${className}`}>
             <div
                 ref={track}
                 onScroll={(e) => setIndex(Math.round(e.currentTarget.scrollLeft / e.currentTarget.clientWidth))}
@@ -60,7 +70,7 @@ export default function PostMedia({ media, onDoubleLike, aside }: { media: Media
                                 alt=""
                                 loading="lazy"
                                 draggable={false}
-                                className={`w-full cursor-zoom-in object-cover ${many ? 'h-full' : 'max-h-[640px] min-h-48'}`}
+                                className={`w-full cursor-pointer object-cover ${many ? 'h-full' : 'max-h-[640px] min-h-48'}`}
                             />
                         )}
                     </div>

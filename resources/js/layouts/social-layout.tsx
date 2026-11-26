@@ -5,7 +5,7 @@ import LangSwitch from '@/components/lang-switch';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import UserAvatar from '@/components/user-avatar';
-import { avatarGradient, mnt } from '@/lib/format';
+import { mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
@@ -24,10 +24,9 @@ import {
     Search,
     Settings,
     ShieldCheck,
-    Sparkles,
-    UserPen,
     UserRound,
     Users,
+    Wallet,
     type LucideIcon,
 } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
@@ -84,6 +83,7 @@ export default function SocialLayout({
                   } as NavLink,
                   { label: 'fan.followingTitle', href: route('dashboard'), icon: Users, match: (u: string) => u === '/dashboard' } as NavLink,
                   { label: 'nav.saved', href: route('saved'), icon: Bookmark, match: (u: string) => u === '/saved' } as NavLink,
+                  { label: 'wal.title', href: route('wallet'), icon: Wallet, match: (u: string) => u === '/wallet' } as NavLink,
                   ...(creator
                       ? [
                             { label: 'nav.studio', href: route('studio'), icon: PenSquare, match: (u: string) => u === '/studio' } as NavLink,
@@ -96,10 +96,10 @@ export default function SocialLayout({
                         ]
                       : [
                             {
-                                label: 'nav.becomeCreator',
-                                href: route('creator.apply'),
-                                icon: Sparkles,
-                                match: (u: string) => u === '/creator/apply',
+                                label: 'nav.myProfile',
+                                href: route('me.edit'),
+                                icon: UserRound,
+                                match: (u: string) => u.startsWith('/profile'),
                             } as NavLink,
                         ]),
                   ...(user.is_admin
@@ -117,18 +117,19 @@ export default function SocialLayout({
             : []),
     ];
 
-    const newPost = creator ? route('studio') : user ? route('creator.apply') : route('login');
+    // The big button: "New post" for creators, "Log in" for guests. Fans become creators from their profile page.
+    const newPost = creator ? route('studio') : user ? null : route('login');
 
     return (
         <div className="bg-background min-h-svh">
             <Head title={title} />
 
             {/* Phone top bar */}
-            <header className="bg-background/90 sticky top-0 z-30 flex h-14 items-center gap-3 border-b px-4 backdrop-blur md:hidden">
-                <Link href={route('home')} aria-label={t('nav.home')}>
-                    <AppLogo />
+            <header className="border-border bg-background/95 sticky top-0 z-30 flex h-14 items-center gap-3 border-b px-4 backdrop-blur md:hidden">
+                <Link href={route('home')} className="min-w-0" aria-label={t('nav.home')}>
+                    <AppLogo className="max-[359px]:[&>span]:text-xs max-[359px]:[&>span]:leading-tight max-[359px]:[&>span]:whitespace-normal" />
                 </Link>
-                <div className="ml-auto flex items-center gap-2">
+                <div className="ml-auto flex shrink-0 items-center gap-2">
                     <LangSwitch />
                     {user ? (
                         <AccountMenu compact />
@@ -140,9 +141,10 @@ export default function SocialLayout({
                 </div>
             </header>
 
-            <div className="mx-auto flex max-w-[1240px] justify-center">
+            {/* Desktop navigation, workspace, and contextual discovery. */}
+            <div className="mx-auto flex w-full max-w-[1500px]">
                 {/* Left: navigation */}
-                <aside className="sticky top-0 hidden h-svh w-20 shrink-0 flex-col px-3 py-4 md:flex xl:w-64">
+                <aside className="border-border sticky top-0 hidden h-svh w-20 shrink-0 flex-col overflow-y-auto border-r px-3 py-5 md:flex xl:w-60">
                     <Link href={route('home')} className="mb-6 flex items-center px-3 py-2" aria-label={t('nav.home')}>
                         <AppLogoIcon className="size-9 xl:hidden" />
                         <AppLogo className="hidden xl:flex" />
@@ -155,7 +157,7 @@ export default function SocialLayout({
                                     key={l.href}
                                     href={l.href}
                                     prefetch
-                                    className={`group flex items-center gap-4 rounded-2xl px-3 py-2.5 text-[17px] transition ${active ? 'bg-primary/10 text-primary font-bold' : 'text-foreground/70 hover:bg-muted hover:text-foreground font-medium'}`}
+                                    className={`group flex items-center gap-4 rounded-lg px-3 py-2.5 text-[15px] transition ${active ? 'bg-muted text-foreground font-bold' : 'text-foreground/70 hover:bg-muted hover:text-foreground font-medium'}`}
                                     aria-current={active ? 'page' : undefined}
                                     title={t(l.label)}
                                 >
@@ -169,16 +171,14 @@ export default function SocialLayout({
                         })}
                     </nav>
 
-                    <Button
-                        asChild
-                        size="lg"
-                        className="from-primary shadow-primary/25 mt-6 h-12 rounded-full bg-gradient-to-r to-rose-500 text-[15px] font-bold shadow-lg transition hover:brightness-110 xl:w-full"
-                    >
-                        <Link href={newPost} aria-label={t(creator ? 'nav.newPost' : user ? 'nav.becomeCreator' : 'nav.login')}>
-                            {user ? <Plus className="size-5" /> : <LogIn className="size-5" />}
-                            <span className="hidden xl:inline">{t(creator ? 'nav.newPost' : user ? 'nav.becomeCreator' : 'nav.login')}</span>
-                        </Link>
-                    </Button>
+                    {newPost && (
+                        <Button asChild size="lg" className="mt-6 h-11 rounded-lg text-sm font-bold xl:w-full">
+                            <Link href={newPost} aria-label={t(creator ? 'nav.newPost' : 'nav.login')}>
+                                {creator ? <Plus className="size-5" /> : <LogIn className="size-5" />}
+                                <span className="hidden xl:inline">{t(creator ? 'nav.newPost' : 'nav.login')}</span>
+                            </Link>
+                        </Button>
+                    )}
 
                     {user && (
                         <div className="mt-auto">
@@ -187,39 +187,40 @@ export default function SocialLayout({
                     )}
                 </aside>
 
-                {/* Centre: the page */}
-                {/* Fixed widths so the sidebar never moves between pages: 620 + 320 (right column) = 940 for wide pages. */}
-                <main
-                    className={`min-h-svh w-full max-w-[620px] min-w-0 pb-20 md:border-x md:pb-0 lg:shrink-0 ${wide ? 'lg:w-[940px] lg:max-w-none' : 'lg:w-[620px]'}`}
-                >
-                    {header !== undefined && (
-                        <div className="bg-background/85 sticky top-14 z-20 flex h-14 items-center gap-3 border-b px-5 backdrop-blur-md md:top-0">
-                            {header}
-                        </div>
-                    )}
-                    {children}
+                {/* Main workspace */}
+                <main className="min-h-svh min-w-0 flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] md:px-6 md:pb-0">
+                    <div className={`animate-page-in mx-auto w-full ${wide ? 'max-w-[1100px]' : 'max-w-[680px]'}`}>
+                        {header !== undefined && (
+                            <div className="bg-background/85 sticky top-14 z-20 flex h-14 items-center gap-3 px-5 backdrop-blur-md md:top-0">
+                                {header}
+                            </div>
+                        )}
+                        {children}
+                    </div>
                 </main>
 
                 {/* Right: search and suggestions */}
                 {!wide && (
-                    <aside className="sticky top-0 hidden h-svh w-80 shrink-0 overflow-y-auto px-6 py-4 lg:block">
+                    <aside className="sticky top-0 hidden h-svh w-80 shrink-0 overflow-y-auto px-4 py-4 lg:block xl:w-[340px] 2xl:w-[360px]">
                         <RightRail />
                     </aside>
                 )}
             </div>
 
             {/* Phone bottom tabs */}
-            <nav className="bg-background/95 fixed inset-x-0 bottom-0 z-30 flex h-16 items-center justify-around border-t backdrop-blur md:hidden">
+            <nav className="border-border bg-background/95 fixed inset-x-0 bottom-0 z-30 flex min-h-16 items-center justify-around gap-1 border-t px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
                 {links.slice(0, 2).map((l) => (
                     <TabLink key={l.href} href={l.href} icon={l.icon} label={t(l.label)} active={l.match(path)} />
                 ))}
-                <Link
-                    href={newPost}
-                    className="from-primary shadow-primary/30 grid size-12 place-items-center rounded-full bg-gradient-to-br to-rose-500 text-white shadow-lg"
-                    aria-label={t('nav.newPost')}
-                >
-                    <Plus className="size-6" />
-                </Link>
+                {newPost && (
+                    <Link
+                        href={newPost}
+                        className="bg-primary text-primary-foreground grid size-11 shrink-0 place-items-center rounded-xl"
+                        aria-label={t(creator ? 'nav.newPost' : 'nav.login')}
+                    >
+                        {creator ? <Plus className="size-6" /> : <LogIn className="size-6" />}
+                    </Link>
+                )}
                 {links.slice(2, 4).map((l) => (
                     <TabLink key={l.href} href={l.href} icon={l.icon} label={t(l.label)} active={l.match(path)} badge={l.badge} />
                 ))}
@@ -231,12 +232,17 @@ export default function SocialLayout({
 function TabLink({ href, icon: Icon, label, active, badge }: { href: string; icon: LucideIcon; label: string; active: boolean; badge?: number }) {
     return (
         <Link
+            prefetch
             href={href}
-            className={`relative grid size-11 place-items-center ${active ? 'text-primary' : 'text-muted-foreground'}`}
+            className={`flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-lg px-1 ${active ? 'text-primary font-bold' : 'text-muted-foreground font-medium'}`}
             aria-label={label}
+            aria-current={active ? 'page' : undefined}
         >
-            <Icon className="size-6" strokeWidth={active ? 2.4 : 1.8} />
-            {!!badge && <Badge n={badge} />}
+            <span className="relative">
+                <Icon className="size-5" strokeWidth={active ? 2.4 : 1.8} />
+                {!!badge && <Badge n={badge} />}
+            </span>
+            <span className="max-w-full truncate text-[10px]">{label}</span>
         </Link>
     );
 }
@@ -244,7 +250,7 @@ function TabLink({ href, icon: Icon, label, active, badge }: { href: string; ico
 /** Unread count on a nav icon. */
 function Badge({ n }: { n: number }) {
     return (
-        <span className="bg-primary ring-background absolute -top-1.5 -right-2 grid h-[18px] min-w-[18px] place-items-center rounded-full px-1 text-[10px] font-bold text-white ring-2">
+        <span className="bg-primary ring-background text-primary-foreground absolute -top-1.5 -right-2 grid h-[18px] min-w-[18px] place-items-center rounded-full px-1 text-[10px] font-bold ring-2">
             {n > 99 ? '99+' : n}
         </span>
     );
@@ -289,7 +295,12 @@ function AccountMenu({ compact = false }: { compact?: boolean }) {
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                     <Link href={route('me.edit')} className="w-full">
-                        <UserPen className="mr-2 size-4" /> {t('nav.editProfile')}
+                        <UserRound className="mr-2 size-4" /> {t('nav.myProfile')}
+                    </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="md:hidden">
+                    <Link href={route('wallet')} className="w-full">
+                        <Wallet className="mr-2 size-4" /> {t('wal.title')}
                     </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
@@ -319,7 +330,7 @@ function RightRail() {
 
     return (
         <div className="flex flex-col gap-6">
-            <form onSubmit={search} className="border-input focus-within:border-ring flex items-center gap-2 rounded-full border px-4">
+            <form onSubmit={search} className="bg-muted flex items-center gap-2 rounded-full px-4">
                 <Search className="text-muted-foreground size-4 shrink-0" aria-hidden />
                 <input
                     type="search"
@@ -333,7 +344,7 @@ function RightRail() {
             {suggestions.length > 0 && (
                 <section>
                     <h2 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">{t('rail.suggestions')}</h2>
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col">
                         {suggestions.map((c) => (
                             <SuggestionCard key={c.handle} c={c} />
                         ))}
@@ -352,37 +363,23 @@ function RightRail() {
     );
 }
 
-/** A banner-style creator tile: cover photo (or a colour), avatar, name and price. */
+/** A compact recommendation beside the main feed. */
 function SuggestionCard({ c }: { c: CreatorCardData }) {
     const { t } = useT();
-    const g = avatarGradient(c.handle);
 
     return (
-        <Link href={route('creator.show', c.handle)} className={`group relative block h-28 overflow-hidden rounded-xl bg-gradient-to-br ${g}`}>
-            {c.cover_url && (
-                <img
-                    src={c.cover_url}
-                    alt=""
-                    loading="lazy"
-                    className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-105"
-                />
-            )}
-            <span className="absolute inset-0 bg-black/15 transition group-hover:bg-black/25" />
-            <span className="absolute top-2 left-2 rounded-md bg-black/40 px-1.5 py-0.5 text-[11px] font-semibold text-white">
-                {c.price_monthly === 0 ? t('rail.free') : t('cp.monthly', { price: mnt(c.price_monthly) })}
-            </span>
-            {c.adult_content && (
-                <span className="absolute top-2 right-2 rounded-md bg-rose-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">18+</span>
-            )}
-            <span className="absolute inset-x-0 bottom-0 flex items-center gap-3 bg-gradient-to-t from-black/60 to-transparent p-3 text-white">
-                <UserAvatar name={c.display_name} src={c.avatar_url} seed={c.handle} className="size-12 border-2 border-white text-lg" />
-                <span className="min-w-0">
-                    <span className="flex items-center gap-1 font-semibold">
-                        <span className="truncate">{c.display_name}</span>
-                        <BadgeCheck className="size-4 shrink-0" aria-hidden />
-                    </span>
-                    <span className="block truncate text-xs text-white/80">@{c.handle}</span>
+        <Link href={route('creator.show', c.handle)} className="group border-border flex min-h-15 items-center gap-3 border-b py-2">
+            <UserAvatar name={c.display_name} src={c.avatar_url} seed={c.handle} className="size-10 text-sm" />
+            <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1 text-sm font-semibold group-hover:underline">
+                    <span className="truncate">{c.display_name}</span>
+                    <BadgeCheck className="text-primary size-3.5 shrink-0" aria-hidden />
+                    {c.adult_content && <span className="text-destructive text-[10px]">18+</span>}
                 </span>
+                <span className="text-muted-foreground block truncate text-xs">@{c.handle}</span>
+            </span>
+            <span className="text-muted-foreground shrink-0 text-xs">
+                {c.price_monthly === 0 ? t('rail.free') : t('cp.monthly', { price: mnt(c.price_monthly) })}
             </span>
         </Link>
     );

@@ -49,9 +49,11 @@ class NotificationController extends Controller
         $d = $n->data;
 
         return match ($n->type) {
-            'new_post', 'expiring', 'commented' => isset($d['handle']) ? route('creator.show', $d['handle']) : null,
+            'new_post', 'expiring', 'commented', 'replied' => isset($d['handle']) ? route('creator.show', $d['handle']) : null,
+            'trial_started' => route('studio'),
             'tipped', 'subscribed', 'followed' => $actor && ($c = Conversation::findBetween($me, $actor)) ? route('messages.show', $c) : route('studio'),
             'payout_paid', 'payout_rejected', 'charge_refunded' => route('studio.earnings'),
+            'auto_renewed', 'renew_failed' => route('wallet'),
             'refunded' => isset($d['handle']) ? route('creator.show', $d['handle']) : null,
             'purchased' => isset($d['conversation_id']) ? route('messages.show', $d['conversation_id']) : route('studio'),
             default => null,

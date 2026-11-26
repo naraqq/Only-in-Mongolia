@@ -13,6 +13,11 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(\App\Services\VerifyMn::class, fn () => \App\Services\VerifyMn::fromConfig());
 
+        // Automatic upload scanning: Sightengine when configured, otherwise none (the blocklist still applies).
+        $this->app->bind(\App\Moderation\Scanner::class, fn () => config('moderation.driver') === 'sightengine' && config('moderation.sightengine.user')
+            ? new \App\Moderation\SightengineScanner(config('moderation.sightengine'))
+            : new \App\Moderation\NoScanner());
+
         // QPay when a merchant account is configured; otherwise (and never in production) a fake gateway for local work.
         $this->app->singleton(\App\Payments\PaymentGateway::class, function () {
             $c = config('services.qpay');

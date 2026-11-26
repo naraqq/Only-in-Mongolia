@@ -1,5 +1,8 @@
 .DS_Store
 .env
+.env.docker
+/.env.docker.tmp.*
+/.deployment/
 .env.backup
 .env.production
 .phpactor.json

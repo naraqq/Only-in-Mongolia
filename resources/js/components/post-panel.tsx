@@ -26,8 +26,8 @@ export default function PostPanel({
     const btn = 'inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold transition';
 
     return (
-        <div className="bg-background text-foreground flex min-h-0 flex-1 flex-col">
-            <header className="flex items-center gap-3 border-b px-4 py-3">
+        <div className="bg-card text-foreground flex min-h-0 flex-1 flex-col">
+            <header className="flex items-center gap-3 px-4 py-3">
                 <Link href={route('creator.show', author.handle)}>
                     <UserAvatar name={author.name} src={author.avatar_url} seed={author.handle} className="size-10" />
                 </Link>
@@ -44,43 +44,48 @@ export default function PostPanel({
                 </div>
             </header>
 
-            <div className="min-h-0 flex-1 overflow-y-auto">
-                {post.body && <RichText text={post.body} className="px-4 pt-3 pb-1" />}
-                <div className="flex items-center gap-0.5 px-2 py-1.5">
-                    <button
-                        type="button"
-                        onClick={state.toggleLike}
-                        className={`${btn} hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 ${state.liked ? 'text-rose-600' : 'text-muted-foreground'}`}
-                        aria-pressed={state.liked}
-                        aria-label={t('po.like')}
-                    >
-                        <Heart className={`size-5 ${state.liked ? 'fill-current' : ''}`} />
-                        {state.likes > 0 && <span className="tabular-nums">{state.likes}</span>}
-                    </button>
-                    <span className={`${btn} text-muted-foreground`}>
-                        <MessageCircle className="size-5" />
-                        {state.comments > 0 && <span className="tabular-nums">{state.comments}</span>}
-                    </span>
-                    {!mine && (
-                        <TipButton
-                            handle={author.handle}
-                            name={author.name}
-                            postId={post.id}
-                            className={`${btn} text-muted-foreground hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950/40`}
-                        />
-                    )}
-                    <button
-                        type="button"
-                        onClick={state.toggleSave}
-                        className={`${btn} ml-auto hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-950/40 ${state.saved ? 'text-violet-600' : 'text-muted-foreground'}`}
-                        aria-pressed={state.saved}
-                        aria-label={t('po.save')}
-                    >
-                        <Bookmark className={`size-5 ${state.saved ? 'fill-current' : ''}`} />
-                    </button>
-                </div>
-                <PostComments postId={post.id} onCount={state.setComments} />
-            </div>
+            <PostComments
+                postId={post.id}
+                onCount={state.setComments}
+                top={
+                    <>
+                        {post.body && <RichText text={post.body} className="px-4 pt-3 pb-1" />}
+                        <div className="flex items-center gap-0.5 px-2 py-1.5">
+                            <button
+                                type="button"
+                                onClick={state.toggleLike}
+                                className={`${btn} hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 ${state.liked ? 'text-rose-600' : 'text-muted-foreground'}`}
+                                aria-pressed={state.liked}
+                                aria-label={t('po.like')}
+                            >
+                                <Heart className={`size-5 ${state.liked ? 'fill-current' : ''}`} />
+                                {state.likes > 0 && <span className="tabular-nums">{state.likes}</span>}
+                            </button>
+                            <span className={`${btn} text-muted-foreground`}>
+                                <MessageCircle className="size-5" />
+                                {state.comments > 0 && <span className="tabular-nums">{state.comments}</span>}
+                            </span>
+                            {!mine && (
+                                <TipButton
+                                    handle={author.handle}
+                                    name={author.name}
+                                    postId={post.id}
+                                    className={`${btn} text-amber-600 hover:bg-amber-500/10 dark:text-amber-400`}
+                                />
+                            )}
+                            <button
+                                type="button"
+                                onClick={state.toggleSave}
+                                className={`${btn} ml-auto hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-950/40 ${state.saved ? 'text-violet-600' : 'text-muted-foreground'}`}
+                                aria-pressed={state.saved}
+                                aria-label={t('po.save')}
+                            >
+                                <Bookmark className={`size-5 ${state.saved ? 'fill-current' : ''}`} />
+                            </button>
+                        </div>
+                    </>
+                }
+            />
         </div>
     );
 }

@@ -9,9 +9,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /** A fan's paid access to one creator, valid until expires_at. */
 class Subscription extends Model
 {
-    protected $fillable = ['user_id', 'creator_profile_id', 'expires_at'];
+    protected $fillable = ['user_id', 'creator_profile_id', 'expires_at', 'auto_renew'];
 
-    protected $casts = ['expires_at' => 'datetime'];
+    protected $casts = ['expires_at' => 'datetime', 'auto_renew' => 'boolean'];
 
     public function scopeActive(Builder $q): Builder
     {

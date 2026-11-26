@@ -31,6 +31,14 @@ Artisan::command('subscriptions:remind', function () {
 
 Schedule::command('subscriptions:remind')->dailyAt('10:00');
 
+// Auto-renew: pay the next month from the fan's wallet in the last day before access ends.
+Artisan::command('subscriptions:renew', function (\App\Payments\Renewals $renewals) {
+    $r = $renewals->run();
+    $this->info("Renewed {$r['renewed']}, short of money {$r['short']}, stopped {$r['skipped']}.");
+})->purpose('Renew subscriptions with auto-renew on, from the wallet');
+
+Schedule::command('subscriptions:renew')->hourly()->withoutOverlapping();
+
 // Scheduled posts: once their time comes, tell subscribers (exactly once per post).
 Artisan::command('posts:announce', function () {
     $n = 0;

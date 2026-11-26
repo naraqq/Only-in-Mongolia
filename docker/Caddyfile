@@ -1,0 +1,22 @@
+{$SITE_ADDRESS} {
+    header {
+        -Server
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+    encode zstd gzip
+    reverse_proxy {
+        dynamic a app 80 {
+            refresh 5s
+            versions ipv4
+        }
+        lb_policy round_robin
+        lb_try_duration 3s
+        fail_duration 15s
+    }
+}
+
+http://:2016 {
+    bind 127.0.0.1
+    respond /healthz 200
+}

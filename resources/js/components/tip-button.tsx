@@ -1,4 +1,5 @@
 import InputError from '@/components/input-error';
+import PayMethod, { useWalletBalance, type Method } from '@/components/pay-method';
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
@@ -29,7 +30,9 @@ export default function TipButton({
     const { t } = useT();
     const { auth, tipLimits } = usePage<SharedData & { tipLimits: { min: number; max: number } }>().props;
     const [open, setOpen] = useState(false);
-    const form = useForm({ amount: 5000, note: '', post_id: postId ?? null });
+    const balance = useWalletBalance();
+    const form = useForm({ amount: 5000, note: '', post_id: postId ?? null, wallet: (balance >= 5000) as boolean });
+    const method: Method = form.data.wallet && balance >= form.data.amount ? 'wallet' : 'qpay';
     const trigger = children ?? (
         <>
             <HandCoins className="size-4" /> {t('tip.tip')}
@@ -74,8 +77,8 @@ export default function TipButton({
                                 key={a}
                                 type="button"
                                 onClick={() => form.setData('amount', a)}
-                                className={`rounded-xl border py-2.5 text-sm font-bold transition ${
-                                    form.data.amount === a ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-muted'
+                                className={`rounded-xl py-2.5 text-sm font-bold transition ${
+                                    form.data.amount === a ? 'bg-primary/15 text-primary' : 'bg-muted hover:bg-muted/70'
                                 }`}
                             >
                                 {a / 1000}k
@@ -83,7 +86,7 @@ export default function TipButton({
                         ))}
                     </div>
 
-                    <label className="border-input focus-within:border-primary focus-within:ring-primary/15 flex h-14 items-center rounded-2xl border px-4 transition focus-within:ring-4">
+                    <label className="focus-within:ring-primary/15 bg-muted flex h-14 items-center rounded-2xl px-4 transition focus-within:ring-4">
                         <span className="text-muted-foreground text-lg font-semibold">₮</span>
                         <input
                             inputMode="numeric"
@@ -104,9 +107,11 @@ export default function TipButton({
                         maxLength={200}
                         rows={2}
                         placeholder={t('tip.notePh')}
-                        className="border-input focus:border-primary resize-none rounded-2xl border px-4 py-3 text-sm outline-none"
+                        className="bg-muted resize-none rounded-2xl px-4 py-3 text-sm outline-none"
                     />
                     <InputError message={(form.errors as Record<string, string>).payment ?? form.errors.note} />
+
+                    <PayMethod amount={form.data.amount} value={method} onChange={(m) => form.setData('wallet', m === 'wallet')} />
 
                     <button
                         type="submit"

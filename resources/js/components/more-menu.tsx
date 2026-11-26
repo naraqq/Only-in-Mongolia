@@ -117,7 +117,7 @@ function ReportDialog({ target, open, onOpenChange }: { target: Target; open: bo
                             {REASONS.map(([value, label]) => (
                                 <label
                                     key={value}
-                                    className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition ${reason === value ? 'border-primary bg-primary/5' : 'hover:bg-muted'}`}
+                                    className={`flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${reason === value ? 'bg-primary/10 text-primary font-semibold' : 'bg-muted hover:bg-muted/70'}`}
                                 >
                                     <input
                                         type="radio"
@@ -137,7 +137,7 @@ function ReportDialog({ target, open, onOpenChange }: { target: Target; open: bo
                             maxLength={1000}
                             rows={2}
                             placeholder={t('rp.details')}
-                            className="border-input focus:border-primary resize-none rounded-xl border px-3 py-2 text-sm outline-none"
+                            className="bg-muted resize-none rounded-xl px-3 py-2 text-sm outline-none"
                         />
                         {state === 'error' && <p className="text-sm text-red-600">{t('cm.error')}</p>}
                         <button

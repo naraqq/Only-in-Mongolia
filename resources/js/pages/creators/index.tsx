@@ -31,15 +31,17 @@ export default function Creators({ creators, filters }: { creators: CreatorCardD
     }, [q]);
 
     return (
-        <SocialLayout title={t('nav.discover')} header={<h1 className="text-lg font-bold tracking-wide uppercase">{t('nav.discover')}</h1>}>
-            <div className="p-4">
-                <p className="text-muted-foreground">{t('fan.discoverSub')}</p>
+        <SocialLayout title={t('nav.discover')} wide>
+            <div className="px-4 pt-10 pb-8 sm:px-8 sm:pt-16">
+                <h1 className="text-foreground text-4xl font-extrabold tracking-[-0.055em] sm:text-6xl">{t('nav.discover')}</h1>
+                <p className="text-muted-foreground mt-3 max-w-lg">{t('fan.discoverSub')}</p>
 
-                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                    <label className="border-input focus-within:border-ring focus-within:ring-ring/50 flex flex-1 items-center gap-2 rounded-md border px-3 shadow-xs focus-within:ring-[3px]">
+                <div className="border-border mt-8 flex flex-col gap-3 border-y py-3 sm:flex-row">
+                    <label className="focus-within:ring-ring/50 bg-background flex flex-1 items-center gap-2 rounded-md px-3 focus-within:ring-[3px]">
                         <Search className="text-muted-foreground size-4" aria-hidden />
                         <input
                             type="search"
+                            aria-label={t('fan.search')}
                             value={q}
                             onChange={(e) => setQ(e.target.value)}
                             placeholder={t('fan.search')}
@@ -51,8 +53,9 @@ export default function Creators({ creators, filters }: { creators: CreatorCardD
                             <button
                                 key={s}
                                 type="button"
+                                aria-pressed={filters.sort === s}
                                 onClick={() => go({ sort: s })}
-                                className={`rounded-md px-3 py-1.5 font-medium transition ${filters.sort === s ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                                className={`rounded-md px-3 py-1.5 font-medium transition ${filters.sort === s ? 'bg-card shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                             >
                                 {t(s === 'new' ? 'fan.sortNew' : 'fan.sortPopular')}
                             </button>
@@ -63,7 +66,7 @@ export default function Creators({ creators, filters }: { creators: CreatorCardD
                 {creators.length === 0 ? (
                     <p className="text-muted-foreground mt-12 text-center">{t('fan.noneFound')}</p>
                 ) : (
-                    <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                    <div className="mt-7 grid gap-x-6 gap-y-8 sm:grid-cols-2 xl:grid-cols-3">
                         {creators.map((c) => (
                             <CreatorCard key={c.handle} c={c} />
                         ))}

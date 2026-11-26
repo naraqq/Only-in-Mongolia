@@ -18,7 +18,9 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileEditController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\StudioController;
+use App\Http\Controllers\WalletController;
 use App\Http\Middleware\EnsureAdmin;
+use App\Http\Middleware\RecordAdminAction;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Support\Facades\Route;
 
@@ -31,14 +33,22 @@ Route::post('locale/{locale}', function (string $locale) {
 
 Route::get('/', [FanController::class, 'home'])->name('home');
 Route::get('creators', [FanController::class, 'discover'])->name('creators');
+Route::post('posts/views', [\App\Http\Controllers\InsightsController::class, 'views'])->middleware('throttle:60,1')->name('posts.views');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', [FanController::class, 'dashboard'])->name('dashboard');
+    Route::get('wallet', [WalletController::class, 'index'])->name('wallet');
+    Route::post('wallet/renew/{handle}', [WalletController::class, 'renew'])->middleware('throttle:10,1')->name('wallet.renew');
+    Route::post('wallet/auto-renew/{handle}', [WalletController::class, 'autoRenew'])->name('wallet.auto-renew');
+    Route::post('wallet/topup', [PaymentController::class, 'topup'])->middleware('throttle:10,1')->name('wallet.topup');
     Route::get('feed', [FanController::class, 'feed'])->name('feed');
     Route::post('@{handle}/follow', [FanController::class, 'follow'])->middleware('throttle:60,1')->name('creator.follow');
     Route::delete('@{handle}/follow', [FanController::class, 'unfollow'])->middleware('throttle:60,1')->name('creator.unfollow');
 
     // Subscriptions: subscribe -> QPay checkout -> paid (status is polled; QPay also calls back).
+    Route::get('@{handle}/subscribe', [PaymentController::class, 'plan'])->name('creator.checkout');
+    Route::post('@{handle}/trial', [\App\Http\Controllers\PromotionController::class, 'startTrial'])->middleware('throttle:10,1')->name('creator.trial');
+    Route::get('@{handle}/promo', [\App\Http\Controllers\PromotionController::class, 'checkCode'])->middleware('throttle:30,1')->name('creator.promo');
     Route::post('@{handle}/subscribe', [PaymentController::class, 'subscribe'])->middleware('throttle:10,1')->name('creator.subscribe');
     Route::post('@{handle}/tip', [PaymentController::class, 'tip'])->middleware('throttle:10,1')->name('creator.tip');
     Route::post('posts/{post}/buy', [PaymentController::class, 'buyPost'])->middleware('throttle:10,1')->name('posts.buy');
@@ -53,6 +63,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('posts/{post}/comments', [EngagementController::class, 'comments'])->name('posts.comments');
     Route::post('posts/{post}/comments', [EngagementController::class, 'comment'])->middleware('throttle:20,1')->name('posts.comment');
     Route::delete('comments/{comment}', [EngagementController::class, 'deleteComment'])->name('comments.destroy');
+    Route::post('comments/{comment}/like', [EngagementController::class, 'likeComment'])->middleware('throttle:120,1')->name('comments.like');
     Route::get('saved', [EngagementController::class, 'saved'])->name('saved');
 
     // Safety: report something, block someone.
@@ -82,6 +93,15 @@ Route::middleware(['auth'])->group(function () {
 
     // Studio: approved creators write and manage posts.
     Route::get('studio', [StudioController::class, 'index'])->name('studio');
+    // The same inbox and profile form, inside the studio's own layout.
+    Route::get('studio/messages', [MessageController::class, 'index'])->name('studio.messages');
+    Route::get('studio/messages/{conversation}', [MessageController::class, 'index'])->name('studio.messages.show');
+    Route::get('studio/profile', [ProfileEditController::class, 'edit'])->name('studio.profile');
+    Route::get('studio/insights', [\App\Http\Controllers\InsightsController::class, 'index'])->name('studio.insights');
+    Route::get('studio/promotions', [\App\Http\Controllers\PromotionController::class, 'index'])->name('studio.promotions');
+    Route::put('studio/promotions/trial', [\App\Http\Controllers\PromotionController::class, 'updateTrial'])->name('studio.trial');
+    Route::post('studio/promotions/codes', [\App\Http\Controllers\PromotionController::class, 'storeCode'])->name('studio.codes.store');
+    Route::post('studio/promotions/codes/{code}/toggle', [\App\Http\Controllers\PromotionController::class, 'toggleCode'])->name('studio.codes.toggle');
     Route::get('studio/earnings', [EarningsController::class, 'index'])->name('studio.earnings');
     Route::post('studio/earnings/payout', [EarningsController::class, 'requestPayout'])->middleware('throttle:10,60')->name('studio.payout');
     Route::get('studio/earnings/statement.csv', [EarningsController::class, 'statement'])->name('studio.statement');
@@ -97,7 +117,7 @@ Route::match(['get', 'post'], 'payments/{payment}/callback', [PaymentController:
 // Photos and videos, only after a permission check (see MediaController).
 Route::get('media/{media}', [MediaController::class, 'show'])->name('media.show');
 
-Route::middleware(['auth', EnsureAdmin::class])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', EnsureAdmin::class, RecordAdminAction::class])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('creators', [CreatorReviewController::class, 'index'])->name('creators');
     Route::get('creators/{creator}/document/{kind}', [CreatorReviewController::class, 'document'])->whereIn('kind', ['front', 'back', 'selfie'])->name('creators.document');
@@ -108,6 +128,7 @@ Route::middleware(['auth', EnsureAdmin::class])->prefix('admin')->name('admin.')
     Route::post('creators/{creator}/reinstate', [AdminReportController::class, 'reinstate'])->name('creators.reinstate');
     Route::post('payouts/{payout}/decide', [PayoutController::class, 'decide'])->name('payouts.decide');
     Route::get('users', [AdminUserController::class, 'index'])->name('users');
+    Route::get('audit', [\App\Http\Controllers\Admin\AuditController::class, 'index'])->name('audit');
     Route::get('users/{user}', [AdminUserController::class, 'show'])->name('users.show');
     Route::post('users/{user}/ban', [AdminUserController::class, 'ban'])->name('users.ban');
     Route::post('users/{user}/unban', [AdminUserController::class, 'unban'])->name('users.unban');

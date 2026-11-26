@@ -35,9 +35,9 @@ export default function MediaLightbox({
     return (
         <Dialog.Root open={start !== null} onOpenChange={(o) => !o && onClose()}>
             <Dialog.Portal>
-                <Dialog.Overlay className="fixed inset-0 z-50 bg-black/95" />
+                <Dialog.Overlay className="lb-overlay fixed inset-0 z-50 bg-black/95" />
                 <Dialog.Content
-                    className={`fixed inset-0 z-50 flex outline-none ${aside ? 'flex-col lg:flex-row' : ''}`}
+                    className={`lb-content fixed inset-0 z-50 flex outline-none ${aside ? 'flex-col lg:flex-row' : ''}`}
                     onKeyDown={(e) => {
                         // Arrow keys move between photos, unless someone is typing a comment.
                         if ((e.target as HTMLElement).closest('input, textarea')) return;
@@ -53,9 +53,16 @@ export default function MediaLightbox({
                     >
                         {m &&
                             (m.type === 'video' ? (
-                                <video key={m.id} src={m.url} controls autoPlay playsInline className="max-h-full max-w-full lg:max-h-[94vh]" />
+                                <video
+                                    key={m.id}
+                                    src={m.url}
+                                    controls
+                                    autoPlay
+                                    playsInline
+                                    className="lb-media max-h-full max-w-full lg:max-h-[94vh]"
+                                />
                             ) : (
-                                <img key={m.id} src={m.url} alt="" className="max-h-full max-w-full object-contain lg:max-h-[94vh]" />
+                                <Photo key={m.id} src={m.url} />
                             ))}
                         {media.length > 1 && (
                             <>
@@ -75,7 +82,7 @@ export default function MediaLightbox({
                             </>
                         )}
                     </div>
-                    {aside && <aside className="flex min-h-0 flex-1 flex-col border-white/10 lg:w-[380px] lg:flex-none lg:border-l">{aside}</aside>}
+                    {aside && <aside className="lb-panel flex min-h-0 flex-1 flex-col lg:w-[380px] lg:flex-none">{aside}</aside>}
                     <Dialog.Close
                         className="absolute top-3 left-3 grid size-10 place-items-center rounded-full bg-black/60 text-white hover:bg-black/80 lg:top-4 lg:right-auto lg:left-4"
                         aria-label={t('lb.close')}
@@ -85,5 +92,21 @@ export default function MediaLightbox({
                 </Dialog.Content>
             </Dialog.Portal>
         </Dialog.Root>
+    );
+}
+
+/** The photo grows into place, and if it isn't loaded yet it fades in when it is (instead of popping in late). */
+function Photo({ src }: { src: string }) {
+    const [ready, setReady] = useState(false);
+    return (
+        <img
+            src={src}
+            alt=""
+            ref={(el) => {
+                if (el?.complete && el.naturalWidth) setReady(true); // already in the browser cache
+            }}
+            onLoad={() => setReady(true)}
+            className={`lb-media max-h-full max-w-full object-contain transition-opacity duration-300 lg:max-h-[94vh] ${ready ? 'opacity-100' : 'opacity-0'}`}
+        />
     );
 }

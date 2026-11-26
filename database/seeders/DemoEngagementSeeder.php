@@ -11,14 +11,15 @@ class DemoEngagementSeeder extends Seeder
 {
     private const COMMENTS = ['Гоё байна! 😍', 'Үнэхээр гайхалтай', 'Баярлалаа, хүлээж байсан юм', 'Дараагийнхыг хүлээж байна 🔥', 'Wow 👏', 'Хаана авсан зураг вэ?'];
 
-    public function run(): void
+    public function run(?array $creatorIds = null, ?array $fanIds = null): void
     {
-        $fans = User::whereNull('phone')->whereDoesntHave('creatorProfile')->pluck('id');
+        $fans = $fanIds === null ? User::whereNull('phone')->whereDoesntHave('creatorProfile')->pluck('id') : collect($fanIds);
         if ($fans->isEmpty()) {
             return;
         }
 
-        Post::whereDoesntHave('likes')->get()->each(function (Post $post) use ($fans) {
+        Post::whereDoesntHave('likes')->when($creatorIds !== null, fn ($query) => $query->whereIn('creator_profile_id', $creatorIds))
+            ->get()->each(function (Post $post) use ($fans) {
             $post->likes()->attach($fans->random(min($fans->count(), random_int(2, 18)))->all());
             foreach ($fans->random(min($fans->count(), random_int(0, 3))) as $i => $userId) {
                 $post->comments()->create(['user_id' => $userId, 'body' => self::COMMENTS[($post->id + $i) % count(self::COMMENTS)]]);

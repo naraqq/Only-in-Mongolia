@@ -12,7 +12,7 @@ export default function PriceField({ value, onChange }: { value: number; onChang
     return (
         <span className="inline-flex items-center gap-2">
             <label
-                className={`inline-flex h-8 items-center gap-1 rounded-full border px-3 text-sm font-semibold ${ok ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300' : 'border-red-300 text-red-600'}`}
+                className={`inline-flex h-8 items-center gap-1 rounded-full px-3 text-sm font-semibold ${ok ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300' : 'bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-300'}`}
                 title={t('ppv.range', { min: mnt(ppvLimits.min), max: mnt(ppvLimits.max) })}
             >
                 <Lock className="size-3.5" /> ₮

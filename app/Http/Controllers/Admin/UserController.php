@@ -28,7 +28,7 @@ class UserController extends Controller
         $like = '%'.str_replace(['%', '_'], ['\%', '\_'], ltrim($q, '@')).'%';
 
         $users = User::query()->with('creatorProfile:id,user_id,handle,display_name,status')
-            ->withSum(['payments as spent' => fn ($p) => $p->where('status', Payment::PAID)], 'amount')
+            ->withSum(['payments as spent' => fn ($p) => $p->where('status', Payment::PAID)->whereIn('purpose', Payment::SALES)], 'amount')
             ->when($q !== '', fn ($w) => $w->where(fn ($s) => $s->where('name', 'like', $like)->orWhere('phone', 'like', $like)
                 ->when(ctype_digit($q), fn ($d) => $d->orWhere('id', (int) $q))
                 ->orWhereHas('creatorProfile', fn ($c) => $c->where('handle', 'like', $like)->orWhere('display_name', 'like', $like))))
@@ -114,7 +114,7 @@ class UserController extends Controller
                 'available' => $earnings->available(),
                 'paid_out' => $earnings->paidOut(),
             ] : null,
-            'spent' => (int) $user->payments()->where('status', Payment::PAID)->sum('amount'),
+            'spent' => (int) $user->payments()->where('status', Payment::PAID)->whereIn('purpose', Payment::SALES)->sum('amount'),
             'paymentsMade' => $user->payments()->with('creator:id,handle,display_name')->whereIn('status', $shown)
                 ->latest('paid_at')->take(50)->get()->map($payment),
             'paymentsReceived' => $creator ? $creator->payments()->with('user:id,name')->whereIn('status', $shown)

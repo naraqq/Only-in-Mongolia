@@ -30,7 +30,7 @@ export default function Dashboard({
                         <h2 className="mb-3 font-medium">
                             {t('fan.subscriptions')} <span className="text-muted-foreground">({subscriptions.length})</span>
                         </h2>
-                        <div className="flex flex-col divide-y rounded-2xl border">
+                        <div className="bg-card flex flex-col rounded-2xl shadow-xs">
                             {subscriptions.map((s) => (
                                 <Link
                                     key={s.handle}
@@ -62,7 +62,7 @@ export default function Dashboard({
                     </Link>
                 </div>
                 {following.length === 0 ? (
-                    <p className="text-muted-foreground rounded-xl border border-dashed p-8 text-center text-sm">{t('fan.feedEmpty')}</p>
+                    <p className="text-muted-foreground bg-card rounded-xl p-8 text-center text-sm shadow-xs">{t('fan.feedEmpty')}</p>
                 ) : (
                     <div className="grid gap-4 sm:grid-cols-2">
                         {following.map((c) => (
@@ -72,7 +72,7 @@ export default function Dashboard({
                 )}
 
                 {creatorStatus !== 'approved' && (
-                    <section className="mt-8 flex flex-col gap-4 rounded-xl border p-6 sm:flex-row sm:items-center">
+                    <section className="bg-card mt-8 flex flex-col gap-4 rounded-xl p-6 shadow-xs sm:flex-row sm:items-center">
                         <div className="grid size-12 shrink-0 place-items-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-950">
                             <Sparkles className="size-6" aria-hidden />
                         </div>

@@ -38,10 +38,17 @@ class EngagementController extends Controller
         return response()->json(['bookmarked' => (bool) $changes['attached']]);
     }
 
+    /** Top-level comments oldest first, each followed by its replies (also oldest first). One flat list; replies carry parent_id. */
     public function comments(Request $request, Post $post): JsonResponse
     {
         $this->visible($request, $post);
-        $comments = $post->comments()->with('user.creatorProfile:id,user_id,handle,display_name,status')->oldest('id')->take(200)->get();
+        $viewer = $request->user();
+        $comments = $post->comments()
+            ->with('user.creatorProfile:id,user_id,handle,display_name,status')
+            ->withCount('likes')
+            ->withExists(['likes as liked' => fn ($q) => $q->where('users.id', $viewer?->id)])
+            ->orderByRaw('coalesce(parent_id, id), parent_id is not null, id')
+            ->take(300)->get();
 
         return response()->json(['comments' => $comments->map(fn (PostComment $c) => $this->present($c, $request))]);
     }
@@ -49,18 +56,40 @@ class EngagementController extends Controller
     public function comment(Request $request, Post $post): JsonResponse
     {
         $this->visible($request, $post);
-        $data = $request->validate(['body' => ['required', 'string', 'max:1000']]);
+        $data = $request->validate([
+            'body' => ['required', 'string', 'max:1000'],
+            'parent_id' => ['nullable', 'integer'],
+        ]);
+        $me = $request->user();
 
-        $comment = $post->comments()->create(['user_id' => $request->user()->id, 'body' => trim($data['body'])]);
-        if ($post->creator->user_id !== $request->user()->id) {
-            $post->creator->user->notify(new Activity('commented', $request->user()->id, [
-                'post_id' => $post->id,
-                'handle' => $post->creator->handle,
-                'note' => mb_strimwidth($comment->body, 0, 120, '…'),
-            ]));
+        // A reply to a reply joins the same thread, like Facebook: one level of replies.
+        $parent = isset($data['parent_id']) ? $post->comments()->findOrFail($data['parent_id']) : null;
+        if ($parent?->parent_id) {
+            $parent = $parent->parent;
         }
 
+        $comment = $post->comments()->create(['user_id' => $me->id, 'parent_id' => $parent?->id, 'body' => trim($data['body'])]);
+        $about = ['post_id' => $post->id, 'handle' => $post->creator->handle, 'note' => mb_strimwidth($comment->body, 0, 120, '…')];
+
+        if ($parent && $parent->user_id !== $me->id) {
+            $parent->user->notify(new Activity('replied', $me->id, $about));
+        }
+        // The creator hears about every comment on their post, unless they wrote it or were just told about the reply.
+        if ($post->creator->user_id !== $me->id && $post->creator->user_id !== $parent?->user_id) {
+            $post->creator->user->notify(new Activity('commented', $me->id, $about));
+        }
+
+        $comment->setAttribute('likes_count', 0)->setAttribute('liked', false);
+
         return response()->json(['comment' => $this->present($comment->load('user.creatorProfile'), $request)], 201);
+    }
+
+    public function likeComment(Request $request, PostComment $comment): JsonResponse
+    {
+        $this->visible($request, $comment->post);
+        $changes = $comment->likes()->toggle([$request->user()->id]);
+
+        return response()->json(['liked' => (bool) $changes['attached'], 'likes_count' => $comment->likes()->count()]);
     }
 
     public function deleteComment(Request $request, PostComment $comment): JsonResponse
@@ -92,7 +121,10 @@ class EngagementController extends Controller
 
         return [
             'id' => $c->id,
+            'parent_id' => $c->parent_id,
             'body' => $c->body,
+            'likes_count' => (int) ($c->likes_count ?? 0),
+            'liked' => (bool) ($c->liked ?? false),
             'created_at' => $c->created_at->toIso8601String(),
             'user' => ['name' => $creator?->display_name ?? $c->user->name, 'handle' => $creator?->handle, 'avatar_url' => $c->user->avatar_url],
             'can_delete' => $c->canBeDeletedBy($request->user()),

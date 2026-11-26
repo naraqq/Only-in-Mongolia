@@ -65,6 +65,18 @@ class BundleTest extends TestCase
         $this->assertFalse($creator->hasActiveSubscriber($fan));
     }
 
+    public function test_checkout_starts_with_choosing_a_plan(): void
+    {
+        $creator = $this->creator(['3' => 10]);
+        $fan = User::factory()->create(['birthdate' => '1990-01-01']);
+
+        $this->get('/@artist/subscribe')->assertRedirect(route('login'));
+        $this->actingAs($fan)->get('/@artist/subscribe?months=3')->assertInertia(fn ($p) => $p
+            ->component('payments/checkout')->where('selected', 3)->has('options', 2)->where('until', null));
+        $this->get('/@artist/subscribe?months=12')->assertInertia(fn ($p) => $p->where('selected', 1)); // not offered
+        $this->actingAs($creator->user)->get('/@artist/subscribe')->assertStatus(422);
+    }
+
     public function test_a_plain_month_still_works_without_sending_months(): void
     {
         $this->creator();

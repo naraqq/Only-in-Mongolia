@@ -14,7 +14,7 @@ export default function LangSwitch({ className = '' }: { className?: string }) {
                     key={l}
                     type="button"
                     onClick={() => l !== locale && setLocale(l)}
-                    className={`rounded-md px-2 py-1 font-semibold transition ${l === locale ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`rounded-md px-2 py-1 font-semibold transition ${l === locale ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                     aria-pressed={l === locale}
                 >
                     {label}

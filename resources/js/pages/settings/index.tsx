@@ -6,7 +6,7 @@ import SocialLayout from '@/layouts/social-layout';
 import { sendJson } from '@/lib/http';
 import { setLocale, useT, type Locale, type TKey } from '@/lib/i18n';
 import { Link, router, useForm } from '@inertiajs/react';
-import { ChevronRight, Monitor, Moon, Phone, Sun, Trash2, UserPen, type LucideIcon } from 'lucide-react';
+import { ChevronRight, Monitor, Moon, Phone, ShieldCheck, Sun, Trash2, UserPen, type LucideIcon } from 'lucide-react';
 import { type FormEvent, type ReactNode } from 'react';
 
 const THEMES: [Appearance, TKey, LucideIcon][] = [
@@ -21,11 +21,13 @@ type BlockedPerson = { id: number; name: string; handle: string | null; avatar_u
 export default function Settings({
     phone,
     isCreator,
+    twoFactor,
     deleteWord,
     blocked,
 }: {
     phone: string | null;
     isCreator: boolean;
+    twoFactor: boolean;
     deleteWord: string;
     blocked: BlockedPerson[];
 }) {
@@ -37,8 +39,11 @@ export default function Settings({
             <div className="flex flex-col gap-6 p-4">
                 <Section title={t('set.account')}>
                     <Row icon={Phone} label={t('set.phone')} value={phone ? `+976 ${phone.slice(0, 4)} ${phone.slice(4)}` : '—'} />
-                    <Link href={route('me.edit')} className="hover:bg-muted/60 block transition">
+                    <Link href={route('me.edit', { edit: 1 })} className="hover:bg-muted/60 block transition">
                         <Row icon={UserPen} label={t('nav.editProfile')} chevron />
+                    </Link>
+                    <Link href={route('two-factor.show')} className="hover:bg-muted/60 block transition">
+                        <Row icon={ShieldCheck} label={t('2fa.title')} value={t(twoFactor ? '2fa.onShort' : '2fa.offShort')} chevron />
                     </Link>
                 </Section>
 
@@ -60,8 +65,8 @@ export default function Settings({
                                 key={value}
                                 type="button"
                                 onClick={() => updateAppearance(value)}
-                                className={`flex flex-col items-center gap-2 rounded-xl border py-4 text-sm font-semibold transition ${
-                                    appearance === value ? 'border-primary bg-primary/5 text-primary' : 'hover:bg-muted'
+                                className={`flex flex-col items-center gap-2 rounded-xl py-4 text-sm font-semibold transition ${
+                                    appearance === value ? 'bg-primary/10 text-primary' : 'bg-muted hover:bg-muted/70'
                                 }`}
                             >
                                 <Icon className="size-5" /> {t(label)}
@@ -87,7 +92,7 @@ export default function Settings({
                                         await sendJson('POST', route('users.block', b.id));
                                         router.reload({ only: ['blocked'] });
                                     }}
-                                    className="hover:bg-muted rounded-full border px-3 py-1 text-xs font-bold"
+                                    className="hover:bg-muted bg-muted rounded-full px-3 py-1 text-xs font-bold"
                                 >
                                     {t('bl.unblock')}
                                 </button>
@@ -108,7 +113,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
     return (
         <section>
             <h2 className="text-muted-foreground mb-2 px-1 text-xs font-semibold tracking-wider uppercase">{title}</h2>
-            <div className="divide-y overflow-hidden rounded-2xl border">{children}</div>
+            <div className="bg-card overflow-hidden rounded-2xl shadow-xs">{children}</div>
         </section>
     );
 }
@@ -170,7 +175,7 @@ function DeleteAccount({ word, isCreator }: { word: string; isCreator: boolean }
                             value={form.data.confirm}
                             onChange={(e) => form.setData('confirm', e.target.value)}
                             autoComplete="off"
-                            className="border-input focus:border-primary mt-1.5 h-12 w-full rounded-xl border px-4 font-mono tracking-wider outline-none"
+                            className="bg-muted mt-1.5 h-12 w-full rounded-xl px-4 font-mono tracking-wider outline-none"
                         />
                     </label>
                     <InputError message={form.errors.confirm} />

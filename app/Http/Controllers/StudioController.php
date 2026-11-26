@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Moderation\Moderation;
 use App\Models\CreatorProfile;
 use App\Models\Payment;
 use App\Models\Post;
@@ -77,7 +78,9 @@ class StudioController extends Controller
             return back()->withErrors(['is_adult' => __('Turn on 18+ content for your page first.')]);
         }
 
-        $post = DB::transaction(function () use ($creator, $data, $adult, $request) {
+        $hashes = Moderation::screen($request->file('media', []));
+
+        $post = DB::transaction(function () use ($creator, $data, $adult, $request, $hashes) {
             $post = $creator->posts()->create([
                 'body' => trim((string) ($data['body'] ?? '')) ?: null,
                 'visibility' => $data['visibility'],
@@ -91,8 +94,10 @@ class StudioController extends Controller
                     'path' => $file->store("posts/{$creator->id}"), // private disk
                     'mime' => $file->getMimeType(),
                     'position' => $i,
+                    'sha256' => $hashes[$i],
                 ]);
             }
+            Moderation::queue(...$post->media()->get()->all());
 
             return $post;
         });

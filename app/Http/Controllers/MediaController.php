@@ -17,6 +17,7 @@ class MediaController extends Controller
     {
         $post = $media->post()->with('creator')->firstOrFail();
         abort_unless($post->creator->isApproved() && $post->isVisibleTo($request->user()), 403);
+        abort_if($media->scan_status === 'flagged' && ! $request->user()?->is_admin, 404); // waiting for review
         abort_unless(Storage::exists($media->path), 404);
 
         // BinaryFileResponse supports range requests, so videos can be scrubbed.

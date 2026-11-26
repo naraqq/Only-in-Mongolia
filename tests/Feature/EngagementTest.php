@@ -95,4 +95,48 @@ class EngagementTest extends TestCase
         $this->get('/@artist')->assertInertia(fn ($p) => $p->where('sort', 'new')->where('posts.0.id', $newer->id));
         $this->get('/@artist?sort=popular')->assertInertia(fn ($p) => $p->where('sort', 'popular')->where('posts.0.id', $older->id));
     }
+
+    public function test_replies_stay_one_level_deep_follow_their_comment_and_notify_its_author(): void
+    {
+        $creator = $this->creator();
+        $post = $creator->posts()->create(['body' => 'Hi', 'visibility' => Post::PUBLIC]);
+        [$a, $b] = [$this->fan(), $this->fan()];
+
+        $first = $this->actingAs($a)->postJson("/posts/{$post->id}/comments", ['body' => 'First'])->json('comment.id');
+        $second = $this->postJson("/posts/{$post->id}/comments", ['body' => 'Second'])->json('comment.id');
+        $reply = $this->actingAs($b)->postJson("/posts/{$post->id}/comments", ['body' => 'Reply', 'parent_id' => $first])
+            ->assertCreated()->assertJsonPath('comment.parent_id', $first)->json('comment.id');
+        // Replying to a reply joins the same thread.
+        $this->postJson("/posts/{$post->id}/comments", ['body' => 'Reply 2', 'parent_id' => $reply])->assertJsonPath('comment.parent_id', $first);
+
+        // Each comment is followed by its replies.
+        $this->getJson("/posts/{$post->id}/comments")->assertJsonPath('comments.*.body', ['First', 'Reply', 'Reply 2', 'Second']);
+
+        $this->assertSame(2, $a->notifications()->where('type', 'replied')->count());
+        $this->assertSame(4, $creator->user->notifications()->where('type', 'commented')->count());
+
+        // A comment from another post can't be a parent; deleting a comment takes its replies.
+        $other = $creator->posts()->create(['body' => 'Other', 'visibility' => Post::PUBLIC]);
+        $this->postJson("/posts/{$other->id}/comments", ['body' => 'x', 'parent_id' => $first])->assertNotFound();
+        $this->actingAs($a)->deleteJson("/comments/{$first}")->assertOk();
+        $this->assertSame([$second], PostComment::pluck('id')->all());
+    }
+
+    public function test_comments_can_be_liked_by_people_who_can_see_the_post(): void
+    {
+        $creator = $this->creator();
+        $post = $creator->posts()->create(['body' => 'Hi', 'visibility' => Post::PUBLIC]);
+        [$a, $b] = [$this->fan(), $this->fan()];
+        $id = $this->actingAs($a)->postJson("/posts/{$post->id}/comments", ['body' => 'Nice'])->json('comment.id');
+
+        $this->actingAs($b)->postJson("/comments/{$id}/like")->assertJson(['liked' => true, 'likes_count' => 1]);
+        $this->actingAs($a)->postJson("/comments/{$id}/like")->assertJson(['liked' => true, 'likes_count' => 2]);
+        $this->actingAs($b)->postJson("/comments/{$id}/like")->assertJson(['liked' => false, 'likes_count' => 1]);
+        $this->actingAs($a)->getJson("/posts/{$post->id}/comments")->assertJsonPath('comments.0.likes_count', 1)->assertJsonPath('comments.0.liked', true);
+        $this->actingAs($b)->getJson("/posts/{$post->id}/comments")->assertJsonPath('comments.0.liked', false);
+
+        // Once the post is for subscribers only, outsiders can't like its comments.
+        $post->update(['visibility' => Post::SUBSCRIBERS]);
+        $this->actingAs($b)->postJson("/comments/{$id}/like")->assertNotFound();
+    }
 }

@@ -18,7 +18,7 @@ export default function UserAvatar({
     letters?: 1 | 2;
 }) {
     if (src) {
-        return <img src={src} alt="" className={`shrink-0 rounded-full bg-zinc-100 object-cover ${className}`} loading="lazy" />;
+        return <img src={src} alt="" className={`shrink-0 rounded-full bg-zinc-200 object-cover dark:bg-zinc-800 ${className}`} loading="lazy" />;
     }
     const text =
         letters === 2

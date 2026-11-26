@@ -1,0 +1,28 @@
+name: Docker smoke test
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image and start services
+        run: |
+          cp .env.docker.example .env.docker
+          docker compose --env-file .env.docker build app
+          key="$(docker compose --env-file .env.docker run --rm --no-deps app php artisan key:generate --show)"
+          sed -i "s|^APP_KEY=.*|APP_KEY=$key|" .env.docker
+          docker compose --env-file .env.docker up -d --wait --wait-timeout 180
+      - name: Verify three replicas and proxy
+        run: |
+          test "$(docker compose --env-file .env.docker ps --status running -q app | wc -l)" -eq 3
+          curl --fail --show-error --retry 5 http://localhost:8080/up
+          curl --fail --show-error http://localhost:8080/ -o /dev/null
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose --env-file .env.docker logs --no-color app migrate worker scheduler proxy
