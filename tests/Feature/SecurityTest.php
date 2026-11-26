@@ -37,6 +37,31 @@ class SecurityTest extends TestCase
         $this->get('/admin/audit')->assertInertia(fn ($p) => $p->component('admin/audit')->has('actions.data', 2));
     }
 
+    public function test_two_factor_rate_limit_isolated_by_account_and_shows_an_inline_error(): void
+    {
+        $attributes = ['two_factor_secret' => Totp::secret(), 'two_factor_confirmed_at' => now()];
+        $user = User::factory()->create($attributes);
+        $other = User::factory()->create($attributes);
+        $this->actingAs($user)->withSession(['two_factor_passed' => $user->id, 'locale' => 'en']);
+
+        for ($i = 0; $i < 6; $i++) {
+            $this->delete('/settings/two-factor', ['code' => 'invalid'])->assertSessionHasErrors('code');
+        }
+
+        $this->withSession(['two_factor_passed' => null]);
+
+        for ($i = 0; $i < 6; $i++) {
+            $this->post('/two-factor', ['code' => 'invalid'])->assertSessionHasErrors('code');
+        }
+
+        $this->post('/two-factor', ['code' => 'invalid'])->assertTooManyRequests()->assertHeader('Retry-After');
+        $this->withHeader('X-Inertia', 'true')->post('/two-factor', ['code' => 'invalid'])
+            ->assertRedirect('/two-factor')->assertSessionHasErrors(['code' => 'Too many verification attempts. Wait up to one minute and try again.']);
+
+        $this->actingAs($other)->post('/two-factor', ['code' => Totp::code($other->two_factor_secret)])
+            ->assertRedirect('/');
+    }
+
     public function test_two_factor_setup_sign_in_check_and_recovery_codes(): void
     {
         $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class); // many attempts on purpose

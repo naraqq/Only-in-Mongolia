@@ -201,15 +201,20 @@ function Flow({ application: previous, banks, limits, keep, account_name }: Prop
     }, [step]);
 
     const price = Number(data.price_monthly || 0);
+    const [identityAttempted, setIdentityAttempted] = useState(false);
+    const registerValid = /^[А-ЯЁӨҮ]{2}[0-9]{8}$/.test(data.register_number);
+    const identityReady = data.legal_name.trim() !== '' && registerValid && !!data.id_front && !!data.id_back && !!data.selfie;
     const ready = [
         data.handle.length >= 3 && data.display_name.trim() !== '' && price >= limits.min && price <= limits.max,
-        data.legal_name.trim() !== '' && data.register_number.length >= 10 && !!data.id_front && !!data.id_back && !!data.selfie,
+        identityReady,
         data.bank_name !== '' && data.bank_account.trim().length >= 6 && data.account_holder.trim() !== '',
         data.consent_age && data.consent_people && data.consent_legal,
     ];
 
     function next(e: FormEvent) {
         e.preventDefault();
+        if (step === 1) setIdentityAttempted(true);
+        if (!ready[step] || processing) return;
         if (step < 3) {
             // Someone filling in their own name twice is the common case.
             if (step === 1 && !data.account_holder) setData('account_holder', data.legal_name);
@@ -241,7 +246,7 @@ function Flow({ application: previous, banks, limits, keep, account_name }: Prop
                     <button
                         type="submit"
                         form="apply"
-                        disabled={!ready[step] || processing}
+                        disabled={(step !== 1 && !ready[step]) || processing}
                         className="bg-primary shadow-primary/25 text-primary-foreground inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl font-bold shadow-lg transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
                     >
                         {processing && <LoaderCircle className="size-4 animate-spin" />}
@@ -258,7 +263,7 @@ function Flow({ application: previous, banks, limits, keep, account_name }: Prop
 
             <form id="apply" onSubmit={next} className="mt-6 flex flex-col gap-5">
                 {step === 0 && <PageStep form={form} limits={limits} />}
-                {step === 1 && <IdentityStep form={form} />}
+                {step === 1 && <IdentityStep form={form} attempted={identityAttempted} registerValid={registerValid} />}
                 {step === 2 && <PayoutStep form={form} banks={banks} />}
                 {step === 3 && <ReviewStep form={form} onEdit={setStep} />}
             </form>
@@ -442,21 +447,26 @@ function PageStep({ form, limits }: { form: Form; limits: { min: number; max: nu
     );
 }
 
-function IdentityStep({ form }: { form: Form }) {
+function IdentityStep({ form, attempted, registerValid }: { form: Form; attempted: boolean; registerValid: boolean }) {
     const { t } = useT();
     const { data, setData, errors } = form;
+    const registerError = (attempted || data.register_number.length > 0) && !registerValid ? t('cr.registerFormat') : errors.register_number;
 
     return (
         <>
-            <Field label={t('cr.legalName')} error={errors.legal_name}>
+            <Field label={t('cr.legalName')} error={attempted && !data.legal_name.trim() ? t('cr.legalNameRequired') : errors.legal_name}>
                 <Input value={data.legal_name} autoFocus onChange={(e) => setData('legal_name', e.target.value)} maxLength={100} />
             </Field>
-            <Field label={t('cr.register')} error={errors.register_number} hint={t('cr.registerHint')}>
+            <Field label={t('cr.register')} error={registerError} hint={t('cr.registerHint')}>
                 <Input
                     placeholder="УБ99031512"
                     className="font-semibold tracking-wider uppercase sm:max-w-60"
                     value={data.register_number}
-                    onChange={(e) => setData('register_number', e.target.value.toUpperCase().slice(0, 12))}
+                    onChange={(e) => {
+                        form.clearErrors('register_number');
+                        setData('register_number', e.target.value.replace(/\s+/g, '').toUpperCase());
+                    }}
+                    aria-invalid={!!registerError}
                 />
             </Field>
             <div>
@@ -472,6 +482,7 @@ function IdentityStep({ form }: { form: Form }) {
                     <Photo label={t('cr.selfie')} icon={Camera} file={data.selfie} error={errors.selfie} onPick={(f) => setData('selfie', f)} />
                 </div>
                 <p className="text-muted-foreground mt-2 text-xs">{t('cr.photoHint')}</p>
+                {attempted && (!data.id_front || !data.id_back || !data.selfie) && <InputError message={t('cr.photosRequired')} />}
             </div>
         </>
     );

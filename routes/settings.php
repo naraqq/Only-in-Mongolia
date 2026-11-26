@@ -16,5 +16,5 @@ Route::middleware('auth')->group(function () {
 
     // The code check after signing in.
     Route::get('two-factor', [TwoFactorController::class, 'challenge'])->name('two-factor.challenge');
-    Route::post('two-factor', [TwoFactorController::class, 'verify'])->middleware('throttle:6,1')->name('two-factor.verify');
+    Route::post('two-factor', [TwoFactorController::class, 'verify'])->middleware('throttle:two-factor-verify')->name('two-factor.verify');
 });

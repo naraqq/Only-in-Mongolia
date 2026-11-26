@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -34,6 +37,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        RateLimiter::for('two-factor-verify', fn (Request $request) => Limit::perMinute(6)
+            ->by($request->user()->getAuthIdentifier())
+            ->response(function (Request $request, array $headers) {
+                $message = __('Too many verification attempts. Wait up to one minute and try again.');
+                if ($request->header('X-Inertia')) {
+                    return redirect()->route('two-factor.challenge')
+                        ->withErrors(['code' => $message]);
+                }
+
+                return response($message, 429, $headers);
+            }));
     }
 }
