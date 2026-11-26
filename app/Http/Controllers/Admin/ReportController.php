@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Media\Stamp;
 use App\Moderation\Moderation;
 use App\Http\Controllers\Controller;
 use App\Models\CreatorProfile;
@@ -92,6 +93,9 @@ class ReportController extends Controller
         match (true) {
             $target instanceof Post => (function () use ($target) {
                 Storage::delete($target->media->pluck('path')->all());
+                foreach ($target->media as $m) {
+                    Storage::deleteDirectory(Stamp::folder($m->path));
+                }
                 $target->delete();
             })(),
             $target instanceof Message => (function () use ($target) {

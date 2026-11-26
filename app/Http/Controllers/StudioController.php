@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Media\Stamp;
 use App\Moderation\Moderation;
 use App\Models\CreatorProfile;
 use App\Models\Payment;
@@ -152,6 +153,9 @@ class StudioController extends Controller
         abort_unless($post->creator_profile_id === $this->creator($request)->id, 403);
 
         Storage::delete($post->media->pluck('path')->all());
+        foreach ($post->media as $m) {
+            Storage::deleteDirectory(Stamp::folder($m->path)); // the stamped copies go too
+        }
         $post->delete();
 
         return to_route('studio');

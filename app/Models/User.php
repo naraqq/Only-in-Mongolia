@@ -103,6 +103,11 @@ class User extends Authenticatable
     }
 
     /** Recent searches, newest first when shown. */
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(PushSubscription::class);
+    }
+
     public function searchHistories(): HasMany
     {
         return $this->hasMany(SearchHistory::class);

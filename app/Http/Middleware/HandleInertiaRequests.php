@@ -2,7 +2,13 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Conversation;
 use App\Models\CreatorProfile;
+use App\Models\Payout;
+use App\Models\Report;
+use App\Push\Push;
+use App\Support\Appearance;
+use App\Support\Blocking;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -52,7 +58,7 @@ class HandleInertiaRequests extends Middleware
             // "Санал болгох" (suggested creators) only appears on the home feed.
             'suggestions' => fn () => $request->routeIs('home', 'feed') ? $this->suggestions($request) : [],
             'flash' => ['status' => fn () => $request->session()->get('status')],
-            'appearance' => fn () => \App\Support\Appearance::for($request),
+            'appearance' => fn () => Appearance::for($request),
             // The current CSRF token, for the few plain HTML form posts. The <meta> tag is only written on the first
             // page load, so after logging out (new session, new token) it goes stale and the post fails with 419.
             'csrf' => fn () => $request->session()->token(),
@@ -60,12 +66,14 @@ class HandleInertiaRequests extends Middleware
             'tipLimits' => ['min' => (int) config('creators.min_tip'), 'max' => (int) config('creators.max_tip')],
             // What's waiting for admins (nav badge and admin tabs).
             'adminCounts' => fn () => $request->user()?->is_admin ? [
-                'applications' => \App\Models\CreatorProfile::where('status', 'pending')->count(),
-                'payouts' => \App\Models\Payout::where('status', 'requested')->count(),
-                'reports' => \App\Models\Report::where('status', 'open')->count(),
+                'applications' => CreatorProfile::where('status', 'pending')->count(),
+                'payouts' => Payout::where('status', 'requested')->count(),
+                'reports' => Report::where('status', 'open')->count(),
             ] : null,
+            // The public key browsers need to subscribe to push (null = push not set up on this server).
+            'pushKey' => Push::enabled() ? config('services.webpush.public_key') : null,
             'unreadNotifications' => fn () => $request->user()?->unreadNotifications()->count() ?? 0,
-            'unreadMessages' => fn () => $request->user() ? \App\Models\Conversation::unreadCountFor($request->user()) : 0,
+            'unreadMessages' => fn () => $request->user() ? Conversation::unreadCountFor($request->user()) : 0,
         ]);
     }
 
@@ -74,7 +82,7 @@ class HandleInertiaRequests extends Middleware
         $viewer = $request->user();
 
         return CreatorProfile::listableFor($viewer)
-            ->when($viewer, fn ($q) => $q->where('user_id', '!=', $viewer->id)->whereNotIn('user_id', \App\Support\Blocking::idsAround($viewer))
+            ->when($viewer, fn ($q) => $q->where('user_id', '!=', $viewer->id)->whereNotIn('user_id', Blocking::idsAround($viewer))
                 ->whereDoesntHave('followers', fn ($f) => $f->whereKey($viewer->id)))
             ->withCount(['posts', 'followers'])->orderByDesc('followers_count')->latest('reviewed_at')
             ->take(5)->get()->map->toCard($viewer)->all();

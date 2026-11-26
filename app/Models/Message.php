@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Media\Stamp;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -37,6 +38,8 @@ class Message extends Model
     public function present(User $viewer): array
     {
         $locked = ! $this->isUnlockedFor($viewer);
+        $stamp = $locked ? null : Stamp::forMessage($this, $viewer);
+        $tag = $stamp ? ['s' => Stamp::urlTag($viewer)] : [];
 
         return [
             'id' => $this->id,
@@ -47,7 +50,7 @@ class Message extends Model
             'locked' => $locked,
             'created_at' => $this->created_at->toIso8601String(),
             'counts' => ['image' => $this->media->where('type', 'image')->count(), 'video' => $this->media->where('type', 'video')->count()],
-            'media' => $locked ? [] : $this->media->map(fn (MessageMedia $m) => ['id' => $m->id, 'type' => $m->type, 'url' => route('messages.media', $m)])->all(),
+            'media' => $locked ? [] : $this->media->map(fn (MessageMedia $m) => ['id' => $m->id, 'type' => $m->type, 'url' => route('messages.media', [$m, ...$tag]), 'stamp' => $stamp])->all(),
         ];
     }
 }

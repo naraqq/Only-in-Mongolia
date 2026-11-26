@@ -41,7 +41,7 @@ export type PostItem = {
     locked: 'login' | 'subscribe' | 'buy' | null;
     price: number | null;
     body: string | null;
-    media: { id: number; type: 'image' | 'video'; url: string }[];
+    media: { id: number; type: 'image' | 'video'; url: string; stamp?: string | null }[];
     counts: { image: number; video: number };
     likes_count: number;
     comments_count: number;

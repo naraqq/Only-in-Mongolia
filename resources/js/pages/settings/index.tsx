@@ -1,13 +1,16 @@
 import InputError from '@/components/input-error';
+import { InstallRow, PushRow } from '@/components/push-settings';
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import UserAvatar from '@/components/user-avatar';
 import { useAppearance, type Appearance } from '@/hooks/use-appearance';
 import SocialLayout from '@/layouts/social-layout';
 import { sendJson } from '@/lib/http';
 import { setLocale, useT, type Locale, type TKey } from '@/lib/i18n';
-import { Link, router, useForm } from '@inertiajs/react';
+import { installStore } from '@/lib/push';
+import { type SharedData } from '@/types';
+import { Link, router, useForm, usePage } from '@inertiajs/react';
 import { ChevronRight, Monitor, Moon, Phone, ShieldCheck, Sun, Trash2, UserPen, type LucideIcon } from 'lucide-react';
-import { type FormEvent, type ReactNode } from 'react';
+import { useSyncExternalStore, type FormEvent, type ReactNode } from 'react';
 
 const THEMES: [Appearance, TKey, LucideIcon][] = [
     ['light', 'set.light', Sun],
@@ -46,6 +49,8 @@ export default function Settings({
                         <Row icon={ShieldCheck} label={t('2fa.title')} value={t(twoFactor ? '2fa.onShort' : '2fa.offShort')} chevron />
                     </Link>
                 </Section>
+
+                <AppSection />
 
                 <Section title={t('lang.label')}>
                     <Segmented
@@ -106,6 +111,21 @@ export default function Settings({
                 </Section>
             </div>
         </SocialLayout>
+    );
+}
+
+/** Push notifications and installing the app, on this device. Hidden when neither applies. */
+function AppSection() {
+    const { t } = useT();
+    const { pushKey } = usePage<SharedData>().props;
+    const install = useSyncExternalStore(installStore.subscribe, installStore.snapshot, () => 'none' as const);
+    if (!pushKey && install === 'none') return null;
+
+    return (
+        <Section title={t('set.appSection')}>
+            <PushRow />
+            <InstallRow />
+        </Section>
     );
 }
 

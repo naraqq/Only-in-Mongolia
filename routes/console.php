@@ -1,11 +1,16 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
+use App\Models\Post;
 use App\Models\Subscription;
+use App\Payments\Renewals;
+use App\Push\Push;
 use App\Support\Notify;
+use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
+use Illuminate\Support\Facades\Storage;
+use Minishlink\WebPush\VAPID;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -32,7 +37,7 @@ Artisan::command('subscriptions:remind', function () {
 Schedule::command('subscriptions:remind')->dailyAt('10:00');
 
 // Auto-renew: pay the next month from the fan's wallet in the last day before access ends.
-Artisan::command('subscriptions:renew', function (\App\Payments\Renewals $renewals) {
+Artisan::command('subscriptions:renew', function (Renewals $renewals) {
     $r = $renewals->run();
     $this->info("Renewed {$r['renewed']}, short of money {$r['short']}, stopped {$r['skipped']}.");
 })->purpose('Renew subscriptions with auto-renew on, from the wallet');
@@ -42,7 +47,7 @@ Schedule::command('subscriptions:renew')->hourly()->withoutOverlapping();
 // Scheduled posts: once their time comes, tell subscribers (exactly once per post).
 Artisan::command('posts:announce', function () {
     $n = 0;
-    \App\Models\Post::with('creator')->whereNull('announced_at')->whereNotNull('publish_at')->where('publish_at', '<=', now())
+    Post::with('creator')->whereNull('announced_at')->whereNotNull('publish_at')->where('publish_at', '<=', now())
         ->chunkById(100, function ($posts) use (&$n) {
             foreach ($posts as $post) {
                 $post->forceFill(['announced_at' => now()])->saveQuietly();
@@ -54,3 +59,36 @@ Artisan::command('posts:announce', function () {
 })->purpose('Notify subscribers about scheduled posts that just went out');
 
 Schedule::command('posts:announce')->everyMinute();
+
+// Stamped photo copies (see App\Media\Stamp) are rebuilt on demand, so ones nobody opened for a week can go.
+Artisan::command('media:prune-stamps {--days=7}', function () {
+    $cutoff = now()->subDays((int) $this->option('days'))->getTimestamp();
+    $disk = Storage::disk('local');
+    $gone = 0;
+    foreach ($disk->allFiles('stamped') as $file) {
+        if ($disk->lastModified($file) < $cutoff) {
+            $disk->delete($file);
+            $gone++;
+        }
+    }
+    foreach ($disk->directories('stamped') as $dir) {
+        if (! $disk->allFiles($dir)) {
+            $disk->deleteDirectory($dir);
+        }
+    }
+    $this->info("Removed {$gone} stamped copies.");
+})->purpose('Delete stamped photo copies nobody has opened recently');
+
+Schedule::command('media:prune-stamps')->dailyAt('04:30');
+
+// Web Push keys (VAPID): run once per site and put the two lines in .env. Changing them later signs everyone out of push.
+Artisan::command('push:keys', function () {
+    if (! Push::opensslReady()) {
+        $this->error('On Windows, set OPENSSL_CONF first, e.g. in Git Bash: export OPENSSL_CONF="C:\xampp\php\extras\ssl\openssl.cnf"');
+
+        return 1;
+    }
+    $keys = VAPID::createVapidKeys();
+    $this->line('VAPID_PUBLIC_KEY='.$keys['publicKey']);
+    $this->line('VAPID_PRIVATE_KEY='.$keys['privateKey']);
+})->purpose('Make the key pair for push notifications');

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\CreatorReviewController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\PayoutController;
@@ -11,11 +12,15 @@ use App\Http\Controllers\CreatorPageController;
 use App\Http\Controllers\EarningsController;
 use App\Http\Controllers\EngagementController;
 use App\Http\Controllers\FanController;
+use App\Http\Controllers\InsightsController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PreferencesController;
 use App\Http\Controllers\ProfileEditController;
+use App\Http\Controllers\PromotionController;
+use App\Http\Controllers\PushController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\StudioController;
@@ -23,12 +28,14 @@ use App\Http\Controllers\WalletController;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\RecordAdminAction;
 use App\Http\Middleware\SetLocale;
+use App\Support\Appearance;
 use Illuminate\Support\Facades\Route;
 
 // Language switch (МН / EN), remembered in the session.
-Route::post('appearance/{mode}', [\App\Http\Controllers\PreferencesController::class, 'appearance'])->whereIn('mode', \App\Support\Appearance::MODES)->middleware('throttle:30,1')->name('appearance');
+Route::post('appearance/{mode}', [PreferencesController::class, 'appearance'])->whereIn('mode', Appearance::MODES)->middleware('throttle:30,1')->name('appearance');
 Route::post('locale/{locale}', function (string $locale) {
     session(['locale' => $locale]);
+    request()->user()?->forceFill(['locale' => $locale])->saveQuietly(); // the account remembers it too (push text)
 
     return back();
 })->whereIn('locale', SetLocale::SUPPORTED)->name('locale');
@@ -37,13 +44,13 @@ Route::get('/', [FanController::class, 'home'])->name('home');
 Route::get('creators', [FanController::class, 'discover'])->name('creators');
 Route::get('search', SearchController::class)->middleware('throttle:60,1')->name('search');
 Route::get('search/suggest', [SearchController::class, 'suggest'])->middleware('throttle:120,1')->name('search.suggest');
-Route::post('posts/views', [\App\Http\Controllers\InsightsController::class, 'views'])->middleware('throttle:60,1')->name('posts.views');
+Route::post('posts/views', [InsightsController::class, 'views'])->middleware('throttle:60,1')->name('posts.views');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', [FanController::class, 'dashboard'])->name('dashboard');
     Route::get('wallet', [WalletController::class, 'index'])->name('wallet');
-    Route::delete('search/recent', [\App\Http\Controllers\PreferencesController::class, 'clearSearches'])->name('search.recent.clear');
-    Route::delete('search/recent/one', [\App\Http\Controllers\PreferencesController::class, 'forgetSearch'])->name('search.recent.forget');
+    Route::delete('search/recent', [PreferencesController::class, 'clearSearches'])->name('search.recent.clear');
+    Route::delete('search/recent/one', [PreferencesController::class, 'forgetSearch'])->name('search.recent.forget');
     Route::post('wallet/renew/{handle}', [WalletController::class, 'renew'])->middleware('throttle:10,1')->name('wallet.renew');
     Route::post('wallet/auto-renew/{handle}', [WalletController::class, 'autoRenew'])->name('wallet.auto-renew');
     Route::post('wallet/topup', [PaymentController::class, 'topup'])->middleware('throttle:10,1')->name('wallet.topup');
@@ -53,8 +60,8 @@ Route::middleware(['auth'])->group(function () {
 
     // Subscriptions: subscribe -> QPay checkout -> paid (status is polled; QPay also calls back).
     Route::get('@{handle}/subscribe', [PaymentController::class, 'plan'])->name('creator.checkout');
-    Route::post('@{handle}/trial', [\App\Http\Controllers\PromotionController::class, 'startTrial'])->middleware('throttle:10,1')->name('creator.trial');
-    Route::get('@{handle}/promo', [\App\Http\Controllers\PromotionController::class, 'checkCode'])->middleware('throttle:30,1')->name('creator.promo');
+    Route::post('@{handle}/trial', [PromotionController::class, 'startTrial'])->middleware('throttle:10,1')->name('creator.trial');
+    Route::get('@{handle}/promo', [PromotionController::class, 'checkCode'])->middleware('throttle:30,1')->name('creator.promo');
     Route::post('@{handle}/subscribe', [PaymentController::class, 'subscribe'])->middleware('throttle:10,1')->name('creator.subscribe');
     Route::post('@{handle}/tip', [PaymentController::class, 'tip'])->middleware('throttle:10,1')->name('creator.tip');
     Route::post('posts/{post}/buy', [PaymentController::class, 'buyPost'])->middleware('throttle:10,1')->name('posts.buy');
@@ -78,6 +85,9 @@ Route::middleware(['auth'])->group(function () {
 
     // Notifications (the bell). Each stays new until it's opened, or all are marked read.
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications');
+    // Push notifications on this device (the browser's subscription).
+    Route::post('push/subscriptions', [PushController::class, 'store'])->middleware('throttle:20,1')->name('push.subscribe');
+    Route::delete('push/subscriptions', [PushController::class, 'destroy'])->middleware('throttle:20,1')->name('push.unsubscribe');
     Route::post('notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
     Route::post('notifications/{id}/open', [NotificationController::class, 'open'])->whereUuid('id')->name('notifications.open');
 
@@ -105,11 +115,11 @@ Route::middleware(['auth'])->group(function () {
     Route::get('studio/messages', [MessageController::class, 'index'])->name('studio.messages');
     Route::get('studio/messages/{conversation}', [MessageController::class, 'index'])->name('studio.messages.show');
     Route::get('studio/profile', [ProfileEditController::class, 'edit'])->name('studio.profile');
-    Route::get('studio/insights', [\App\Http\Controllers\InsightsController::class, 'index'])->name('studio.insights');
-    Route::get('studio/promotions', [\App\Http\Controllers\PromotionController::class, 'index'])->name('studio.promotions');
-    Route::put('studio/promotions/trial', [\App\Http\Controllers\PromotionController::class, 'updateTrial'])->name('studio.trial');
-    Route::post('studio/promotions/codes', [\App\Http\Controllers\PromotionController::class, 'storeCode'])->name('studio.codes.store');
-    Route::post('studio/promotions/codes/{code}/toggle', [\App\Http\Controllers\PromotionController::class, 'toggleCode'])->name('studio.codes.toggle');
+    Route::get('studio/insights', [InsightsController::class, 'index'])->name('studio.insights');
+    Route::get('studio/promotions', [PromotionController::class, 'index'])->name('studio.promotions');
+    Route::put('studio/promotions/trial', [PromotionController::class, 'updateTrial'])->name('studio.trial');
+    Route::post('studio/promotions/codes', [PromotionController::class, 'storeCode'])->name('studio.codes.store');
+    Route::post('studio/promotions/codes/{code}/toggle', [PromotionController::class, 'toggleCode'])->name('studio.codes.toggle');
     Route::get('studio/earnings', [EarningsController::class, 'index'])->name('studio.earnings');
     Route::post('studio/earnings/payout', [EarningsController::class, 'requestPayout'])->middleware('throttle:10,60')->name('studio.payout');
     Route::get('studio/earnings/statement.csv', [EarningsController::class, 'statement'])->name('studio.statement');
@@ -136,7 +146,7 @@ Route::middleware(['auth', EnsureAdmin::class, RecordAdminAction::class])->prefi
     Route::post('creators/{creator}/reinstate', [AdminReportController::class, 'reinstate'])->name('creators.reinstate');
     Route::post('payouts/{payout}/decide', [PayoutController::class, 'decide'])->name('payouts.decide');
     Route::get('users', [AdminUserController::class, 'index'])->name('users');
-    Route::get('audit', [\App\Http\Controllers\Admin\AuditController::class, 'index'])->name('audit');
+    Route::get('audit', [AuditController::class, 'index'])->name('audit');
     Route::get('users/{user}', [AdminUserController::class, 'show'])->name('users.show');
     Route::post('users/{user}/ban', [AdminUserController::class, 'ban'])->name('users.ban');
     Route::post('users/{user}/unban', [AdminUserController::class, 'unban'])->name('users.unban');

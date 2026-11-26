@@ -1,6 +1,7 @@
 import MediaThumbs from '@/components/media-thumbs';
 import MoreMenu from '@/components/more-menu';
 import PriceField from '@/components/price-field';
+import StampOverlay from '@/components/stamp-overlay';
 import TipButton from '@/components/tip-button';
 import UnlockButton from '@/components/unlock-button';
 import UserAvatar from '@/components/user-avatar';
@@ -37,7 +38,7 @@ type Msg = {
     locked: boolean;
     counts: { image: number; video: number };
     created_at: string;
-    media: { id: number; type: 'image' | 'video'; url: string }[];
+    media: { id: number; type: 'image' | 'video'; url: string; stamp?: string | null }[];
 };
 type Thread = { id: number; other: Person; messages: Msg[]; cannotSend: string | null; iBlocked: boolean };
 
@@ -205,7 +206,7 @@ function Conversation({ thread, me, area }: { thread: Thread; me: number; area: 
                     {o.handle ? (
                         <Link href={route('creator.show', o.handle)} className="flex items-center gap-1 font-bold hover:underline">
                             <span className="truncate">{o.name}</span>
-                            <BadgeCheck className="size-4 shrink-0 text-primary" />
+                            <BadgeCheck className="text-primary size-4 shrink-0" />
                         </Link>
                     ) : (
                         <p className="truncate font-bold">{o.name}</p>
@@ -217,7 +218,7 @@ function Conversation({ thread, me, area }: { thread: Thread; me: number; area: 
                         <TipButton
                             handle={o.handle}
                             name={o.name}
-                            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary/12 px-3 text-sm font-bold text-primary transition hover:bg-primary/20"
+                            className="bg-primary/12 text-primary hover:bg-primary/20 inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-bold transition"
                         />
                         <Link
                             href={route('creator.show', o.handle)}
@@ -295,13 +296,17 @@ function Conversation({ thread, me, area }: { thread: Thread; me: number; area: 
                                             <div className={`grid gap-1 overflow-hidden rounded-2xl ${m.media.length > 1 ? 'grid-cols-2' : ''}`}>
                                                 {m.media.map((x) =>
                                                     x.type === 'video' ? (
-                                                        <video
-                                                            key={x.id}
-                                                            src={x.url}
-                                                            controls
-                                                            preload="metadata"
-                                                            className="max-h-80 w-full bg-black"
-                                                        />
+                                                        <div key={x.id} className="relative">
+                                                            <video
+                                                                src={x.url}
+                                                                controls
+                                                                preload="metadata"
+                                                                controlsList={x.stamp ? 'nodownload' : undefined}
+                                                                onContextMenu={x.stamp ? (e) => e.preventDefault() : undefined}
+                                                                className="max-h-80 w-full bg-black"
+                                                            />
+                                                            <StampOverlay text={x.stamp} />
+                                                        </div>
                                                     ) : (
                                                         <a key={x.id} href={x.url} target="_blank" rel="noreferrer">
                                                             <img src={x.url} alt="" className="max-h-80 w-full object-cover" loading="lazy" />

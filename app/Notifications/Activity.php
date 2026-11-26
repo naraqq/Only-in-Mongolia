@@ -2,6 +2,9 @@
 
 namespace App\Notifications;
 
+use App\Models\User;
+use App\Push\Push;
+use App\Push\SendPush;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -20,7 +23,21 @@ class Activity extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return $notifiable instanceof User && Push::wants($notifiable) ? ['database', Push::class] : ['database'];
+    }
+
+    /** The same news as a push to the person's phone, opening the bell (where it shows as new). */
+    public function toPush(User $notifiable): SendPush
+    {
+        $actor = User::with('creatorProfile:id,user_id,display_name,status')->find($this->actorId);
+        $name = $actor?->creatorProfile?->status === 'approved' ? $actor->creatorProfile->display_name : $actor?->name;
+        $key = $this->kind === 'subscribed' && ! empty($this->data['renewed']) ? 'renewed' : $this->kind;
+
+        return new SendPush([$notifiable->id], $key, [
+            'name' => $name ?? '',
+            'amount' => $this->data['amount'] ?? null,
+            'date' => $this->data['expires_at'] ?? null,
+        ], route('notifications'), 'activity');
     }
 
     public function databaseType(object $notifiable): string

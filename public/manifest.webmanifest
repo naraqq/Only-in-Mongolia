@@ -1,0 +1,23 @@
+{
+    "name": "Only in Mongolia",
+    "short_name": "Only in MN",
+    "description": "Mongolian creators: posts, messages and subscriptions.",
+    "id": "/",
+    "start_url": "/?source=app",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#181c17",
+    "theme_color": "#181c17",
+    "lang": "mn",
+    "categories": ["social", "entertainment"],
+    "icons": [
+        { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+        { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+        { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    ],
+    "shortcuts": [
+        { "name": "Messages", "url": "/messages", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+        { "name": "Notifications", "url": "/notifications", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+    ]
+}

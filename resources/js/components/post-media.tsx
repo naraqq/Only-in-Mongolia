@@ -1,9 +1,10 @@
 import MediaLightbox from '@/components/media-lightbox';
+import StampOverlay from '@/components/stamp-overlay';
 import { useT } from '@/lib/i18n';
 import { ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 import { useRef, useState, type MouseEvent, type ReactNode } from 'react';
 
-type Media = { id: number; type: 'image' | 'video'; url: string };
+type Media = { id: number; type: 'image' | 'video'; url: string; stamp?: string | null };
 
 /**
  * A post's photos and videos. One item keeps its own shape; several become a swipeable carousel with dots.
@@ -55,15 +56,20 @@ export default function PostMedia({
                 className={many ? 'flex snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : ''}
             >
                 {media.map((m, i) => (
-                    <div key={m.id} className={many ? 'aspect-square w-full shrink-0 snap-center' : ''} onClick={(e) => click(e, i)}>
+                    <div key={m.id} className={`relative ${many ? 'aspect-square w-full shrink-0 snap-center' : ''}`} onClick={(e) => click(e, i)}>
                         {m.type === 'video' ? (
-                            <video
-                                src={m.url}
-                                controls
-                                playsInline
-                                preload="metadata"
-                                className={many ? 'size-full bg-black object-contain' : 'max-h-[640px] w-full bg-black'}
-                            />
+                            <>
+                                <video
+                                    src={m.url}
+                                    controls
+                                    playsInline
+                                    preload="metadata"
+                                    controlsList={m.stamp ? 'nodownload' : undefined}
+                                    onContextMenu={m.stamp ? (e) => e.preventDefault() : undefined}
+                                    className={many ? 'size-full bg-black object-contain' : 'max-h-[640px] w-full bg-black'}
+                                />
+                                <StampOverlay text={m.stamp} />
+                            </>
                         ) : (
                             <img
                                 src={m.url}

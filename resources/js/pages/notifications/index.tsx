@@ -1,14 +1,14 @@
+import { PushNudge } from '@/components/push-settings';
 import UserAvatar from '@/components/user-avatar';
 import SocialLayout from '@/layouts/social-layout';
 import { mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { router, useRemember } from '@inertiajs/react';
-import { useState } from 'react';
 import {
-    CheckCheck,
     Banknote,
     Bell,
     CalendarClock,
+    CheckCheck,
     Gift,
     HandCoins,
     ImagePlus,
@@ -21,6 +21,7 @@ import {
     Wallet as WalletIcon,
     type LucideIcon,
 } from 'lucide-react';
+import { useState } from 'react';
 
 type Kind =
     | 'followed'
@@ -122,7 +123,9 @@ export default function Notifications({ notifications }: { notifications: Item[]
     }
 
     return (
-        <SocialLayout title={t('nav.notifications')} header={
+        <SocialLayout
+            title={t('nav.notifications')}
+            header={
                 <>
                     <h1 className="text-lg font-bold tracking-wide uppercase">{t('nav.notifications')}</h1>
                     {unread > 0 && (
@@ -138,6 +141,7 @@ export default function Notifications({ notifications }: { notifications: Item[]
                 </>
             }
         >
+            <PushNudge />
             {notifications.length === 0 ? (
                 <div className="text-muted-foreground flex flex-col items-center gap-3 p-12 text-center text-sm">
                     <span className="bg-muted grid size-16 place-items-center rounded-full">
@@ -170,7 +174,9 @@ export default function Notifications({ notifications }: { notifications: Item[]
                                     {n.data.note && (
                                         <span className="text-muted-foreground mt-0.5 block truncate text-sm italic">“{n.data.note}”</span>
                                     )}
-                                    <span className={`mt-0.5 block text-xs ${read ? 'text-muted-foreground' : 'text-primary font-bold'}`}>{when(n.at)}</span>
+                                    <span className={`mt-0.5 block text-xs ${read ? 'text-muted-foreground' : 'text-primary font-bold'}`}>
+                                        {when(n.at)}
+                                    </span>
                                 </span>
                                 {!read && <span className="bg-primary mt-2 size-2.5 shrink-0 rounded-full" role="img" aria-label={t('nt.new')} />}
                             </div>

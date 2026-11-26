@@ -9,6 +9,8 @@ export interface SharedData {
     locale: 'mn' | 'en';
     quote: { message: string; author: string };
     auth: Auth;
+    /** Public key for push notifications; null when push isn't set up on this server. */
+    pushKey?: string | null;
     [key: string]: unknown;
 }
 

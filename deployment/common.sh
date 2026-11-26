@@ -157,7 +157,7 @@ backup_persistent() (
         mounts+=(--mount "type=volume,src=$volume,dst=/snapshot/$item,readonly")
     done
     "${DOCKER[@]}" run --rm --network none --read-only "${mounts[@]}" \
-        --entrypoint tar "only-in-mongolia:$revision" -czf - -C /snapshot . > "$temporary/storage.tar.gz"
+        --entrypoint tar "only-in-mongolia:$revision" --exclude=./uploads/private/stamped -czf - -C /snapshot . > "$temporary/storage.tar.gz"
     tar -tzf "$temporary/storage.tar.gz" >/dev/null
     local final="$STATE/backups/$(date -u +%Y%m%dT%H%M%SZ)-${revision:0:12}-${temporary##*.}"
     mv -- "$temporary" "$final"

@@ -2,12 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Media\Stamp;
 use App\Models\Conversation;
 use App\Models\CreatorProfile;
 use App\Models\Message;
 use App\Models\MessageMedia;
-use App\Moderation\Moderation;
 use App\Models\User;
+use App\Moderation\Moderation;
+use App\Push\Push;
+use App\Push\SendPush;
+use App\Push\Texts;
+use App\Support\Blocking;
 use App\Support\Messaging;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -39,7 +44,7 @@ class MessageController extends Controller
                 'other' => $this->person($other),
                 'messages' => $conversation->messages()->with('media')->latest('id')->take(self::PAGE)->get()->reverse()->values()->map(fn (Message $m) => $m->present($me)),
                 'cannotSend' => Messaging::whyNot($me, $other),
-                'iBlocked' => \App\Support\Blocking::hasBlocked($me, $other),
+                'iBlocked' => Blocking::hasBlocked($me, $other),
             ];
         }
 
@@ -79,6 +84,7 @@ class MessageController extends Controller
         $message = $this->deliver($conversation, $me, ($data['body'] ?? null), $this->storeFiles($request, $me), price: $data['price'] ?? null);
         Moderation::queue(...$message->media()->get()->all());
         $conversation->markRead($me);
+        $this->push($other, $me, $message, $conversation);
 
         return back();
     }
@@ -115,8 +121,23 @@ class MessageController extends Controller
         return back()->with('status', "mass-sent:$sent");
     }
 
+    /**
+     * A push for the person who got the message: who sent it and the start of the text (a paid message only says
+     * there's a photo or video). Mass messages don't push, so a creator's broadcast can't buzz thousands of phones.
+     */
+    private function push(User $to, User $from, Message $message, Conversation $conversation): void
+    {
+        if (! Push::enabled()) {
+            return;
+        }
+        $name = $from->creatorProfile()->where('status', CreatorProfile::APPROVED)->value('display_name') ?? $from->name;
+        $body = $message->body && ! $message->price ? mb_strimwidth($message->body, 0, 140, '…') : null;
+        SendPush::dispatch([$to->id], $body === null ? 'media' : 'message', ['name' => $name],
+            route('messages.show', $conversation), 'chat-'.$conversation->id, $name, $body ?? Texts::line('media', $to->locale));
+    }
+
     /** A message photo or video, only for the two people in the conversation. */
-    public function media(Request $request, MessageMedia $media): BinaryFileResponse
+    public function media(Request $request, MessageMedia $media, Stamp $stamp): BinaryFileResponse
     {
         $conversation = $media->message->conversation;
         abort_unless($conversation->includes($request->user()), 404);
@@ -124,6 +145,12 @@ class MessageController extends Controller
         // Flagged by the automatic scan (copies of a mass message share files): not served while it waits for review.
         abort_if(! $request->user()->is_admin && MessageMedia::where('path', $media->path)->where('scan_status', 'flagged')->exists(), 404);
         abort_unless(Storage::exists($media->path), 404);
+        if ($media->type === 'image' && ($text = Stamp::forMessage($media->message, $request->user()))) {
+            return response()->file($stamp->image($media->path, $text), ['Content-Type' => 'image/jpeg', ...[
+                'Cache-Control' => 'private, max-age=3600',
+                'X-Content-Type-Options' => 'nosniff',
+            ]]);
+        }
 
         return response()->file(Storage::path($media->path), [
             'Content-Type' => $media->mime,

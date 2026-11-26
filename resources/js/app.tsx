@@ -8,6 +8,7 @@ import { route as routeFn } from 'ziggy-js';
 import ConfirmHost from './components/confirm-host';
 import Toaster from './components/toaster';
 import { initializeTheme } from './hooks/use-appearance';
+import { registerServiceWorker } from './lib/push';
 
 declare global {
     const route: typeof routeFn;
@@ -59,6 +60,8 @@ createInertiaApp({
             </>,
         );
         warmPages();
+        window.__pushKey = (props.initialPage.props.pushKey as string | null | undefined) ?? undefined;
+        registerServiceWorker();
     },
     // Only for slow loads: a bar that flashes on every quick change feels jumpy.
     progress: {

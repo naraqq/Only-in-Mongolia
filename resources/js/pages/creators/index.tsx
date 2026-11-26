@@ -66,7 +66,7 @@ export default function Creators({ creators, filters }: { creators: CreatorCardD
                 {creators.length === 0 ? (
                     <p className="text-muted-foreground mt-12 text-center">{t('fan.noneFound')}</p>
                 ) : (
-                    <div className="mt-7 grid gap-x-6 gap-y-8 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="mt-7 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                         {creators.map((c) => (
                             <CreatorCard key={c.handle} c={c} />
                         ))}

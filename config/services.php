@@ -53,4 +53,11 @@ return [
         'base_url' => env('QPAY_BASE_URL', 'https://merchant.qpay.mn/v2'),
     ],
 
+    // Phone and browser push notifications. Make the keys once with `php artisan push:keys`; without them push is off.
+    'webpush' => [
+        'public_key' => env('VAPID_PUBLIC_KEY'),
+        'private_key' => env('VAPID_PRIVATE_KEY'),
+        'subject' => env('VAPID_SUBJECT', env('APP_URL', 'https://localhost')),
+    ],
+
 ];

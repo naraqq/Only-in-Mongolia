@@ -1,9 +1,10 @@
+import StampOverlay from '@/components/stamp-overlay';
 import { useT } from '@/lib/i18n';
 import * as Dialog from '@radix-ui/react-dialog';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 
-type Media = { id: number; type: 'image' | 'video'; url: string };
+type Media = { id: number; type: 'image' | 'video'; url: string; stamp?: string | null };
 
 /**
  * Full-screen viewer for a post's photos and videos. Arrow keys and buttons move between them; Esc closes.
@@ -53,14 +54,18 @@ export default function MediaLightbox({
                     >
                         {m &&
                             (m.type === 'video' ? (
-                                <video
-                                    key={m.id}
-                                    src={m.url}
-                                    controls
-                                    autoPlay
-                                    playsInline
-                                    className="lb-media max-h-full max-w-full lg:max-h-[94vh]"
-                                />
+                                <span key={m.id} className="relative inline-grid max-h-full max-w-full">
+                                    <video
+                                        src={m.url}
+                                        controls
+                                        autoPlay
+                                        playsInline
+                                        controlsList={m.stamp ? 'nodownload' : undefined}
+                                        onContextMenu={m.stamp ? (e) => e.preventDefault() : undefined}
+                                        className="lb-media max-h-full max-w-full lg:max-h-[94vh]"
+                                    />
+                                    <StampOverlay text={m.stamp} />
+                                </span>
                             ) : (
                                 <Photo key={m.id} src={m.url} />
                             ))}

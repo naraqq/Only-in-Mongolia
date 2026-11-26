@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Media\Stamp;
 use App\Models\CreatorProfile;
 use App\Models\Post;
 use App\Models\User;
 use App\Support\Blocking;
+use App\Support\Messaging;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -62,7 +64,7 @@ class CreatorPageController extends Controller
             'creatorId' => $creator->id,
             'blocked' => Blocking::hasBlocked($viewer, $creator->user),
             // Why the Message button is disabled (null = can message): login | follow | subscribe | self ...
-            'messageBlock' => ! $viewer ? 'login' : (\App\Support\Messaging::whyNot($viewer, $creator->user)),
+            'messageBlock' => ! $viewer ? 'login' : (Messaging::whyNot($viewer, $creator->user)),
             'subscribedUntil' => $viewer ? $creator->subscriptions()->active()->where('user_id', $viewer->id)->value('expires_at')?->toIso8601String() : null,
         ]);
     }
@@ -71,6 +73,9 @@ class CreatorPageController extends Controller
     public static function present(Post $post, ?User $viewer): array
     {
         $lock = $post->lockReason($viewer);
+        $stamp = $lock ? null : Stamp::forPost($post, $viewer);
+        // A stamped photo differs per viewer: the tag keeps a shared browser's cache from mixing them up.
+        $tag = $stamp ? ['s' => Stamp::urlTag($viewer)] : [];
 
         return [
             'id' => $post->id,
@@ -81,7 +86,7 @@ class CreatorPageController extends Controller
             'created_at' => $post->created_at->toIso8601String(),
             'locked' => $lock,
             'body' => $lock ? null : $post->body,
-            'media' => $lock ? [] : $post->media->map(fn ($m) => ['id' => $m->id, 'type' => $m->type, 'url' => route('media.show', $m)])->all(),
+            'media' => $lock ? [] : $post->media->map(fn ($m) => ['id' => $m->id, 'type' => $m->type, 'url' => route('media.show', [$m, ...$tag]), 'stamp' => $stamp])->all(),
             'likes_count' => (int) ($post->likes_count ?? $post->likes()->count()),
             'comments_count' => (int) ($post->comments_count ?? $post->comments()->count()),
             'liked' => (bool) ($post->liked ?? false),

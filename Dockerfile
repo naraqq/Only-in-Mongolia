@@ -9,7 +9,7 @@ FROM php:8.4-apache-bookworm
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl unzip libjpeg62-turbo-dev libpng-dev libwebp-dev \
     && docker-php-ext-configure gd --with-jpeg --with-webp \
-    && docker-php-ext-install -j"$(nproc)" gd pdo_mysql opcache pcntl \
+    && docker-php-ext-install -j"$(nproc)" gd exif pdo_mysql opcache pcntl \
     && pecl install redis-6.2.0 \
     && docker-php-ext-enable redis \
     && cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \

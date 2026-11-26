@@ -46,6 +46,15 @@ if ! command -v jq >/dev/null || ! command -v openssl >/dev/null || ! command -v
 fi
 sudo systemctl enable --now docker
 
+# Push notification keys (VAPID): a P-256 key pair, printed as the two .env lines the app reads.
+vapid_lines() {
+    local pem
+    pem=$(openssl ecparam -name prime256v1 -genkey -noout)
+    b64url() { base64 -w0 | tr '+/' '-_' | tr -d '='; }
+    printf 'VAPID_PUBLIC_KEY=%s\n' "$(printf '%s' "$pem" | openssl ec -pubout -outform DER 2>/dev/null | tail -c 65 | b64url)"
+    printf 'VAPID_PRIVATE_KEY=%s\n' "$(printf '%s' "$pem" | openssl ec -outform DER 2>/dev/null | head -c 39 | tail -c 32 | b64url)"
+}
+
 if [[ ! -e "$ENV_FILE" ]]; then
     app_key=$(openssl rand -base64 32)
     db_password=$(openssl rand -hex 32)
@@ -65,6 +74,7 @@ if [[ ! -e "$ENV_FILE" ]]; then
             printf 'REDIS_PASSWORD=%s\nQUEUE_WORKERS=2\n' "$redis_password"
             printf '%s\n' 'ADMIN_REQUIRE_2FA=true' 'VERIFY_MN_DEV_PHONES=' 'VERIFY_MN_API_KEY=' \
                 'QPAY_USERNAME=' 'QPAY_PASSWORD=' 'QPAY_INVOICE_CODE='
+            vapid_lines
         } > "$ENV_FILE"
     )
     created_environment=true
@@ -88,6 +98,12 @@ else
         done
         mv -- "$candidate" "$ENV_FILE"
         trap - EXIT
+    fi
+    # Servers set up before push notifications existed get their keys once.
+    if ! grep -Eq '^[[:space:]]*VAPID_PUBLIC_KEY=.+' "$ENV_FILE"; then
+        printf '\n' >> "$ENV_FILE"
+        vapid_lines >> "$ENV_FILE"
+        printf 'Added push notification keys to %s.\n' "$ENV_FILE"
     fi
 fi
 

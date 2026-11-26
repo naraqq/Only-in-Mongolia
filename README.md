@@ -25,6 +25,7 @@ composer dev
 - Set `VERIFY_MN_API_KEY` for real phone verification or set `VERIFY_MN_DEV_PHONES` to comma-separated eight-digit test numbers for local sign-in.
 - Leave QPay credentials empty for fake checkout locally. The `QPAY_*` variables configure the merchant integration.
 - Run `php artisan user:make-admin YOUR_PHONE` for an existing local account, then set up an authenticator in Settings before opening Admin.
+- Push notifications are on when `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` are set (`php artisan push:keys` prints a pair). On Windows, PHP's OpenSSL also needs `OPENSSL_CONF` set before PHP starts, e.g. in Git Bash `export OPENSSL_CONF="C:\xampp\php\extras\ssl\openssl.cnf"`, then `composer dev`. Browsers allow push on `localhost` without HTTPS.
 - See `.env.example` for filesystem, wallet, fee, admin 2FA, and upload scanning settings.
 
 ## Development checks

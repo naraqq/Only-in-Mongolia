@@ -43,6 +43,8 @@ curl --fail https://app.example.com/up
 
 - Each container caches its configuration, routes, views and events when it starts (`docker/entrypoint.sh`), so changes to `.env.docker` apply after `bash deploy.sh --no-pull`.
 - Production logs at `LOG_LEVEL=warning` unless you set another level. The app runs on Mongolian time (`APP_TIMEZONE=Asia/Ulaanbaatar`): reminders, renewals, "this month" totals and daily insights follow local days. Set it before the first real data; changing it later shifts how stored times are read.
+- Push notifications use the `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` pair that `install.sh` writes (older servers get one on their next install run). Keep the pair: replacing it turns push off on every phone until people turn it back on. iPhones only receive push after the site is added to the Home Screen.
+- Paid and private photos are stamped with the viewer's ID when first opened. The copies live in the uploads volume under `stamped/`, and `media:prune-stamps` removes ones unopened for 7 days.
 - PHP accepts uploads for up to 5 minutes (`max_input_time=300`) with 256 MB of memory, for large videos over slow mobile connections and full-size phone photos.
 - Caddy sends HSTS, `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `nosniff`, a strict referrer policy and a restrictive `Permissions-Policy`.
 

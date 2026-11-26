@@ -7,6 +7,8 @@ use App\Models\Payment;
 use App\Models\Post;
 use App\Models\User;
 use App\Notifications\Activity;
+use App\Push\Push;
+use App\Push\SendPush;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -56,6 +58,10 @@ class Notify
                     'created_at' => $now,
                     'updated_at' => $now,
                 ])->all());
+                // And a push to the phones of those who allowed it (one job per 500 people).
+                if (Push::enabled()) {
+                    SendPush::dispatch($subs->pluck('user_id')->all(), 'new_post', ['name' => $creator->display_name], route('creator.show', $creator->handle), 'post-'.$creator->id);
+                }
             });
     }
 
