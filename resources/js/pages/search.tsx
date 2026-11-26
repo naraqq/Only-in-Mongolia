@@ -79,7 +79,7 @@ export default function Search({ filters, creators, posts, page, moreCreators, m
                 <h1 className="text-4xl leading-none font-black tracking-[-0.055em] sm:text-6xl">{t('nav.search')}</h1>
                 <form
                     role="search"
-                    className="border-border bg-card focus-within:border-ring focus-within:ring-ring/15 mt-5 flex min-w-0 items-center gap-1 rounded-2xl border p-1.5 pl-3 transition focus-within:ring-4 sm:mt-6 sm:gap-2 sm:p-2 sm:pl-4"
+                    className={`border-border bg-card focus-within:border-ring focus-within:ring-ring/15 mt-5 flex w-full min-w-0 items-center gap-1 rounded-2xl border p-1.5 pl-3 transition focus-within:ring-4 sm:mt-6 sm:gap-2 sm:p-2 sm:pl-4 ${filters.q ? '' : 'max-w-2xl'}`}
                     onSubmit={submit}
                 >
                     <SearchIcon className="text-muted-foreground size-5 shrink-0" aria-hidden />
@@ -107,7 +107,7 @@ export default function Search({ filters, creators, posts, page, moreCreators, m
                             <X aria-hidden />
                         </Button>
                     )}
-                    <Button type="submit" className="h-10 rounded-xl px-3 font-bold sm:h-12 sm:px-5" disabled={loading}>
+                    <Button type="submit" className="h-10 shrink-0 rounded-xl px-3 font-bold sm:h-12 sm:px-5" disabled={loading}>
                         {t('nav.search')} <ArrowRight className="hidden sm:block" aria-hidden />
                     </Button>
                 </form>
@@ -262,29 +262,33 @@ export default function Search({ filters, creators, posts, page, moreCreators, m
                         )}
                     </div>
                 ) : recent.length > 0 ? (
-                    <section className="mt-7">
-                        <div className="mb-2 flex items-center justify-between gap-3">
-                            <h2 className="text-lg font-bold">{t('search.recent')}</h2>
-                            <Button type="button" variant="ghost" size="sm" onClick={clearRecent}>
+                    <section aria-labelledby="recent-searches" className="mt-7 w-full max-w-2xl min-w-0">
+                        <div className="border-border flex items-center justify-between gap-3 border-b pb-2">
+                            <h2 id="recent-searches" className="min-w-0 text-lg font-bold">
+                                {t('search.recent')}
+                            </h2>
+                            <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={clearRecent}>
                                 {t('search.clear')}
                             </Button>
                         </div>
                         <ul className="divide-border divide-y">
                             {recent.map((query) => (
-                                <li key={query} className="group flex items-center gap-1">
+                                <li key={query} className="group flex min-w-0 items-center gap-1 py-1">
                                     <Link
                                         href={destination({ q: query })}
-                                        className="hover:bg-muted flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-md px-2 text-sm"
+                                        className="hover:bg-muted focus-visible:ring-ring/50 flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-2 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
                                     >
                                         <Clock3 className="text-muted-foreground size-4 shrink-0" aria-hidden />
-                                        <span className="truncate">{query}</span>
+                                        <span className="truncate" title={query}>
+                                            {query}
+                                        </span>
                                     </Link>
                                     <Button
                                         type="button"
                                         variant="ghost"
                                         size="icon"
                                         aria-label={t('search.forget', { query })}
-                                        className="text-muted-foreground shrink-0 opacity-60 group-hover:opacity-100"
+                                        className="text-muted-foreground hover:text-foreground size-10 shrink-0"
                                         onClick={() => forget(query)}
                                     >
                                         <X aria-hidden />

@@ -3,9 +3,9 @@ import PostCard, { type PostItem } from '@/components/post-card';
 import PostComposer, { type ComposerHandle } from '@/components/post-composer';
 import PostEditor from '@/components/post-editor';
 import StudioLayout from '@/layouts/studio-layout';
+import { ask } from '@/lib/confirm';
 import { mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
-import { ask } from '@/lib/confirm';
 import { Link, router } from '@inertiajs/react';
 import { ArrowRight, Check, Copy, CreditCard, ExternalLink, Heart, PenSquare, ShieldCheck, UserPlus, Wallet, type LucideIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
@@ -20,7 +20,7 @@ const FILTERS: [Filter, TKey][] = [
 ];
 
 /** Studio home: how the page is doing, write a post, manage posts; earnings, sharing and messaging fans on the side. */
-export default function Studio({ creator, posts, stats }: { creator: StudioCreator; posts: PostItem[]; stats: Stats }) {
+export default function Studio({ creator, posts, stats }: { creator: StudioCreator; posts: (PostItem & { held: boolean })[]; stats: Stats }) {
     const { t } = useT();
     const [editing, setEditing] = useState<number | null>(null);
     const [filter, setFilter] = useState<Filter>('all');
@@ -116,11 +116,22 @@ export default function Studio({ creator, posts, stats }: { creator: StudioCreat
                                                 key={p.id}
                                                 post={p}
                                                 author={author}
+                                                pollFollowUps={
+                                                    p.poll
+                                                        ? posts.filter(
+                                                              (candidate) => candidate.id !== p.id && !candidate.publish_at && !candidate.held,
+                                                          )
+                                                        : undefined
+                                                }
                                                 onEdit={() => setEditing(p.id)}
                                                 onPin={() => router.post(route('studio.posts.pin', p.id), {}, { preserveScroll: true })}
                                                 onDelete={async () =>
-                                                    (await ask({ message: t('st.confirmDelete'), confirm: t('po.delete'), cancel: t('dlg.cancel'), danger: true })) &&
-                                                    router.delete(route('studio.posts.destroy', p.id), { preserveScroll: true })
+                                                    (await ask({
+                                                        message: t('st.confirmDelete'),
+                                                        confirm: t('po.delete'),
+                                                        cancel: t('dlg.cancel'),
+                                                        danger: true,
+                                                    })) && router.delete(route('studio.posts.destroy', p.id), { preserveScroll: true })
                                                 }
                                             />
                                         ),

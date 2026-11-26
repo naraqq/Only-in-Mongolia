@@ -2,6 +2,7 @@ import MoreMenu from '@/components/more-menu';
 import PostComments from '@/components/post-comments';
 import PostMedia from '@/components/post-media';
 import PostPanel from '@/components/post-panel';
+import PostPoll, { type FollowUpChoice, type PollData } from '@/components/post-poll';
 import RichText from '@/components/rich-text';
 import TipButton from '@/components/tip-button';
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -49,6 +50,7 @@ export type PostItem = {
     bookmarked: boolean;
     publish_at: string | null; // set while scheduled
     pinned?: boolean;
+    poll?: PollData | null;
 };
 
 const when = (iso: string) => new Date(iso).toLocaleString('sv-SE', { dateStyle: 'short', timeStyle: 'short' }).replaceAll('-', '.');
@@ -67,6 +69,7 @@ export default function PostCard({
     linkAuthor = false,
     authorAction,
     compactMedia = false,
+    pollFollowUps,
 }: {
     post: PostItem;
     author: Author;
@@ -74,6 +77,7 @@ export default function PostCard({
     linkAuthor?: boolean;
     authorAction?: ReactNode;
     compactMedia?: boolean;
+    pollFollowUps?: FollowUpChoice[];
 } & Menu) {
     const { auth } = usePage<SharedData>().props;
     const mine = auth.creator?.handle === author.handle;
@@ -97,6 +101,9 @@ export default function PostCard({
                 <Locked post={post} price={price} handle={author.handle} />
             ) : (
                 <Body post={post} author={author} state={state} lightbox compact={compactMedia} />
+            )}
+            {post.poll && !post.locked && (
+                <PostPoll id={post.id} handle={author.handle} poll={post.poll} choices={mine ? pollFollowUps : undefined} />
             )}
             <Actions post={post} author={author} mine={mine} state={state} onComment={comment} />
             {talk > 0 && (

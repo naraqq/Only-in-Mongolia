@@ -52,7 +52,7 @@ export default function PostEditor({ post, onDone }: { post: PostItem; onDone: (
                 >
                     <option value="subscribers">{t('po.subscribers')}</option>
                     <option value="public">{t('po.public')}</option>
-                    <option value="ppv">{t('ppv.option')}</option>
+                    {!post.poll && <option value="ppv">{t('ppv.option')}</option>}
                 </select>
                 {ppv && <PriceField value={form.data.price} onChange={(v) => form.setData('price', v)} />}
                 {post.publish_at !== null && (

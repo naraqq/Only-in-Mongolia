@@ -32,6 +32,38 @@ class FanExperienceTest extends TestCase
         return User::factory()->create(['birthdate' => '1990-01-01']);
     }
 
+    public function test_series_orders_episodes_and_preserves_post_access_and_ownership(): void
+    {
+        $creator = $this->creator('artist');
+        $other = $this->creator('other');
+        $intro = $creator->posts()->create(['body' => 'Introduction', 'visibility' => Post::PUBLIC]);
+        $locked = $creator->posts()->create(['body' => 'Subscriber lesson', 'visibility' => Post::SUBSCRIBERS]);
+        $foreign = $other->posts()->create(['body' => 'Other creator', 'visibility' => Post::PUBLIC]);
+        $data = ['title' => 'Drawing lessons', 'featured' => true, 'post_ids' => [$intro->id, $locked->id]];
+
+        $this->actingAs($creator->user)->post('/studio/series', [...$data, 'post_ids' => [$foreign->id]])->assertSessionHasErrors('post_ids');
+        $this->post('/studio/series', $data)->assertRedirect('/studio/series');
+        $series = $creator->series()->sole();
+        $path = "/studio/series/{$series->id}";
+        $this->get('/studio/series')->assertInertia(fn ($p) => $p->component('studio/series')->where('series.0.post_ids', $data['post_ids']));
+        $this->patch($path, [...$data, 'post_ids' => [$locked->id, $intro->id]])->assertRedirect('/studio/series');
+        $this->assertTrue($series->refresh()->featured);
+
+        $this->actingAs($other->user)->patch($path, $data)->assertNotFound();
+        $this->delete($path)->assertNotFound();
+        auth()->logout();
+        $this->get('/@artist?tab=series')->assertInertia(fn ($p) => $p->where('collections.0.posts_count', 2));
+        $this->get("/@artist/series/{$series->id}")->assertInertia(fn ($p) => $p->component('creator/series')
+            ->where('posts.0.id', $locked->id)
+            ->where('posts.0.locked', 'subscribe')
+            ->where('posts.0.body', null)
+            ->where('posts.1.body', $intro->body));
+
+        $this->actingAs($creator->user)->delete($path)->assertRedirect('/studio/series');
+        $this->assertDatabaseHas('posts', ['id' => $locked->id]);
+        $this->get("/@artist/series/{$series->id}")->assertNotFound();
+    }
+
     public function test_home_and_discovery_list_approved_creators_and_hide_18_plus_from_visitors(): void
     {
         $this->creator('artist', name: 'Saraa Art');
@@ -104,6 +136,39 @@ class FanExperienceTest extends TestCase
         $fan->following()->attach($c->id);
 
         $this->actingAs($fan)->get('/dashboard')->assertInertia(fn ($p) => $p->has('following', 1)->where('following.0.handle', 'artist')->where('creatorStatus', null));
+    }
+
+    public function test_polls_enforce_post_access_save_one_vote_and_link_a_published_follow_up(): void
+    {
+        $creator = $this->creator('artist');
+        $other = $this->creator('other');
+        $fan = $this->fan();
+        $this->actingAs($creator->user)->post('/studio/posts', [
+            'body' => 'What should I draw next?',
+            'visibility' => Post::SUBSCRIBERS,
+            'poll_options' => ['Mountains', 'City'],
+        ])->assertSessionHasNoErrors();
+        $poll = $creator->posts()->firstOrFail();
+        $vote = "/posts/{$poll->id}/poll/vote";
+        $link = "/posts/{$poll->id}/poll/follow-up";
+
+        $this->postJson($vote, ['option' => 0])->assertForbidden();
+        $this->actingAs($fan)->get('/@artist')->assertInertia(fn ($page) => $page->where('posts.0.poll', null));
+        $this->postJson($vote, ['option' => 0])->assertNotFound();
+        $creator->subscriptions()->create(['user_id' => $fan->id, 'expires_at' => now()->addWeek()]);
+        $this->postJson($vote, ['option' => 2])->assertUnprocessable();
+        $this->postJson($vote, ['option' => 0])->assertOk()->assertJsonPath('poll.selected', 0)->assertJsonPath('poll.options.0.votes', 1);
+        $this->postJson($vote, ['option' => 1])->assertOk()->assertJsonPath('poll.selected', 0)->assertJsonPath('poll.options.1.votes', 0);
+        $this->assertDatabaseCount('post_poll_votes', 1);
+
+        $followUp = $creator->posts()->create(['body' => 'The finished mountain drawing', 'visibility' => Post::PUBLIC]);
+        $unrelated = $other->posts()->create(['body' => 'Other creator', 'visibility' => Post::PUBLIC]);
+        $this->post($link, ['post_id' => $followUp->id])->assertNotFound();
+        $this->actingAs($creator->user)->post($link, ['post_id' => $unrelated->id])->assertNotFound();
+        $this->post($link, ['post_id' => $followUp->id])->assertSessionHasNoErrors();
+        $this->actingAs($fan)->get("/@artist?focus={$poll->id}")->assertInertia(fn ($page) => $page
+            ->where('posts.0.poll.follow_up_id', $followUp->id)->where('posts.0.poll.selected', 0));
+        $this->get("/@artist?focus={$followUp->id}")->assertInertia(fn ($page) => $page->where('posts.0.id', $followUp->id));
     }
 
     public function test_global_search_ranks_exact_handles_and_excludes_inaccessible_posts(): void

@@ -62,6 +62,7 @@ export default function CreatorPage({
     messageBlock,
     sort,
     tab,
+    collections,
     creatorId,
     creatorUserId,
     blocked,
@@ -74,7 +75,8 @@ export default function CreatorPage({
     subscribedUntil: string | null;
     messageBlock: string | null;
     sort: 'new' | 'popular';
-    tab: 'posts' | 'media';
+    tab: 'posts' | 'media' | 'series';
+    collections: { id: number; title: string; description: string | null; featured: boolean; posts_count: number }[];
     creatorId: number;
     creatorUserId: number;
     blocked: boolean;
@@ -142,7 +144,7 @@ export default function CreatorPage({
 
                 <h1 className="mt-3 flex flex-wrap items-center gap-2 text-2xl font-extrabold tracking-tight">
                     {creator.display_name}
-                    <BadgeCheck className="size-5 text-primary" aria-label={t('cp.verified')} />
+                    <BadgeCheck className="text-primary size-5" aria-label={t('cp.verified')} />
                     {creator.adult_content && <span className="rounded bg-rose-100 px-1.5 py-0.5 text-xs font-bold text-rose-700">18+</span>}
                 </h1>
                 <p className="text-muted-foreground text-sm">@{creator.handle}</p>
@@ -172,18 +174,24 @@ export default function CreatorPage({
             <div className="mt-6">
                 {!gated && (
                     <div className="flex" role="tablist">
-                        {(['posts', 'media'] as const).map((k) => (
-                            <Link
-                                key={k}
-                                href={route('creator.show', { handle: creator.handle, ...(k === 'media' ? { tab: k } : {}) })}
-                                preserveScroll
-                                className={`-mb-px flex-1 py-3 text-center text-sm font-bold transition ${tab === k ? 'text-foreground shadow-[inset_0_-3px_0_var(--primary)]' : 'text-muted-foreground hover:text-foreground'}`}
-                                role="tab"
-                                aria-selected={tab === k}
-                            >
-                                {t(k === 'posts' ? 'cp.tabPosts' : 'cp.tabMedia', { n: k === 'posts' ? creator.posts_count : creator.media_count })}
-                            </Link>
-                        ))}
+                        {(['posts', 'media', 'series'] as const)
+                            .filter((k) => k !== 'series' || collections.length || isOwner || tab === 'series')
+                            .map((k) => (
+                                <Link
+                                    key={k}
+                                    href={route('creator.show', { handle: creator.handle, ...(k !== 'posts' ? { tab: k } : {}) })}
+                                    preserveScroll
+                                    className={`-mb-px flex-1 py-3 text-center text-sm font-bold transition ${tab === k ? 'text-foreground shadow-[inset_0_-3px_0_var(--primary)]' : 'text-muted-foreground hover:text-foreground'}`}
+                                    role="tab"
+                                    aria-selected={tab === k}
+                                >
+                                    {k === 'series'
+                                        ? t('series.title')
+                                        : t(k === 'posts' ? 'cp.tabPosts' : 'cp.tabMedia', {
+                                              n: k === 'posts' ? creator.posts_count : creator.media_count,
+                                          })}
+                                </Link>
+                            ))}
                     </div>
                 )}
                 {!gated && tab === 'posts' && posts.length > 1 && (
@@ -209,6 +217,35 @@ export default function CreatorPage({
                             <Link href={route('login')}>{t('nav.login')}</Link>
                         </Button>
                     </div>
+                ) : tab === 'series' ? (
+                    collections.length ? (
+                        <ul className="divide-border divide-y px-4 sm:px-6">
+                            {collections.map((item) => (
+                                <li key={item.id}>
+                                    <Link
+                                        href={route('creator.series', { handle: creator.handle, series: item.id })}
+                                        className="hover:bg-muted/50 flex min-w-0 items-center gap-4 rounded-lg px-3 py-5"
+                                    >
+                                        <span className="bg-muted grid size-10 shrink-0 place-items-center rounded-full">
+                                            <Play className="size-4" aria-hidden />
+                                        </span>
+                                        <span className="min-w-0">
+                                            <span className="block font-bold break-words">{item.title}</span>
+                                            {item.description && (
+                                                <span className="text-muted-foreground line-clamp-2 text-sm break-words">{item.description}</span>
+                                            )}
+                                            <span className="text-muted-foreground mt-1 block text-xs">
+                                                {t('series.episodes')} · {item.posts_count}
+                                                {item.featured && ` · ${t('series.featured')}`}
+                                            </span>
+                                        </span>
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="text-muted-foreground p-10 text-center text-sm">{t('series.empty')}</p>
+                    )
                 ) : posts.length === 0 ? (
                     <p className="text-muted-foreground p-10 text-center text-sm">{t('cp.noPosts')}</p>
                 ) : tab === 'media' ? (
@@ -421,8 +458,8 @@ export function SubscribeCard({
                 className="bg-primary text-primary-foreground flex w-full items-center justify-between gap-3 rounded-xl px-5 py-4 text-left transition hover:brightness-110 disabled:opacity-60"
             >
                 <span>
-                    <span className="block text-xs font-semibold tracking-wider text-primary-foreground/70 uppercase">{t('cp.subscribeT')}</span>
-                    <span className="block text-sm text-primary-foreground/85">{t('cp.unlock')}</span>
+                    <span className="text-primary-foreground/70 block text-xs font-semibold tracking-wider uppercase">{t('cp.subscribeT')}</span>
+                    <span className="text-primary-foreground/85 block text-sm">{t('cp.unlock')}</span>
                 </span>
                 <span className="flex items-center gap-2 text-lg font-extrabold whitespace-nowrap">
                     {busy === 1 && <LoaderCircle className="size-5 animate-spin" />}

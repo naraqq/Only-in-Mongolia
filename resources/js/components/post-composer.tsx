@@ -7,7 +7,7 @@ import { priceOk, toLocalInput } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
 import { type SharedData } from '@/types';
 import { useForm, usePage } from '@inertiajs/react';
-import { CalendarClock, Globe, ImagePlus, LoaderCircle, Lock, LockOpen, X } from 'lucide-react';
+import { BarChart3, CalendarClock, Globe, ImagePlus, LoaderCircle, Lock, LockOpen, X } from 'lucide-react';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type FormEvent } from 'react';
 
 type Audience = 'subscribers' | 'public' | 'ppv';
@@ -37,6 +37,7 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
         media: [] as File[],
         price: 5000,
         publish_at: '',
+        poll_options: null as string[] | null,
     });
     const [audience, setAudience] = useState<Audience>('subscribers');
     const [schedule, setSchedule] = useState(false);
@@ -45,6 +46,9 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
     const files = useRef<HTMLInputElement>(null);
     const mediaErrors = Object.entries(form.errors).filter(([k]) => k.startsWith('media'));
     const ppv = audience === 'ppv';
+    const poll = form.data.poll_options;
+    const pollErrors = Object.entries(form.errors).filter(([key]) => key.startsWith('poll_options'));
+    const pollIncomplete = poll !== null && (!form.data.body.trim() || poll.some((option) => !option.trim()));
     const empty = !form.data.body.trim() && form.data.media.length === 0 && picked.length === 0;
     const room = 10 - picked.length;
 
@@ -95,12 +99,71 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
                     ref={box}
                     value={form.data.body}
                     onChange={(e) => form.setData('body', e.target.value)}
-                    placeholder={t('st.placeholder')}
+                    placeholder={t(poll ? 'poll.question' : 'st.placeholder')}
                     maxLength={5000}
                     className="placeholder:text-muted-foreground min-h-[72px] w-full resize-none bg-transparent pt-2 text-[17px] leading-snug outline-none"
                 />
             </div>
             <InputError message={form.errors.body} />
+
+            {poll && (
+                <fieldset className="border-border mt-3 space-y-2 rounded-xl border p-3">
+                    <legend className="px-1 text-sm font-bold">{t('poll.options')}</legend>
+                    {poll.map((option, index) => (
+                        <div key={index} className="flex min-w-0 items-center gap-2">
+                            <input
+                                aria-label={t('poll.option', { number: index + 1 })}
+                                placeholder={t('poll.option', { number: index + 1 })}
+                                value={option}
+                                maxLength={80}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'poll_options',
+                                        poll.map((value, i) => (i === index ? event.target.value : value)),
+                                    )
+                                }
+                                className="border-border bg-card focus-visible:border-ring min-h-10 min-w-0 flex-1 rounded-lg border px-3 text-sm outline-none"
+                            />
+                            {poll.length > 2 && (
+                                <button
+                                    type="button"
+                                    aria-label={t('poll.removeOption', { number: index + 1 })}
+                                    className="hover:bg-muted grid size-9 shrink-0 place-items-center rounded-lg"
+                                    onClick={() =>
+                                        form.setData(
+                                            'poll_options',
+                                            poll.filter((_, i) => i !== index),
+                                        )
+                                    }
+                                >
+                                    <X className="size-4" />
+                                </button>
+                            )}
+                        </div>
+                    ))}
+                    {pollErrors.map(([key, error]) => (
+                        <InputError key={key} message={error} />
+                    ))}
+                    <div className="flex flex-wrap justify-between gap-2 text-sm font-semibold">
+                        {poll.length < 4 && (
+                            <button
+                                type="button"
+                                className="text-primary min-h-9 hover:underline"
+                                onClick={() => form.setData('poll_options', [...poll, ''])}
+                            >
+                                {t('poll.addOption')}
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            className="text-muted-foreground ml-auto min-h-9 hover:underline"
+                            onClick={() => form.setData('poll_options', null)}
+                        >
+                            {t('poll.remove')}
+                        </button>
+                    </div>
+                </fieldset>
+            )}
 
             <PickedThumbs picked={picked} onRemove={(id) => setPicked((p) => p.filter((x) => x.id !== id))} className="mt-3" />
             <MediaThumbs
@@ -120,8 +183,8 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
 
             {/* Who sees it */}
             <div className="mt-4 flex flex-wrap items-center gap-2">
-                <div className="bg-muted grid w-full grid-cols-3 rounded-full p-1 sm:inline-flex sm:w-auto">
-                    {AUDIENCES.map((a) => (
+                <div className={`bg-muted grid w-full rounded-full p-1 sm:inline-flex sm:w-auto ${poll ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                    {AUDIENCES.filter((a) => !poll || a.value !== 'ppv').map((a) => (
                         <button
                             key={a.value}
                             type="button"
@@ -187,6 +250,11 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
                     max={10 - form.data.media.length + picked.length}
                     className={`${tool} text-violet-600 dark:text-violet-400`}
                 />
+                {!poll && !ppv && (
+                    <button type="button" onClick={() => form.setData('poll_options', ['', ''])} className={`${tool} text-primary`}>
+                        <BarChart3 className="size-[18px]" /> {t('poll.add')}
+                    </button>
+                )}
                 {!schedule && (
                     <button type="button" onClick={() => setSchedule(true)} className={`${tool} text-sky-600 dark:text-sky-400`}>
                         <CalendarClock className="size-[18px]" /> {t('sch.later')}
@@ -204,7 +272,13 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
                 )}
                 <button
                     type="submit"
-                    disabled={form.processing || empty || (ppv && !priceOk(form.data.price, ppvLimits)) || (schedule && !form.data.publish_at)}
+                    disabled={
+                        form.processing ||
+                        empty ||
+                        pollIncomplete ||
+                        (ppv && !priceOk(form.data.price, ppvLimits)) ||
+                        (schedule && !form.data.publish_at)
+                    }
                     className="bg-primary text-primary-foreground ml-auto inline-flex h-10 items-center gap-2 rounded-lg px-6 text-sm font-bold transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
                 >
                     {form.processing && <LoaderCircle className="size-4 animate-spin" />}

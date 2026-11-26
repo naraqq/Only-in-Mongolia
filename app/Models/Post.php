@@ -12,9 +12,9 @@ class Post extends Model
 
     public const SUBSCRIBERS = 'subscribers';
 
-    protected $fillable = ['creator_profile_id', 'body', 'visibility', 'is_adult', 'price', 'publish_at', 'announced_at'];
+    protected $fillable = ['creator_profile_id', 'body', 'visibility', 'is_adult', 'price', 'publish_at', 'announced_at', 'poll_options'];
 
-    protected $casts = ['is_adult' => 'boolean', 'price' => 'integer', 'publish_at' => 'datetime', 'announced_at' => 'datetime', 'held_at' => 'datetime'];
+    protected $casts = ['is_adult' => 'boolean', 'price' => 'integer', 'publish_at' => 'datetime', 'announced_at' => 'datetime', 'held_at' => 'datetime', 'poll_options' => 'array'];
 
     /** Posts that are out (not scheduled for later). */
     public function scopePublished(\Illuminate\Database\Eloquent\Builder $q): \Illuminate\Database\Eloquent\Builder
@@ -51,10 +51,29 @@ class Post extends Model
     /** Like/comment counts, and whether $viewer liked or saved each post, in the same query. */
     public function scopeWithEngagement(\Illuminate\Database\Eloquent\Builder $q, ?User $viewer): \Illuminate\Database\Eloquent\Builder
     {
-        return $q->withCount(['likes', 'comments'])->when($viewer, fn ($w) => $w->withExists([
+        return $q->withCount(['likes', 'comments'])->with([
+            'pollTally' => fn ($votes) => $votes->selectRaw('post_id, option_index, count(*) as total')->groupBy('post_id', 'option_index'),
+            'pollFollowUp' => fn ($posts) => $posts->published(),
+            ...($viewer ? ['pollVote' => fn ($votes) => $votes->where('user_id', $viewer->id)] : []),
+        ])->when($viewer, fn ($w) => $w->withExists([
             'likes as liked' => fn ($l) => $l->where('users.id', $viewer->id),
             'bookmarkedBy as bookmarked' => fn ($b) => $b->where('users.id', $viewer->id),
         ]));
+    }
+
+    public function pollTally(): HasMany
+    {
+        return $this->hasMany(PostPollVote::class);
+    }
+
+    public function pollVote(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(PostPollVote::class);
+    }
+
+    public function pollFollowUp(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'poll_follow_up_id');
     }
 
     public function media(): HasMany

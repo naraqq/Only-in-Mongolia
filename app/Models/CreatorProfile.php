@@ -160,6 +160,11 @@ class CreatorProfile extends Model
         return $this->hasMany(Post::class)->latest()->latest('id'); // newest first, stable within the same second
     }
 
+    public function series(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(CreatorSeries::class);
+    }
+
     public function starterPost(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(Post::class)->ofMany(

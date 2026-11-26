@@ -2,7 +2,7 @@ import DashboardLayout, { type PageProps } from '@/layouts/dashboard-layout';
 import { useT } from '@/lib/i18n';
 import { type SharedData } from '@/types';
 import { usePage } from '@inertiajs/react';
-import { ChartColumn, ExternalLink, Images, LayoutDashboard, MessageCircle, Ticket, UserPen, Wallet } from 'lucide-react';
+import { ChartColumn, ExternalLink, Images, LayoutDashboard, ListOrdered, MessageCircle, Ticket, UserPen, Wallet } from 'lucide-react';
 
 /** The creator studio: overview and posts, earnings, and shortcuts to the page, messages and profile. */
 export default function StudioLayout(props: PageProps) {
@@ -23,6 +23,7 @@ export default function StudioLayout(props: PageProps) {
                         items: [
                             { label: t('stu.overview'), href: route('studio'), icon: LayoutDashboard, active: route().current('studio') },
                             { label: t('lib.title'), href: route('studio.library'), icon: Images, active: route().current('studio.library') },
+                            { label: t('series.title'), href: route('studio.series'), icon: ListOrdered, active: route().current('studio.series') },
                             { label: t('ins.title'), href: route('studio.insights'), icon: ChartColumn, active: route().current('studio.insights') },
                             { label: t('ea.title'), href: route('studio.earnings'), icon: Wallet, active: route().current('studio.earnings') },
                             { label: t('pro.title'), href: route('studio.promotions'), icon: Ticket, active: route().current('studio.promotions') },

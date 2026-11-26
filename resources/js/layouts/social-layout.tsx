@@ -210,9 +210,7 @@ export default function SocialLayout({
                 <main className="min-h-svh min-w-0 flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] md:px-6 md:pb-0">
                     <div className={`animate-page-in mx-auto w-full ${wide ? 'max-w-[1100px]' : 'max-w-[680px]'}`}>
                         {header !== undefined && (
-                            <div className="bg-background sticky top-14 z-20 flex h-14 items-center gap-3 px-5 md:top-0">
-                                {header}
-                            </div>
+                            <div className="bg-background sticky top-14 z-20 flex h-14 items-center gap-3 px-5 md:top-0">{header}</div>
                         )}
                         {children}
                     </div>
@@ -241,7 +239,15 @@ export default function SocialLayout({
                     </Link>
                 )}
                 {links.slice(2, 4).map((l) => (
-                    <TabLink key={l.href} href={l.href} icon={l.icon} label={t(l.label)} active={l.match(path)} badge={l.badge} prefetch={l.badge === undefined} />
+                    <TabLink
+                        key={l.href}
+                        href={l.href}
+                        icon={l.icon}
+                        label={t(l.label)}
+                        active={l.match(path)}
+                        badge={l.badge}
+                        prefetch={l.badge === undefined}
+                    />
                 ))}
             </nav>
         </div>
@@ -351,7 +357,7 @@ function AccountMenu({ compact = false }: { compact?: boolean }) {
     );
 }
 
-function RightRail() {
+export function RightRail() {
     const { t } = useT();
     const { suggestions } = usePage<SharedData & { suggestions: CreatorCardData[] }>().props;
 

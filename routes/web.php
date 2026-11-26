@@ -17,12 +17,14 @@ use App\Http\Controllers\MediaController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PollController;
 use App\Http\Controllers\PreferencesController;
 use App\Http\Controllers\ProfileEditController;
 use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\PushController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\SeriesController;
 use App\Http\Controllers\StudioController;
 use App\Http\Controllers\WalletController;
 use App\Http\Middleware\EnsureAdmin;
@@ -72,6 +74,8 @@ Route::middleware(['auth'])->group(function () {
 
     // Likes, comments, saved posts.
     Route::post('posts/{post}/like', [EngagementController::class, 'like'])->middleware('throttle:120,1')->name('posts.like');
+    Route::post('posts/{post}/poll/vote', [PollController::class, 'vote'])->middleware('throttle:30,1')->name('posts.poll.vote');
+    Route::post('posts/{post}/poll/follow-up', [PollController::class, 'followUp'])->middleware('throttle:20,1')->name('posts.poll.follow-up');
     Route::post('posts/{post}/bookmark', [EngagementController::class, 'bookmark'])->middleware('throttle:120,1')->name('posts.bookmark');
     Route::get('posts/{post}/comments', [EngagementController::class, 'comments'])->name('posts.comments');
     Route::post('posts/{post}/comments', [EngagementController::class, 'comment'])->middleware('throttle:20,1')->name('posts.comment');
@@ -128,6 +132,10 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('studio/fans/lists/{list}', [\App\Http\Controllers\FansController::class, 'destroyList'])->name('studio.lists.destroy');
     Route::post('studio/fans/lists/{list}/members/{user}', [\App\Http\Controllers\FansController::class, 'toggle'])->name('studio.lists.toggle');
     Route::get('studio/library', [\App\Http\Controllers\LibraryController::class, 'index'])->name('studio.library');
+    Route::get('studio/series', [SeriesController::class, 'index'])->name('studio.series');
+    Route::post('studio/series', [SeriesController::class, 'store'])->middleware('throttle:20,1')->name('studio.series.store');
+    Route::patch('studio/series/{series}', [SeriesController::class, 'update'])->whereNumber('series')->name('studio.series.update');
+    Route::delete('studio/series/{series}', [SeriesController::class, 'destroy'])->whereNumber('series')->name('studio.series.destroy');
     Route::get('studio/library/items', [\App\Http\Controllers\LibraryController::class, 'list'])->name('studio.library.items');
     Route::post('studio/library', [\App\Http\Controllers\LibraryController::class, 'store'])->middleware('throttle:30,60')->name('studio.library.store');
     Route::delete('studio/library/{item}', [\App\Http\Controllers\LibraryController::class, 'destroy'])->name('studio.library.destroy');
@@ -170,4 +178,5 @@ require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';
 
 // Creator pages: /@handle. Last, so it never shadows another route.
+Route::get('@{handle}/series/{series}', [SeriesController::class, 'show'])->where('handle', '[A-Za-z0-9_.]{3,30}')->whereNumber('series')->name('creator.series');
 Route::get('@{handle}', [CreatorPageController::class, 'show'])->where('handle', '[A-Za-z0-9_.]{3,30}')->name('creator.show');

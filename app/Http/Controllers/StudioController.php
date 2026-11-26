@@ -46,7 +46,7 @@ class StudioController extends Controller
             'posts' => $creator->posts()->with('media')->withEngagement($request->user())->reorder()
                 ->orderByRaw('case when publish_at > ? then 0 else 1 end', [now()])->orderBy('publish_at')->latest()->latest('id')
                 ->take(100)->get()
-                ->map(fn (Post $p) => [...CreatorPageController::present($p, $request->user()), 'pinned' => $p->id === $creator->pinned_post_id]),
+                ->map(fn (Post $p) => [...CreatorPageController::present($p, $request->user()), 'pinned' => $p->id === $creator->pinned_post_id, 'held' => $p->held_at !== null]),
         ]);
     }
 
@@ -55,10 +55,12 @@ class StudioController extends Controller
         $creator = $this->creator($request);
 
         $data = $request->validate([
-            'body' => ['nullable', 'string', 'max:5000', 'required_without_all:media,vault'],
+            'body' => ['nullable', 'string', 'max:5000', 'required_without_all:media,vault', 'required_with:poll_options'],
             'visibility' => ['required', Rule::in([Post::PUBLIC, Post::SUBSCRIBERS])],
             'is_adult' => ['boolean'],
-            'price' => ['nullable', 'integer', 'min:'.config('creators.min_ppv'), 'max:'.config('creators.max_ppv')],
+            'price' => [Rule::prohibitedIf((bool) $request->input('poll_options')), 'nullable', 'integer', 'min:'.config('creators.min_ppv'), 'max:'.config('creators.max_ppv')],
+            'poll_options' => ['nullable', 'array', 'list', 'min:2', 'max:4'],
+            'poll_options.*' => ['required', 'string', 'max:80', 'distinct:ignore_case'],
             'publish_at' => ['nullable', 'date', 'after:now', 'before:+1 year'],
             'media' => ['nullable', 'array', 'max:10'],
             // Photos up to 20 MB, videos up to 40 MB (raise upload_max_filesize/post_max_size in production).
@@ -95,6 +97,7 @@ class StudioController extends Controller
                 'is_adult' => $adult,
                 'price' => $data['price'] ?? null,
                 'publish_at' => $data['publish_at'] ?? null,
+                'poll_options' => $data['poll_options'] ?? null,
             ]);
             // Library picks first, in the order chosen, then new uploads (which join the library).
             $position = 0;
@@ -130,9 +133,9 @@ class StudioController extends Controller
         abort_unless($post->creator_profile_id === $creator->id, 403);
 
         $data = $request->validate([
-            'body' => [$post->media()->exists() ? 'nullable' : 'required', 'string', 'max:5000'],
+            'body' => [$post->media()->exists() && ! $post->poll_options ? 'nullable' : 'required', 'string', 'max:5000'],
             'visibility' => ['required', Rule::in([Post::PUBLIC, Post::SUBSCRIBERS])],
-            'price' => ['nullable', 'integer', 'min:'.config('creators.min_ppv'), 'max:'.config('creators.max_ppv')],
+            'price' => [Rule::prohibitedIf((bool) $post->poll_options), 'nullable', 'integer', 'min:'.config('creators.min_ppv'), 'max:'.config('creators.max_ppv')],
             'publish_at' => ['nullable', 'date', 'after:now', 'before:+1 year'],
         ]);
 

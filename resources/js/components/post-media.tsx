@@ -56,7 +56,11 @@ export default function PostMedia({
                 className={many ? 'flex snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : ''}
             >
                 {media.map((m, i) => (
-                    <div key={m.id} className={`relative ${many ? 'aspect-square w-full shrink-0 snap-center' : ''}`} onClick={(e) => click(e, i)}>
+                    <div
+                        key={m.id}
+                        className={`relative ${many ? 'aspect-square w-full shrink-0 snap-center' : ''} ${m.type === 'image' ? 'cursor-pointer' : ''}`}
+                        onClick={m.type === 'image' ? (event) => click(event, i) : undefined}
+                    >
                         {m.type === 'video' ? (
                             <>
                                 <video
@@ -76,7 +80,7 @@ export default function PostMedia({
                                 alt=""
                                 loading="lazy"
                                 draggable={false}
-                                className={`w-full cursor-pointer object-cover ${many ? 'h-full' : 'max-h-[640px] min-h-48'}`}
+                                className={`w-full object-cover ${many ? 'h-full' : 'max-h-[640px] min-h-48'}`}
                             />
                         )}
                     </div>

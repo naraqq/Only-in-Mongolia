@@ -49,7 +49,7 @@ export default function MediaLightbox({
                 >
                     <Dialog.Title className="sr-only">{`${i + 1} / ${media.length}`}</Dialog.Title>
                     <div
-                        className={`relative grid min-h-0 min-w-0 flex-1 place-items-center ${aside ? 'max-lg:max-h-[55vh] max-lg:shrink-0' : ''}`}
+                        className={`relative grid min-h-0 min-w-0 flex-1 place-items-center [&:hover:not(:has(>*:hover))]:cursor-pointer ${aside ? 'max-lg:max-h-[55vh] max-lg:shrink-0' : ''}`}
                         onClick={(e) => e.target === e.currentTarget && onClose()}
                     >
                         {m &&

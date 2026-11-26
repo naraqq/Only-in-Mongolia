@@ -29,17 +29,33 @@ class CreatorPageController extends Controller
         $gated = $creator->adult_content && ! $viewer;
 
         $sort = $request->query('sort') === 'popular' ? 'popular' : 'new';
-        $tab = $request->query('tab') === 'media' ? 'media' : 'posts';
+        $tab = match ($request->query('tab')) {
+            'media' => 'media',
+            'series' => 'series',
+            default => 'posts',
+        };
+        $focused = ! $gated && $request->integer('focus') > 0
+            ? $creator->posts()->published()->with('media')->withEngagement($viewer)->find($request->integer('focus'))
+            : null;
+        if ($focused) {
+            $tab = 'posts';
+        }
         $pinned = $tab === 'posts' && $sort === 'new' && $creator->pinned_post_id
             ? $creator->posts()->published()->with('media')->withEngagement($viewer)->find($creator->pinned_post_id)
             : null;
-        $posts = $gated ? collect() : $creator->posts()->published()->with('media')->withEngagement($viewer)
+        $posts = $gated || $tab === 'series' ? collect() : $creator->posts()->published()->with('media')->withEngagement($viewer)
             ->when($tab === 'media', fn ($q) => $q->has('media'))
             ->when($pinned, fn ($q) => $q->whereKeyNot($pinned->id))
+            ->when($focused, fn ($q) => $q->whereKeyNot($focused->id))
             ->when($sort === 'popular', fn ($q) => $q->reorder()->orderByDesc('likes_count')->latest())
             ->take(60)->get()
-            ->when($pinned && ! $gated, fn ($c) => $c->prepend($pinned))
+            ->when($pinned && $pinned->id !== $focused?->id, fn ($c) => $c->prepend($pinned))
+            ->when($focused, fn ($c) => $c->prepend($focused))
             ->map(fn (Post $p) => [...self::present($p, $viewer), 'pinned' => $p->id === $creator->pinned_post_id]);
+        $visibleEpisodes = fn ($query) => $query->published()->when(! $viewer, fn ($posts) => $posts->where('posts.is_adult', false));
+        $collections = $gated ? collect() : $creator->series()->whereHas('posts', $visibleEpisodes)
+            ->withCount(['posts' => $visibleEpisodes])->orderByDesc('featured')->latest('id')->get()
+            ->map(fn ($series) => $series->only('id', 'title', 'description', 'featured', 'posts_count'));
 
         return Inertia::render('creator/show', [
             'creator' => [
@@ -55,6 +71,7 @@ class CreatorPageController extends Controller
             ],
             'following' => $viewer ? $creator->followers()->whereKey($viewer->id)->exists() : false,
             'posts' => $posts,
+            'collections' => $collections,
             'gated' => $gated,
             'sort' => $sort,
             'tab' => $tab,
@@ -86,6 +103,7 @@ class CreatorPageController extends Controller
             'created_at' => $post->created_at->toIso8601String(),
             'locked' => $lock,
             'body' => $lock ? null : $post->body,
+            'poll' => $lock ? null : PollController::present($post, $viewer),
             'media' => $lock ? [] : $post->media->map(fn ($m) => ['id' => $m->id, 'type' => $m->type, 'url' => route('media.show', [$m, ...$tag]), 'stamp' => $stamp])->all(),
             'likes_count' => (int) ($post->likes_count ?? $post->likes()->count()),
             'comments_count' => (int) ($post->comments_count ?? $post->comments()->count()),
