@@ -2,22 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Fans\Audience;
+use App\Media\Library;
 use App\Media\Stamp;
+use App\Messaging\Outbox;
 use App\Models\Conversation;
 use App\Models\CreatorProfile;
 use App\Models\Message;
 use App\Models\MessageMedia;
 use App\Models\User;
 use App\Moderation\Moderation;
-use App\Push\Push;
-use App\Push\SendPush;
-use App\Push\Texts;
 use App\Support\Blocking;
 use App\Support\Messaging;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -81,10 +82,10 @@ class MessageController extends Controller
         if (isset($data['price']) && ! $me->creatorProfile()->where('status', CreatorProfile::APPROVED)->exists()) {
             return back()->withErrors(['price' => 'Only creators can sell messages.']);
         }
-        $message = $this->deliver($conversation, $me, ($data['body'] ?? null), $this->storeFiles($request, $me), price: $data['price'] ?? null);
+        $message = Outbox::deliver($conversation, $me, ($data['body'] ?? null), $this->storeFiles($request, $me), price: $data['price'] ?? null);
         Moderation::queue(...$message->media()->get()->all());
         $conversation->markRead($me);
-        $this->push($other, $me, $message, $conversation);
+        Outbox::push($other, $me, $message, $conversation);
 
         return back();
     }
@@ -94,20 +95,32 @@ class MessageController extends Controller
     {
         $me = $request->user();
         $creator = $me->creatorProfile()->where('status', CreatorProfile::APPROVED)->firstOrFail();
-        $request->validate(['audience' => ['required', 'in:subscribers,followers']]);
+        $request->validate([
+            'audience' => ['required', 'string', fn ($attr, $value, $fail) => Audience::valid($creator, (string) $value) || $fail(__('Choose who gets it.'))],
+            'skip_owners' => ['boolean'],
+        ]);
         $data = $this->validateMessage($request);
-
-        $recipients = $request->input('audience') === 'subscribers'
-            ? User::whereIn('id', $creator->subscriptions()->active()->select('user_id'))
-            : $creator->followers()->getQuery();
         $files = $this->storeFiles($request, $me); // stored once, shared by every copy
+
+        $recipients = Audience::query($creator, $request->input('audience'))
+            // Never people who blocked the creator, or whom the creator blocked.
+            ->whereNotIn('users.id', DB::table('blocks')->where('blocker_id', $me->id)->select('blocked_id'))
+            ->whereNotIn('users.id', DB::table('blocks')->where('blocked_id', $me->id)->select('blocker_id'));
+        // "Skip fans who already have these": anyone who unlocked a post or message with any of the same files.
+        if ($request->boolean('skip_owners') && $files) {
+            $paths = array_column($files, 'path');
+            $recipients->whereNotIn('users.id', DB::table('purchases')->join('message_media', 'message_media.message_id', '=', 'purchases.message_id')
+                ->whereIn('message_media.path', $paths)->select('purchases.user_id'))
+                ->whereNotIn('users.id', DB::table('purchases')->join('post_media', 'post_media.post_id', '=', 'purchases.post_id')
+                    ->whereIn('post_media.path', $paths)->select('purchases.user_id'));
+        }
 
         $sent = 0;
         $first = null;
-        $recipients->where('users.id', '!=', $me->id)->select('users.*')->chunkById(200, function ($users) use ($me, $data, $files, &$sent) {
+        $recipients->select('users.*')->chunkById(200, function ($users) use ($me, $data, $files, &$sent, &$first) {
             foreach ($users as $user) {
                 $conversation = Conversation::between($me, $user);
-                $message = $this->deliver($conversation, $me, ($data['body'] ?? null), $files, mass: true, price: $data['price'] ?? null);
+                $message = Outbox::deliver($conversation, $me, ($data['body'] ?? null), $files, mass: true, price: $data['price'] ?? null);
                 $first ??= $message;
                 $conversation->markRead($me);
                 $sent++;
@@ -119,21 +132,6 @@ class MessageController extends Controller
         }
 
         return back()->with('status', "mass-sent:$sent");
-    }
-
-    /**
-     * A push for the person who got the message: who sent it and the start of the text (a paid message only says
-     * there's a photo or video). Mass messages don't push, so a creator's broadcast can't buzz thousands of phones.
-     */
-    private function push(User $to, User $from, Message $message, Conversation $conversation): void
-    {
-        if (! Push::enabled()) {
-            return;
-        }
-        $name = $from->creatorProfile()->where('status', CreatorProfile::APPROVED)->value('display_name') ?? $from->name;
-        $body = $message->body && ! $message->price ? mb_strimwidth($message->body, 0, 140, '…') : null;
-        SendPush::dispatch([$to->id], $body === null ? 'media' : 'message', ['name' => $name],
-            route('messages.show', $conversation), 'chat-'.$conversation->id, $name, $body ?? Texts::line('media', $to->locale));
     }
 
     /** A message photo or video, only for the two people in the conversation. */
@@ -162,43 +160,49 @@ class MessageController extends Controller
     private function validateMessage(Request $request): array
     {
         return $request->validate([
-            'body' => ['nullable', 'string', 'max:2000', 'required_without:media'],
+            'body' => ['nullable', 'string', 'max:2000', 'required_without_all:media,vault'],
             'media' => ['nullable', 'array', 'max:10'],
+            // Creators: photos and videos picked from their media library.
+            'vault' => ['nullable', 'array', 'max:'.Library::MAX_PER_ITEM],
+            'vault.*' => ['integer'],
             'media.*' => ['file', 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm', 'max:40960'],
             // A price locks the photos/videos, so it only applies to messages that have some.
             'price' => ['nullable', 'integer', 'min:'.config('creators.min_ppv'), 'max:'.config('creators.max_ppv')],
-        ], ['body.required_without' => __('Write something or add a photo or video.')]);
+        ], ['body.required_without_all' => __('Write something or add a photo or video.')]);
     }
 
-    /** @return array<int, array{type: string, path: string, mime: string}> */
+    /**
+     * Library picks (creators only) followed by new uploads. A creator's uploads join their library.
+     *
+     * @return array<int, array{type: string, path: string, mime: string}>
+     */
     private function storeFiles(Request $request, User $me): array
     {
+        $creator = $me->creatorProfile()->where('status', CreatorProfile::APPROVED)->first();
+        $picks = $request->input('vault', []);
+        if ($picks && ! $creator) {
+            throw ValidationException::withMessages(['vault' => __('This file can’t be used.')]);
+        }
+        if (count($request->file('media', [])) + count($picks) > Library::MAX_PER_ITEM) {
+            throw ValidationException::withMessages(['media' => __('A message can have at most 10 photos and videos.')]);
+        }
+        $picked = $creator ? Library::pick($creator, $picks) : [];
         $hashes = Moderation::screen($request->file('media', []));
 
-        return collect($request->file('media', []))->map(fn ($file, $i) => [
+        $uploads = collect($request->file('media', []))->map(fn ($file, $i) => [
             'type' => str_starts_with($file->getMimeType(), 'video/') ? 'video' : 'image',
             'path' => $file->store("messages/{$me->id}"), // private disk
             'mime' => $file->getMimeType(),
             'sha256' => $hashes[$i],
         ])->all();
-    }
-
-    private function deliver(Conversation $conversation, User $from, ?string $body, array $files, bool $mass = false, ?int $price = null): Message
-    {
-        return DB::transaction(function () use ($conversation, $from, $body, $files, $mass, $price) {
-            $message = $conversation->messages()->create([
-                'sender_id' => $from->id,
-                'body' => trim((string) $body) ?: null,
-                'is_mass' => $mass,
-                'price' => $files ? $price : null,
-            ]);
-            foreach ($files as $i => $f) {
-                $message->media()->create([...$f, 'position' => $i]);
+        if ($creator) {
+            foreach ($uploads as $file) {
+                Library::record($creator, $file);
             }
-            $conversation->forceFill(['last_message_at' => now()])->saveQuietly();
+        }
 
-            return $message;
-        });
+        // A pick already scanned elsewhere keeps its result; anything else waits for the scan.
+        return [...array_map(fn ($f) => [...$f, 'scan_status' => $f['scan_status'] ?? 'pending'], $picked), ...$uploads];
     }
 
     /** Conversations with at least one message, newest first. */

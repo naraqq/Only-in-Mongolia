@@ -10,7 +10,7 @@ class MessageMedia extends Model
 {
     protected $table = 'message_media';
 
-    protected $fillable = ['message_id', 'type', 'path', 'mime', 'position', 'sha256'];
+    protected $fillable = ['message_id', 'type', 'path', 'mime', 'position', 'sha256', 'scan_status'];
 
     protected $casts = ['scan_labels' => 'array'];
 

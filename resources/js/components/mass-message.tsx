@@ -1,9 +1,10 @@
 import InputError from '@/components/input-error';
+import { LibraryButton, PickedThumbs, type Picked } from '@/components/library-picker';
 import MediaThumbs from '@/components/media-thumbs';
 import PriceField from '@/components/price-field';
+import { ask } from '@/lib/confirm';
 import { priceOk } from '@/lib/format';
 import { useT } from '@/lib/i18n';
-import { ask } from '@/lib/confirm';
 import { useForm, usePage } from '@inertiajs/react';
 import { ImagePlus, LoaderCircle, Lock, Megaphone } from 'lucide-react';
 import { useRef, useState, type FormEvent } from 'react';
@@ -14,20 +15,23 @@ export default function MassMessage({ subscribers, followers, className = '' }: 
     const flash = usePage<{ flash?: { status?: string } }>().props.flash;
     const form = useForm({ body: '', audience: 'subscribers' as 'subscribers' | 'followers', media: [] as File[], price: 5000 });
     const [ppv, setPpv] = useState(false);
+    const [picked, setPicked] = useState<Picked[]>([]);
+    const hasMedia = form.data.media.length > 0 || picked.length > 0;
     const { ppvLimits } = usePage<{ ppvLimits: { min: number; max: number } }>().props;
-    const priced = ppv && form.data.media.length > 0;
+    const priced = ppv && form.data.media.length + picked.length > 0;
     const files = useRef<HTMLInputElement>(null);
     const count = form.data.audience === 'subscribers' ? subscribers : followers;
     const sent = typeof flash?.status === 'string' && flash.status.startsWith('mass-sent:') ? Number(flash.status.split(':')[1]) : null;
 
     function submit(e: FormEvent) {
         e.preventDefault();
-        form.transform((d) => ({ ...d, price: priced ? d.price : null }));
+        form.transform((d) => ({ ...d, vault: picked.map((p) => p.id), price: priced ? d.price : null }));
         form.post(route('studio.mass'), {
             forceFormData: true,
             preserveScroll: true,
             onSuccess: () => {
                 form.reset('body', 'media');
+                setPicked([]);
                 setPpv(false);
             },
         });
@@ -61,6 +65,7 @@ export default function MassMessage({ subscribers, followers, className = '' }: 
                 placeholder={t('mm.placeholder')}
                 className="placeholder:text-muted-foreground bg-muted focus:ring-primary/25 mt-3 w-full resize-none rounded-xl px-3.5 py-2.5 text-[15px] outline-none focus:ring-2"
             />
+            <PickedThumbs picked={picked} onRemove={(id) => setPicked((p) => p.filter((x) => x.id !== id))} className="mt-2" />
             <MediaThumbs
                 files={form.data.media}
                 onRemove={(i) =>
@@ -72,7 +77,7 @@ export default function MassMessage({ subscribers, followers, className = '' }: 
                 className="mt-2"
             />
             <InputError message={form.errors.body} />
-            {form.data.media.length > 0 && (
+            {hasMedia && (
                 <div className="mt-2 flex items-center gap-2">
                     <button
                         type="button"
@@ -99,24 +104,28 @@ export default function MassMessage({ subscribers, followers, className = '' }: 
                     accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
                     className="hidden"
                     onChange={(e) => {
-                        form.setData('media', [...form.data.media, ...Array.from(e.target.files ?? [])].slice(0, 10));
+                        form.setData('media', [...form.data.media, ...Array.from(e.target.files ?? [])].slice(0, 10 - picked.length));
                         e.target.value = '';
                     }}
+                />
+                <LibraryButton
+                    picked={picked}
+                    onChange={setPicked}
+                    max={10 - form.data.media.length}
+                    className="hover:bg-muted inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-violet-600 transition dark:text-violet-400"
                 />
                 {sent !== null && !form.isDirty && <span className="text-sm font-semibold text-emerald-600">{t('mm.sent', { n: sent })}</span>}
                 <button
                     type="submit"
                     className="bg-primary text-primary-foreground ml-auto inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm font-bold transition hover:brightness-110 disabled:opacity-40"
                     disabled={
-                        form.processing ||
-                        count === 0 ||
-                        (!form.data.body.trim() && form.data.media.length === 0) ||
-                        (priced && !priceOk(form.data.price, ppvLimits))
+                        form.processing || count === 0 || (!form.data.body.trim() && !hasMedia) || (priced && !priceOk(form.data.price, ppvLimits))
                     }
                     onClick={async (e) => {
                         e.preventDefault();
                         const form = e.currentTarget.form;
-                        if (await ask({ message: t('mm.confirm', { n: count }), confirm: t('mm.send', { n: count }), cancel: t('dlg.cancel') })) form?.requestSubmit();
+                        if (await ask({ message: t('mm.confirm', { n: count }), confirm: t('mm.send', { n: count }), cancel: t('dlg.cancel') }))
+                            form?.requestSubmit();
                     }}
                 >
                     {form.processing && <LoaderCircle className="size-4 animate-spin" />}

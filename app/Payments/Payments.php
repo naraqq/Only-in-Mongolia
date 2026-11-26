@@ -2,6 +2,7 @@
 
 namespace App\Payments;
 
+use App\Messaging\Welcome;
 use App\Models\Conversation;
 use App\Models\CreatorProfile;
 use App\Models\Message;
@@ -163,6 +164,9 @@ class Payments
         $sub->expires_at = $from->copy()->addDays((int) config('creators.subscription_days') * max(1, $payment->months));
         $sub->save();
         Notify::paid($payment, $renewed);
+        if (! $renewed) {
+            Welcome::send($payment->creator, $payment->user); // once per fan, ever
+        }
     }
 
     /**

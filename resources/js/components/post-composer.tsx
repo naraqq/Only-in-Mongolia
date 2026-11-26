@@ -1,4 +1,5 @@
 import InputError from '@/components/input-error';
+import { LibraryButton, PickedThumbs, type Picked } from '@/components/library-picker';
 import MediaThumbs from '@/components/media-thumbs';
 import PriceField from '@/components/price-field';
 import UserAvatar from '@/components/user-avatar';
@@ -39,11 +40,13 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
     });
     const [audience, setAudience] = useState<Audience>('subscribers');
     const [schedule, setSchedule] = useState(false);
+    const [picked, setPicked] = useState<Picked[]>([]);
     const box = useRef<HTMLTextAreaElement>(null);
     const files = useRef<HTMLInputElement>(null);
     const mediaErrors = Object.entries(form.errors).filter(([k]) => k.startsWith('media'));
     const ppv = audience === 'ppv';
-    const empty = !form.data.body.trim() && form.data.media.length === 0;
+    const empty = !form.data.body.trim() && form.data.media.length === 0 && picked.length === 0;
+    const room = 10 - picked.length;
 
     useImperativeHandle(ref, () => ({ focus: () => box.current?.focus() }));
 
@@ -64,6 +67,7 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
         e.preventDefault();
         form.transform((d) => ({
             ...d,
+            vault: picked.map((p) => p.id),
             price: ppv ? d.price : null,
             publish_at: schedule && d.publish_at ? new Date(d.publish_at).toISOString() : null,
         }));
@@ -72,6 +76,7 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
             preserveScroll: true,
             onSuccess: () => {
                 form.reset();
+                setPicked([]);
                 setAudience('subscribers');
                 setSchedule(false);
             },
@@ -97,6 +102,7 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
             </div>
             <InputError message={form.errors.body} />
 
+            <PickedThumbs picked={picked} onRemove={(id) => setPicked((p) => p.filter((x) => x.id !== id))} className="mt-3" />
             <MediaThumbs
                 files={form.data.media}
                 onRemove={(i) =>
@@ -168,9 +174,18 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
                     accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
                     className="hidden"
                     onChange={(e) => {
-                        form.setData('media', [...form.data.media, ...Array.from(e.target.files ?? [])].slice(0, 10));
+                        form.setData('media', [...form.data.media, ...Array.from(e.target.files ?? [])].slice(0, room));
                         e.target.value = '';
                     }}
+                />
+                <LibraryButton
+                    picked={picked}
+                    onChange={(p) => {
+                        setPicked(p);
+                        form.setData('media', form.data.media.slice(0, 10 - p.length));
+                    }}
+                    max={10 - form.data.media.length + picked.length}
+                    className={`${tool} text-violet-600 dark:text-violet-400`}
                 />
                 {!schedule && (
                     <button type="button" onClick={() => setSchedule(true)} className={`${tool} text-sky-600 dark:text-sky-400`}>

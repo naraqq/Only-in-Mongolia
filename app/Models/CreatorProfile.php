@@ -22,11 +22,15 @@ class CreatorProfile extends Model
         'legal_name', 'register_number', 'id_front_path', 'id_back_path', 'selfie_path',
         'bank_name', 'bank_account', 'account_holder', 'consented_at', 'consent_ip',
         'status', 'review_note', 'reviewed_at', 'reviewed_by', 'trial_days',
+        'welcome_enabled', 'welcome_body', 'welcome_vault', 'welcome_price',
     ];
 
     protected $casts = [
         'price_monthly' => 'integer',
         'bundles' => 'array',
+        'welcome_enabled' => 'boolean',
+        'welcome_vault' => 'array',
+        'welcome_price' => 'integer',
         'adult_content' => 'boolean',
         'register_number' => 'encrypted',
         'bank_account' => 'encrypted',
@@ -144,6 +148,11 @@ class CreatorProfile extends Model
             'followers_count' => (int) ($this->followers_count ?? $this->followers()->count()),
             'following' => $viewer ? $this->followers()->whereKey($viewer->id)->exists() : false,
         ];
+    }
+
+    public function vaultItems(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(VaultItem::class);
     }
 
     public function posts(): \Illuminate\Database\Eloquent\Relations\HasMany

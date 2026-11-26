@@ -122,6 +122,9 @@ class CreatorPostsTest extends TestCase
 
         $this->actingAs($c->user)->delete("/studio/posts/{$p->id}")->assertRedirect('/studio');
         $this->assertSame(0, Post::count());
+        // The upload stays in the creator's media library until it's removed from there too.
+        Storage::assertExists($path);
+        $this->delete(route('studio.library.destroy', $c->vaultItems()->sole()));
         Storage::assertMissing($path);
     }
 }

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Media\Stamp;
+use App\Media\Library;
 use App\Moderation\Moderation;
 use App\Http\Controllers\Controller;
 use App\Models\CreatorProfile;
@@ -10,6 +10,7 @@ use App\Models\Message;
 use App\Models\Post;
 use App\Models\PostComment;
 use App\Models\Report;
+use App\Models\VaultItem;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -92,11 +93,11 @@ class ReportController extends Controller
     {
         match (true) {
             $target instanceof Post => (function () use ($target) {
-                Storage::delete($target->media->pluck('path')->all());
-                foreach ($target->media as $m) {
-                    Storage::deleteDirectory(Stamp::folder($m->path));
-                }
+                // Removed for breaking the rules: out of the creator's library too (the blocklist stops re-uploads).
+                $paths = $target->media->pluck('path')->all();
                 $target->delete();
+                VaultItem::whereIn('path', $paths)->delete();
+                Library::deleteUnused($paths);
             })(),
             $target instanceof Message => (function () use ($target) {
                 // Files may be shared by copies of a mass message, so only the file rows go; the files stay until cleanup.

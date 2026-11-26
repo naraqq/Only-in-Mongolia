@@ -1,3 +1,4 @@
+import { LibraryButton, PickedThumbs, type Picked } from '@/components/library-picker';
 import MediaThumbs from '@/components/media-thumbs';
 import MoreMenu from '@/components/more-menu';
 import PriceField from '@/components/price-field';
@@ -372,6 +373,7 @@ function Composer({ conversationId }: { conversationId: number }) {
     const { t } = useT();
     const form = useForm({ body: '', media: [] as File[], price: 5000 });
     const [ppv, setPpv] = useState(false);
+    const [picked, setPicked] = useState<Picked[]>([]);
     const { auth, ppvLimits } = usePage<SharedData & { ppvLimits: { min: number; max: number } }>().props;
     const isCreator = auth.creator?.status === 'approved';
     const files = useRef<HTMLInputElement>(null);
@@ -384,21 +386,25 @@ function Composer({ conversationId }: { conversationId: number }) {
         box.current.style.height = `${Math.min(box.current.scrollHeight, 160)}px`;
     }, [form.data.body]);
 
-    useEffect(() => form.reset(), [conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => {
+        form.reset();
+        setPicked([]);
+    }, [conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const priced = ppv && form.data.media.length > 0;
-    const canSend =
-        !form.processing && (form.data.body.trim() !== '' || form.data.media.length > 0) && (!priced || priceOk(form.data.price, ppvLimits));
+    const hasMedia = form.data.media.length > 0 || picked.length > 0;
+    const priced = ppv && hasMedia;
+    const canSend = !form.processing && (form.data.body.trim() !== '' || hasMedia) && (!priced || priceOk(form.data.price, ppvLimits));
 
     function submit(e?: FormEvent) {
         e?.preventDefault();
         if (!canSend) return;
-        form.transform((d) => ({ ...d, price: priced ? d.price : null }));
+        form.transform((d) => ({ ...d, vault: picked.map((p) => p.id), price: priced ? d.price : null }));
         form.post(route('messages.send', conversationId), {
             forceFormData: true,
             preserveScroll: true,
             onSuccess: () => {
                 form.reset();
+                setPicked([]);
                 setPpv(false);
             },
         });
@@ -415,6 +421,7 @@ function Composer({ conversationId }: { conversationId: number }) {
 
     return (
         <form onSubmit={submit} className="shrink-0 px-3 pt-2 pb-3">
+            <PickedThumbs picked={picked} onRemove={(id) => setPicked((p) => p.filter((x) => x.id !== id))} className="mb-2" />
             <MediaThumbs
                 files={form.data.media}
                 onRemove={(i) =>
@@ -425,7 +432,7 @@ function Composer({ conversationId }: { conversationId: number }) {
                 }
                 className="mb-2"
             />
-            {isCreator && form.data.media.length > 0 && (
+            {isCreator && hasMedia && (
                 <div className="mb-2 flex items-center gap-2">
                     <button
                         type="button"
@@ -448,6 +455,15 @@ function Composer({ conversationId }: { conversationId: number }) {
                 >
                     <ImagePlus className="size-5" />
                 </button>
+                {isCreator && (
+                    <LibraryButton
+                        picked={picked}
+                        onChange={setPicked}
+                        max={10 - form.data.media.length}
+                        iconOnly
+                        className="grid size-10 shrink-0 place-items-center rounded-full text-violet-600 transition hover:bg-violet-500/10 dark:text-violet-400"
+                    />
+                )}
                 <input
                     ref={files}
                     type="file"
@@ -455,7 +471,7 @@ function Composer({ conversationId }: { conversationId: number }) {
                     accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
                     className="hidden"
                     onChange={(e) => {
-                        form.setData('media', [...form.data.media, ...Array.from(e.target.files ?? [])].slice(0, 10));
+                        form.setData('media', [...form.data.media, ...Array.from(e.target.files ?? [])].slice(0, 10 - picked.length));
                         e.target.value = '';
                     }}
                 />

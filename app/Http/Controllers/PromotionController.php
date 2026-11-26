@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Media\Library;
 use App\Models\CreatorProfile;
 use App\Models\PromoCode;
 use App\Models\Subscription;
+use App\Models\VaultItem;
 use App\Support\Blocking;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -41,7 +43,58 @@ class PromotionController extends Controller
                 'expires_at' => $c->expires_at?->toIso8601String(),
                 'expired' => (bool) $c->expires_at?->isPast(),
             ]),
+            'welcome' => $this->welcome($creator),
         ]);
+    }
+
+    /** The welcome DM as set up, and how it does: how many got it, and how many paid to unlock it. */
+    private function welcome(CreatorProfile $creator): array
+    {
+        $ids = (array) $creator->welcome_vault;
+        $items = VaultItem::where('creator_profile_id', $creator->id)->whereIn('id', $ids)->get()->keyBy('id');
+        $unlocks = DB::table('purchases')->join('messages', 'messages.id', '=', 'purchases.message_id')
+            ->leftJoin('payments', 'payments.id', '=', 'purchases.payment_id')
+            ->where('messages.sender_id', $creator->user_id)->where('messages.kind', 'welcome')
+            ->selectRaw('count(*) as n, coalesce(sum(payments.amount), 0) as total')->first();
+
+        return [
+            'enabled' => (bool) $creator->welcome_enabled,
+            'body' => (string) $creator->welcome_body,
+            'price' => $creator->welcome_price,
+            // Still in the library, in the chosen order.
+            'items' => collect($ids)->map(fn ($id) => $items[$id] ?? null)->filter()->map(fn (VaultItem $v) => [
+                'id' => $v->id, 'type' => $v->type, 'url' => route('studio.library.file', $v),
+            ])->values(),
+            'sent' => DB::table('welcome_sends')->where('creator_profile_id', $creator->id)->whereNotNull('message_id')->count(),
+            'unlocked' => (int) $unlocks->n,
+            'earned' => (int) $unlocks->total,
+        ];
+    }
+
+    public function updateWelcome(Request $request): RedirectResponse
+    {
+        $creator = $this->creator($request);
+        $data = $request->validate([
+            'enabled' => ['required', 'boolean'],
+            'body' => ['nullable', 'string', 'max:2000'],
+            'vault' => ['nullable', 'array', 'max:'.Library::MAX_PER_ITEM],
+            'vault.*' => ['integer'],
+            'price' => ['nullable', 'integer', 'min:'.config('creators.min_ppv'), 'max:'.config('creators.max_ppv')],
+        ]);
+        Library::pick($creator, $data['vault'] ?? []); // only the creator's own, usable files
+        if ($data['enabled'] && ! filled($data['body'] ?? null) && empty($data['vault'])) {
+            return back()->withErrors(['body' => __('Write something or add a photo or video.')]);
+        }
+
+        $creator->update([
+            'welcome_enabled' => $data['enabled'],
+            'welcome_body' => trim((string) ($data['body'] ?? '')) ?: null,
+            'welcome_vault' => array_values(array_map('intval', $data['vault'] ?? [])),
+            // A price locks the photos/videos, so it only applies when there are some.
+            'welcome_price' => ! empty($data['vault']) ? ($data['price'] ?? null) : null,
+        ]);
+
+        return back()->with('status', 'saved');
     }
 
     public function updateTrial(Request $request): RedirectResponse
@@ -92,6 +145,7 @@ class PromotionController extends Controller
             ]);
             Subscription::create(['user_id' => $fan->id, 'creator_profile_id' => $creator->id, 'expires_at' => now()->addDays($creator->trial_days)]);
             $creator->user->notify(new \App\Notifications\Activity('trial_started', $fan->id, ['days' => $creator->trial_days]));
+            \App\Messaging\Welcome::send($creator, $fan);
         });
 
         return to_route('creator.show', $creator->handle)->with('status', 'trial-started');

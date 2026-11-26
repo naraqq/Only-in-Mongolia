@@ -44,7 +44,9 @@ class Moderation
     public static function queue(PostMedia|MessageMedia ...$media): void
     {
         foreach ($media as $m) {
-            ScanMedia::dispatch($m::class, $m->id)->afterCommit();
+            if ($m->scan_status === 'pending' || $m->scan_status === null) { // reused library files may be checked already
+                ScanMedia::dispatch($m::class, $m->id)->afterCommit();
+            }
         }
     }
 

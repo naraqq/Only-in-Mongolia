@@ -1,4 +1,5 @@
 import InputError from '@/components/input-error';
+import WelcomeEditor, { type WelcomeSettings } from '@/components/welcome-editor';
 import StudioLayout from '@/layouts/studio-layout';
 import { mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
@@ -25,12 +26,14 @@ export default function Promotions({
     trialsStarted,
     price,
     codes,
+    welcome,
 }: {
     trialDays: number | null;
     trialChoices: number[];
     trialsStarted: number;
     price: number;
     codes: Code[];
+    welcome: WelcomeSettings;
 }) {
     const { t } = useT();
     const flash = usePage<{ flash?: { status?: string } }>().props.flash;
@@ -41,6 +44,8 @@ export default function Promotions({
     return (
         <StudioLayout title={t('pro.title')} subtitle={t('pro.sub')}>
             <div className="mx-auto flex max-w-3xl flex-col gap-5">
+                <WelcomeEditor welcome={welcome} />
+
                 {/* Free trial */}
                 <section className="bg-card rounded-2xl p-5 shadow-xs">
                     <div className="flex items-start gap-3">

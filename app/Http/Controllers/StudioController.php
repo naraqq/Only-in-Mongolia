@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Media\Stamp;
+use App\Media\Library;
 use App\Moderation\Moderation;
 use App\Models\CreatorProfile;
 use App\Models\Payment;
@@ -55,7 +55,7 @@ class StudioController extends Controller
         $creator = $this->creator($request);
 
         $data = $request->validate([
-            'body' => ['nullable', 'string', 'max:5000', 'required_without:media'],
+            'body' => ['nullable', 'string', 'max:5000', 'required_without_all:media,vault'],
             'visibility' => ['required', Rule::in([Post::PUBLIC, Post::SUBSCRIBERS])],
             'is_adult' => ['boolean'],
             'price' => ['nullable', 'integer', 'min:'.config('creators.min_ppv'), 'max:'.config('creators.max_ppv')],
@@ -63,9 +63,16 @@ class StudioController extends Controller
             'media' => ['nullable', 'array', 'max:10'],
             // Photos up to 20 MB, videos up to 40 MB (raise upload_max_filesize/post_max_size in production).
             'media.*' => ['file', 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm', 'max:40960'],
+            // Photos and videos picked from the media library.
+            'vault' => ['nullable', 'array', 'max:'.Library::MAX_PER_ITEM],
+            'vault.*' => ['integer'],
         ], [
-            'body.required_without' => __('Write something or add a photo or video.'),
+            'body.required_without_all' => __('Write something or add a photo or video.'),
         ]);
+        if (count($request->file('media', [])) + count($data['vault'] ?? []) > Library::MAX_PER_ITEM) {
+            return back()->withErrors(['media' => __('A post can have at most 10 photos and videos.')]);
+        }
+        $picked = Library::pick($creator, $data['vault'] ?? []);
 
         foreach ($request->file('media', []) as $i => $file) {
             if (str_starts_with($file->getMimeType(), 'image/') && $file->getSize() > 20 * 1024 * 1024) {
@@ -81,7 +88,7 @@ class StudioController extends Controller
 
         $hashes = Moderation::screen($request->file('media', []));
 
-        $post = DB::transaction(function () use ($creator, $data, $adult, $request, $hashes) {
+        $post = DB::transaction(function () use ($creator, $data, $adult, $request, $hashes, $picked) {
             $post = $creator->posts()->create([
                 'body' => trim((string) ($data['body'] ?? '')) ?: null,
                 'visibility' => $data['visibility'],
@@ -89,14 +96,20 @@ class StudioController extends Controller
                 'price' => $data['price'] ?? null,
                 'publish_at' => $data['publish_at'] ?? null,
             ]);
+            // Library picks first, in the order chosen, then new uploads (which join the library).
+            $position = 0;
+            foreach ($picked as $file) {
+                $post->media()->create([...$file, 'scan_status' => $file['scan_status'] ?? 'pending', 'position' => $position++]);
+            }
             foreach ($request->file('media', []) as $i => $file) {
-                $post->media()->create([
+                $stored = [
                     'type' => str_starts_with($file->getMimeType(), 'video/') ? 'video' : 'image',
                     'path' => $file->store("posts/{$creator->id}"), // private disk
                     'mime' => $file->getMimeType(),
-                    'position' => $i,
                     'sha256' => $hashes[$i],
-                ]);
+                ];
+                $post->media()->create([...$stored, 'position' => $position++]);
+                Library::record($creator, $stored);
             }
             Moderation::queue(...$post->media()->get()->all());
 
@@ -152,11 +165,10 @@ class StudioController extends Controller
     {
         abort_unless($post->creator_profile_id === $this->creator($request)->id, 403);
 
-        Storage::delete($post->media->pluck('path')->all());
-        foreach ($post->media as $m) {
-            Storage::deleteDirectory(Stamp::folder($m->path)); // the stamped copies go too
-        }
+        // The files stay in the media library; Library::deleteUnused only removes ones nothing uses any more.
+        $paths = $post->media->pluck('path')->all();
         $post->delete();
+        Library::deleteUnused($paths);
 
         return to_route('studio');
     }

@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Message extends Model
 {
-    protected $fillable = ['conversation_id', 'sender_id', 'body', 'is_mass', 'tip_amount', 'price'];
+    protected $fillable = ['conversation_id', 'sender_id', 'body', 'is_mass', 'tip_amount', 'price', 'kind'];
 
     protected $casts = ['is_mass' => 'boolean', 'tip_amount' => 'integer', 'price' => 'integer'];
 
