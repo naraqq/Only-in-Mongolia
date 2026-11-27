@@ -1,6 +1,6 @@
 import StampOverlay from '@/components/stamp-overlay';
 import { SeekBar } from '@/components/video-player';
-import { canAutoplay, finished, hold, playNow, register, report, setEnabled, setFeedSound, useFeedSound } from '@/lib/feed-video';
+import { finished, hold, playNow, register, report, setEnabled, setFeedSound, useFeedSound } from '@/lib/feed-video';
 import { useT } from '@/lib/i18n';
 import { useStream } from '@/lib/stream';
 import { formatDuration } from '@/lib/use-uploads';
@@ -13,8 +13,8 @@ import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from '
 const LOOP_UP_TO = 60;
 
 /**
- * A video in the feed, played where it is, the way social apps do: it starts by itself (muted) when it's the one
- * on screen; a tap or click pauses and resumes it (a double tap likes); a progress bar to scrub (with frames from
+ * A video in the feed, played where it is: nothing starts by itself; a tap or click plays and pauses it (a double
+ * tap likes), and it stops when scrolled off screen; a progress bar to scrub (with frames from
  * the video when it has them), sound, and full screen of this same video, carrying on from the same moment.
  * Which feed video plays, and whether the feed has sound, is decided in lib/feed-video.
  */
@@ -57,7 +57,6 @@ export default function FeedVideo({
     const tapTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
     const lastTap = useRef(0);
     const sound = useFeedSound();
-    const [auto] = useState(canAutoplay);
     const [playing, setPlaying] = useState(false);
     const [waiting, setWaiting] = useState(false);
     const [time, setTime] = useState(0);
@@ -268,8 +267,8 @@ export default function FeedVideo({
                 </span>
             )}
 
-            {/* Not playing (no autoplay for less motion / data saver, paused by the viewer, or an error): a play button. */}
-            {(!auto || error || time > 0.5) && !playing && !flash && (
+            {/* Not playing: a play button (nothing starts by itself). */}
+            {!playing && !flash && (
                 <span className="pointer-events-none absolute top-1/2 left-1/2 z-[3] grid size-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-black/55 text-white shadow-lg ring-1 ring-white/20 backdrop-blur-md">
                     {error ? <AlertTriangle className="size-7 text-amber-300" /> : <Play className="size-7 translate-x-0.5 fill-current" />}
                 </span>

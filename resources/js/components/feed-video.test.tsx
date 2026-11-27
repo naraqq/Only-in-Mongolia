@@ -68,19 +68,42 @@ function twoVideos() {
     return Array.from(container.querySelectorAll('video')) as [HTMLVideoElement, HTMLVideoElement];
 }
 
+/** Tap the video (and let the double-tap wait pass). */
+function tap(video: HTMLVideoElement) {
+    fireEvent.pointerUp(video.parentElement!.querySelector('[role="button"][tabindex="0"]')!, { button: 0 });
+    act(() => vi.advanceTimersByTime(300));
+}
+
 describe('FeedVideo', () => {
-    it('plays the video that is on screen, muted, and switches as you scroll', () => {
+    beforeEach(() => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })); // not requestAnimationFrame
+    afterEach(() => vi.useRealTimers());
+
+    it('nothing plays by itself while scrolling', () => {
         const [a, b] = twoVideos();
         onScreen(a, 1);
-        onScreen(b, 0.3);
-        expect(a.paused).toBe(false);
-        expect(a.muted).toBe(true);
-        expect(b.paused).toBe(true);
-
-        onScreen(a, 0.2);
         onScreen(b, 0.9);
         expect(a.paused).toBe(true);
+        expect(b.paused).toBe(true);
+        expect(a.parentElement!.querySelector('.lucide-play')).toBeTruthy(); // a play button instead
+    });
+
+    it('a tap plays it (muted until sound is on), one at a time, and it stops when scrolled away', () => {
+        const [a, b] = twoVideos();
+        onScreen(a, 1);
+        onScreen(b, 1);
+        tap(a);
+        expect(a.paused).toBe(false);
+        expect(a.muted).toBe(true);
+
+        vi.advanceTimersByTime(1000);
+        tap(b);
         expect(b.paused).toBe(false);
+        expect(a.paused).toBe(true); // one at a time
+
+        onScreen(b, 0.2); // scrolled mostly away
+        expect(b.paused).toBe(true);
+        onScreen(b, 1); // back: doesn't start again by itself
+        expect(b.paused).toBe(true);
     });
 
     it('sound is one switch for the whole feed', () => {
@@ -92,35 +115,28 @@ describe('FeedVideo', () => {
         expect(screen.getAllByRole('button', { name: 'Mute' })).toHaveLength(2);
     });
 
-    it('a tap pauses and plays it where it is, and it stays paused; a double tap likes instead', () => {
-        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] }); // not requestAnimationFrame (autoplay uses it)
+    it('a tap pauses it again; a double tap likes instead', () => {
         const like = vi.fn();
         const { container } = render(<FeedVideo src="/media/1" onDoubleTap={like} />);
         const video = container.querySelector('video')!;
         onScreen(video, 1);
-        expect(video.paused).toBe(false); // autoplay
-        const surface = () => container.querySelector('[role="button"][tabindex="0"]')!;
-
-        fireEvent.pointerUp(surface(), { button: 0 });
-        act(() => vi.advanceTimersByTime(300));
-        expect(video.paused).toBe(true);
-        onScreen(video, 0.9); // still on screen: autoplay leaves it paused
-        expect(video.paused).toBe(true);
-
-        vi.advanceTimersByTime(1000);
-        fireEvent.pointerUp(surface(), { button: 0 });
-        act(() => vi.advanceTimersByTime(300));
+        tap(video);
         expect(video.paused).toBe(false);
 
         vi.advanceTimersByTime(1000);
-        fireEvent.pointerUp(surface(), { button: 0 });
-        fireEvent.pointerUp(surface(), { button: 0 });
+        tap(video);
+        expect(video.paused).toBe(true);
+
+        vi.advanceTimersByTime(1000);
+        const surface = container.querySelector('[role="button"][tabindex="0"]')!;
+        fireEvent.pointerUp(surface, { button: 0 });
+        fireEvent.pointerUp(surface, { button: 0 });
         act(() => vi.advanceTimersByTime(300));
         expect(like).toHaveBeenCalledOnce();
-        expect(video.paused).toBe(false); // a like doesn't pause it
+        expect(video.paused).toBe(true); // a like doesn't start it
     });
 
-    it('waits while a full player is playing, and carries on after', () => {
+    it('stops while a full player is playing', () => {
         const { container } = render(
             <>
                 <FeedVideo src="/media/1" />
@@ -129,18 +145,17 @@ describe('FeedVideo', () => {
         );
         const [feed, full] = Array.from(container.querySelectorAll('video'));
         onScreen(feed, 1);
+        tap(feed);
         expect(feed.paused).toBe(false);
-
         act(() => void full.play());
         expect(feed.paused).toBe(true);
-        act(() => full.pause());
-        expect(feed.paused).toBe(false);
     });
 
     it('stays still while its post is open full screen', () => {
         const { container, rerender } = render(<FeedVideo src="/media/1" />);
         const video = container.querySelector('video')!;
         onScreen(video, 1);
+        tap(video);
         rerender(<FeedVideo src="/media/1" active={false} />);
         expect(video.paused).toBe(true);
     });
@@ -156,25 +171,16 @@ describe('FeedVideo', () => {
         expect(video.getAttribute('src')).toBe('/media/1#t=12');
     });
 
-    it('a long video that ended is not started over while still on screen', () => {
+    it('a video that ended is not started over', () => {
         const [a] = twoVideos();
         onScreen(a, 1);
+        tap(a);
         act(() => {
             a.pause();
             a.dispatchEvent(new Event('ended'));
         });
+        onScreen(a, 0);
+        onScreen(a, 1);
         expect(a.paused).toBe(true);
-        onScreen(a, 0); // scrolled away…
-        onScreen(a, 1); // …and back
-        expect(a.paused).toBe(false);
-    });
-
-    it('does not autoplay for people who asked for less motion', () => {
-        reducedMotion = true;
-        const { container } = render(<FeedVideo src="/media/1" />);
-        const video = container.querySelector('video')!;
-        onScreen(video, 1);
-        expect(video.paused).toBe(true);
-        expect(container.querySelector('.lucide-play')).toBeTruthy(); // a play button instead
     });
 });

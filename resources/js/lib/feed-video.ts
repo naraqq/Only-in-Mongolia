@@ -2,12 +2,10 @@ import { toggle as toggleAudio } from '@/lib/player';
 import { useSyncExternalStore } from 'react';
 
 /**
- * Videos in the feed behave like on other social apps: the one that's most on screen plays by itself, muted,
- * and the rest wait. Sound is one switch for the whole feed: turn it on for one video and the next ones play
- * with sound too (until the page is reloaded; browsers don't allow sound before a tap anyway).
- *
- * No autoplay for people who asked for less motion or to save data; they get a play button instead.
- * Autoplay also stops while a "real" player (full screen viewer, chat) is playing, or the tab is hidden.
+ * Videos in the feed: nothing plays by itself while scrolling. A video plays when the viewer taps it, one at a
+ * time, and stops when it's scrolled off screen (or the tab is hidden, or a "real" player such as a chat video
+ * starts). Sound is one switch for the whole feed: turn it on for one video and the next ones play with sound
+ * too (until the page is reloaded).
  */
 
 /**
@@ -25,33 +23,15 @@ let scheduled = false;
 /** Share of a video that must be on screen before it plays. */
 const MIN_VISIBLE = 0.6;
 
-export function canAutoplay(): boolean {
-    if (typeof window === 'undefined') return false;
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return false;
-    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
-    return !connection?.saveData;
-}
-
 function pick() {
     scheduled = false;
     let best: HTMLVideoElement | null = null;
-    let bestScore = -Infinity;
-    if (!document.hidden && blockers.size === 0 && canAutoplay()) {
-        const middle = window.innerHeight / 2;
+    // Only the one the viewer started may play, while it's (mostly) on screen.
+    if (!document.hidden && blockers.size === 0) {
         for (const [el, e] of entries) {
-            if (e.pinned && e.enabled && e.ratio >= MIN_VISIBLE) {
-                best = el; // the one the viewer started
-                break;
-            }
-        }
-        for (const [el, e] of best ? [] : entries) {
-            if (!e.enabled || e.done || e.held || e.ratio < MIN_VISIBLE) continue;
-            // Most visible wins; between equally visible ones, the one nearest the middle of the screen.
-            const r = el.getBoundingClientRect();
-            const score = e.ratio * 10 - Math.abs(r.top + r.height / 2 - middle) / window.innerHeight;
-            if (score > bestScore) {
-                bestScore = score;
+            if (e.pinned && e.enabled && !e.done && e.ratio >= MIN_VISIBLE) {
                 best = el;
+                break;
             }
         }
     }
@@ -147,7 +127,10 @@ export function setEnabled(el: HTMLVideoElement, enabled: boolean) {
 /** A long video played to the end: don't start it over while it's still on screen. */
 export function finished(el: HTMLVideoElement) {
     const e = entries.get(el);
-    if (e) e.done = true;
+    if (e) {
+        e.done = true;
+        e.pinned = false;
+    }
     reconsider();
 }
 
