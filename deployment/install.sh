@@ -60,6 +60,8 @@ if [[ ! -e "$ENV_FILE" ]]; then
     db_password=$(openssl rand -hex 32)
     mysql_root_password=$(openssl rand -hex 32)
     redis_password=$(openssl rand -hex 32)
+    reverb_key=$(openssl rand -hex 16)
+    reverb_secret=$(openssl rand -hex 32)
     # noclobber also guards against a file created by someone outside this script.
     (
         set -o noclobber
@@ -72,6 +74,8 @@ if [[ ! -e "$ENV_FILE" ]]; then
             printf 'DB_PASSWORD=%s\n' "$db_password"
             printf 'MYSQL_ROOT_PASSWORD=%s\n' "$mysql_root_password"
             printf 'REDIS_PASSWORD=%s\nQUEUE_WORKERS=2\n' "$redis_password"
+            printf 'REVERB_APP_ID=only-in-mongolia\nREVERB_APP_KEY=%s\nREVERB_APP_SECRET=%s\nREVERB_ALLOWED_ORIGINS=%s\n' \
+                "$reverb_key" "$reverb_secret" "$hostname"
             printf '%s\n' 'ADMIN_REQUIRE_2FA=true' 'VERIFY_MN_DEV_PHONES=' 'VERIFY_MN_API_KEY=' \
                 'QPAY_USERNAME=' 'QPAY_PASSWORD=' 'QPAY_INVOICE_CODE='
             vapid_lines
@@ -98,6 +102,13 @@ else
         done
         mv -- "$candidate" "$ENV_FILE"
         trap - EXIT
+    fi
+    # Servers set up before real-time updates existed get their Reverb keys once.
+    if ! grep -Eq '^[[:space:]]*REVERB_APP_KEY=.+' "$ENV_FILE"; then
+        site=$(grep -E '^[[:space:]]*SITE_ADDRESS=' "$ENV_FILE" | tail -1 | cut -d= -f2-)
+        printf '\nREVERB_APP_ID=only-in-mongolia\nREVERB_APP_KEY=%s\nREVERB_APP_SECRET=%s\nREVERB_ALLOWED_ORIGINS=%s\n' \
+            "$(openssl rand -hex 16)" "$(openssl rand -hex 32)" "${site:-*}" >> "$ENV_FILE"
+        printf 'Added real-time (Reverb) keys to %s.\n' "$ENV_FILE"
     fi
     # Servers set up before push notifications existed get their keys once.
     if ! grep -Eq '^[[:space:]]*VAPID_PUBLIC_KEY=.+' "$ENV_FILE"; then

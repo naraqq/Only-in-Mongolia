@@ -13,6 +13,11 @@ x-laravel: &laravel
     LOG_CHANNEL: stderr
     SENTRY_RELEASE: ${OIM_RELEASE:-}
     TRUST_DOCKER_PROXY: "true"
+    # Real-time updates: the app talks to the reverb container directly; browsers reach it through the proxy.
+    BROADCAST_CONNECTION: reverb
+    REVERB_HOST: reverb
+    REVERB_PORT: "8080"
+    REVERB_SCHEME: http
   volumes:
     - uploads:/var/www/html/storage/app
 
@@ -31,6 +36,8 @@ services:
       - caddy_config:/config
     depends_on:
       app:
+        condition: service_healthy
+      reverb:
         condition: service_healthy
 
   app:
@@ -77,6 +84,27 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+
+  # Real-time updates (Laravel Reverb): one long-running WebSocket server. Browsers connect through the proxy
+  # (wss://your-site/app/...); the app and worker send it events over the internal network.
+  reverb:
+    <<: *laravel
+    user: www-data
+    init: true
+    restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 15s
+    command: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8080", "--no-interaction"]
+    # Each open connection is a file handle.
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 8080) ? 0 : 1);"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
 
   db:
     image: mysql:8.4

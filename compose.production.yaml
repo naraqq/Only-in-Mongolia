@@ -62,6 +62,10 @@ services:
     healthcheck:
       <<: *health
       test: ["CMD", "php", "docker/health.php", "schedule:work"]
+  reverb:
+    logging: *log-rotation
+    networks: *backends
+    environment: *redis-client
   db:
     logging: *log-rotation
     networks: [data]

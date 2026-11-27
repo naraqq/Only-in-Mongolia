@@ -10,15 +10,25 @@
         Content-Security-Policy "frame-ancestors 'none'"
         Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
     }
-    encode zstd gzip
-    reverse_proxy {
-        dynamic a app 80 {
-            refresh 5s
-            versions ipv4
+    # Real-time updates: browsers' WebSocket connections go to Reverb.
+    handle /app/* {
+        reverse_proxy reverb:8080
+    }
+    # Reverb's event API is only for the app, over the internal network; never from outside.
+    handle /apps/* {
+        respond 404
+    }
+    handle {
+        encode zstd gzip
+        reverse_proxy {
+            dynamic a app 80 {
+                refresh 5s
+                versions ipv4
+            }
+            lb_policy round_robin
+            lb_try_duration 3s
+            fail_duration 15s
         }
-        lb_policy round_robin
-        lb_try_duration 3s
-        fail_duration 15s
     }
 }
 

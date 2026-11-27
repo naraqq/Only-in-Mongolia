@@ -97,7 +97,12 @@ verify_release() {
 
 start_release() {
     local revision=$1 host=$2
-    compose "$revision" up -d --no-deps --wait --wait-timeout 120 app worker scheduler || return 1
+    local services=(app worker scheduler)
+    # Real-time server (Reverb), in releases that have it (older ones, e.g. after a rollback, don't).
+    if compose "$revision" config --services 2>/dev/null | grep -qx reverb; then
+        services+=(reverb)
+    fi
+    compose "$revision" up -d --no-deps --wait --wait-timeout 120 "${services[@]}" || return 1
     compose "$revision" up -d --no-deps --wait --wait-timeout 90 proxy || return 1
     verify_release "$revision" "$host"
 }
