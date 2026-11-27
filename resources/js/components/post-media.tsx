@@ -1,26 +1,59 @@
+import AudioPlayer from '@/components/audio-player';
 import MediaLightbox from '@/components/media-lightbox';
 import StampOverlay from '@/components/stamp-overlay';
 import { useT } from '@/lib/i18n';
 import { ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 import { useRef, useState, type MouseEvent, type ReactNode } from 'react';
 
-type Media = { id: number; type: 'image' | 'video'; url: string; stamp?: string | null };
+type Media = { id: number; type: 'image' | 'video' | 'audio'; url: string; stamp?: string | null };
 
 /**
  * A post's photos and videos. One item keeps its own shape; several become a swipeable carousel with dots.
- * Click a photo to see it full screen; double-click (or double-tap) to like.
+ * Click a photo to see it full screen; double-click (or double-tap) to like. Audio (music, podcasts) plays in
+ * its own players underneath.
  */
 export default function PostMedia({
-    media,
+    media: all,
     onDoubleLike,
     aside,
+    title,
+    track,
     className = 'mx-4 mt-3 rounded-2xl',
 }: {
     media: Media[];
     onDoubleLike?: () => void;
     aside?: ReactNode;
+    /** The post's first line, shown as the track name when there's one audio file. */
+    title?: string | null;
+    /** Who made it and where it lives, for the player. */
+    track?: { artist?: string | null; artwork?: string | null; href?: string | null };
     className?: string;
 }) {
+    const media = all.filter((m) => m.type !== 'audio');
+    const audio = all.filter((m) => m.type === 'audio');
+    return (
+        <>
+            {media.length > 0 && <Visual media={media} onDoubleLike={onDoubleLike} aside={aside} className={className} />}
+            {audio.length > 0 && (
+                <div className="mx-4 mt-3 flex flex-col gap-2">
+                    {audio.map((a, i) => (
+                        <AudioPlayer
+                            key={a.id}
+                            src={a.url}
+                            stamp={a.stamp}
+                            artist={track?.artist}
+                            artwork={track?.artwork}
+                            href={track?.href}
+                            title={audio.length === 1 ? title : `${title ? `${title} · ` : ''}${i + 1}/${audio.length}`}
+                        />
+                    ))}
+                </div>
+            )}
+        </>
+    );
+}
+
+function Visual({ media, onDoubleLike, aside, className }: { media: Media[]; onDoubleLike?: () => void; aside?: ReactNode; className: string }) {
     const { t } = useT();
     const track = useRef<HTMLDivElement>(null);
     const timer = useRef<ReturnType<typeof setTimeout>>(undefined);

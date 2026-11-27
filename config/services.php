@@ -35,6 +35,11 @@ return [
         ],
     ],
 
+    // Sponsored banners: where companies write to advertise (shown under the banners as "Advertise here").
+    'ads' => [
+        'contact' => env('ADS_CONTACT_EMAIL'),
+    ],
+
     'verify_mn' => [
         'key' => env('VERIFY_MN_API_KEY'),
         'base_url' => env('VERIFY_MN_BASE_URL', 'https://api.verify.mn'),

@@ -1,3 +1,4 @@
+import DateTimePicker from '@/components/date-time-picker';
 import InputError from '@/components/input-error';
 import { type PostItem } from '@/components/post-card';
 import PriceField from '@/components/price-field';
@@ -59,16 +60,7 @@ export default function PostEditor({ post, onDone }: { post: PostItem; onDone: (
                     <label className="inline-flex items-center gap-2 text-sm">
                         <input type="checkbox" checked={schedule} onChange={(e) => setSchedule(e.target.checked)} />
                         <CalendarClock className="size-4" />
-                        {schedule ? (
-                            <input
-                                type="datetime-local"
-                                value={form.data.publish_at}
-                                onChange={(e) => form.setData('publish_at', e.target.value)}
-                                className="bg-muted h-8 rounded-lg px-2 outline-none"
-                            />
-                        ) : (
-                            t('sch.now')
-                        )}
+                        {schedule ? <DateTimePicker value={form.data.publish_at} onChange={(v) => form.setData('publish_at', v)} /> : t('sch.now')}
                     </label>
                 )}
             </div>

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Conversation;
 use App\Models\CreatorProfile;
+use App\Models\Payment;
 use App\Models\Post;
 use App\Models\User;
 use App\Models\VaultItem;
@@ -69,6 +70,39 @@ class LibraryTest extends TestCase
         $this->assertTrue(Storage::exists($item->path)); // still in the library
         $this->delete(route('studio.library.destroy', $item));
         $this->assertFalse(Storage::exists($item->path));
+    }
+
+    public function test_library_shows_how_each_file_did_and_hands_files_to_the_composer(): void
+    {
+        $creator = $this->creator('artist');
+        $this->actingAs($creator->user)->post(route('studio.library.store'), [
+            'media' => [UploadedFile::fake()->image('a.jpg'), UploadedFile::fake()->image('b.jpg')],
+        ])->assertSessionHasNoErrors();
+        [$a, $b] = $creator->vaultItems()->orderBy('id')->get()->all();
+        $this->post(route('studio.posts.store'), ['body' => 'Paid', 'visibility' => Post::PUBLIC, 'price' => 5000, 'vault' => [$a->id]]);
+        $post = Post::where('body', 'Paid')->sole();
+        $fan = User::factory()->create(['birthdate' => '1990-01-01']);
+        DB::table('post_views')->insert(['post_id' => $post->id, 'viewer' => (string) $fan->id, 'day' => now()->toDateString()]);
+        Payment::create(['user_id' => $fan->id, 'creator_profile_id' => $creator->id, 'purpose' => 'ppv', 'post_id' => $post->id,
+            'amount' => 5000, 'platform_fee' => 1000, 'status' => 'paid', 'provider' => 'fake', 'paid_at' => now()]);
+
+        $this->get(route('studio.library', ['sort' => 'earned']))->assertInertia(fn ($p) => $p
+            ->where('items.0.id', $a->id)->where('items.0.earned', 4000)->where('items.0.views', 1)
+            ->where('unusedCount', 1));
+        $this->get(route('studio.library', ['unused' => 1]))->assertInertia(fn ($p) => $p->has('items', 1)->where('items.0.id', $b->id));
+        $this->getJson(route('studio.library.usage', $a))->assertJsonPath('posts.0.id', $post->id)->assertJsonPath('posts.0.earned', 4000);
+
+        // "Post" / "Message fans" from the library: the studio opens with those files attached (only the creator's own).
+        $theirs = $this->creator('other')->vaultItems()->create(['type' => 'image', 'path' => 'library/x.jpg', 'mime' => 'image/jpeg']);
+        $this->get(route('studio', ['use' => "{$b->id},{$a->id},{$theirs->id}", 'to' => 'fans']))->assertInertia(fn ($p) => $p
+            ->where('prefillFor', 'fans')->has('prefill', 2)->where('prefill.0.id', $b->id));
+
+        // Several out at once; the file a post uses stays stored.
+        $this->delete(route('studio.library.destroy-many'), ['ids' => [$a->id, $b->id, $theirs->id]])->assertSessionHas('status', 'library-removed:2');
+        $this->assertSame(0, $creator->vaultItems()->count());
+        $this->assertTrue(Storage::exists($a->path));
+        $this->assertFalse(Storage::exists($b->path));
+        $this->assertNotNull($theirs->fresh());
     }
 
     public function test_library_items_in_messages_and_direct_uploads(): void

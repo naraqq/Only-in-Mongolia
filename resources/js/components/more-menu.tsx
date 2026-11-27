@@ -1,9 +1,9 @@
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ask } from '@/lib/confirm';
 import { sendJson } from '@/lib/http';
 import { useT, type TKey } from '@/lib/i18n';
 import { type SharedData } from '@/types';
-import { ask } from '@/lib/confirm';
 import { router, usePage } from '@inertiajs/react';
 import { Ban, CircleCheck, Flag, LoaderCircle, MoreHorizontal } from 'lucide-react';
 import { useState, type FormEvent } from 'react';

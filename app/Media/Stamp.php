@@ -62,24 +62,25 @@ class Stamp
     /** The stamped copy of a stored photo (made now if needed). Returns its absolute path, always a JPEG. */
     public function image(string $sourcePath, string $text): string
     {
-        $source = Storage::path($sourcePath);
-        $file = self::folder($sourcePath).'/'.substr(sha1($text.'|'.filemtime($source).'|'.self::VERSION), 0, 24).'.jpg';
-        if (Storage::exists($file)) {
-            touch(Storage::path($file)); // still in use; keep it past the next prune
+        // Stored files never change (each upload gets a new random name), so the path identifies the version.
+        $local = Storage::disk('local');
+        $file = self::folder($sourcePath).'/'.substr(sha1($text.'|'.$sourcePath.'|'.self::VERSION), 0, 24).'.jpg';
+        if ($local->exists($file)) {
+            touch($local->path($file)); // still in use; keep it past the next prune
 
-            return Storage::path($file);
+            return $local->path($file);
         }
 
-        $img = $this->load($source);
+        $img = $this->load(Files::localPath($sourcePath));
         $this->stamp($img, $text);
 
-        Storage::makeDirectory(dirname($file));
-        $tmp = Storage::path($file).'.'.bin2hex(random_bytes(4)).'.tmp';
+        $local->makeDirectory(dirname($file));
+        $tmp = $local->path($file).'.'.bin2hex(random_bytes(4)).'.tmp';
         imagejpeg($img, $tmp, 86);
         imagedestroy($img);
-        rename($tmp, Storage::path($file)); // atomic: two people opening it at once never see half a file
+        rename($tmp, $local->path($file)); // atomic: two people opening it at once never see half a file
 
-        return Storage::path($file);
+        return $local->path($file);
     }
 
     /** The photo upright (phones store rotation separately), on white (for transparent PNGs), at most MAX_SIDE. */

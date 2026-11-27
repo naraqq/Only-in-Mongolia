@@ -3,7 +3,9 @@ import UserAvatar from '@/components/user-avatar';
 import SocialLayout from '@/layouts/social-layout';
 import { mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
-import { router, useRemember } from '@inertiajs/react';
+import { useLive } from '@/lib/live';
+import { type SharedData } from '@/types';
+import { router, usePage, useRemember } from '@inertiajs/react';
 import {
     Banknote,
     Bell,
@@ -14,6 +16,8 @@ import {
     ImagePlus,
     LockOpen,
     MessageCircle,
+    MessageCircleQuestion,
+    Radio,
     RefreshCw,
     Star,
     Undo2,
@@ -38,7 +42,9 @@ type Kind =
     | 'payout_paid'
     | 'payout_rejected'
     | 'refunded'
-    | 'charge_refunded';
+    | 'charge_refunded'
+    | 'qa_live'
+    | 'qa_answered';
 type Item = {
     id: string;
     kind: Kind;
@@ -65,6 +71,8 @@ const ICONS: Record<Kind, [LucideIcon, string]> = {
     auto_renewed: [RefreshCw, 'bg-emerald-500'],
     trial_started: [Gift, 'bg-emerald-500'],
     renew_failed: [WalletIcon, 'bg-amber-500'],
+    qa_live: [Radio, 'bg-red-500'],
+    qa_answered: [MessageCircleQuestion, 'bg-violet-500'],
 };
 
 /** The bell: who followed, subscribed, tipped or bought, new posts, and subscriptions about to end. */
@@ -73,6 +81,9 @@ export default function Notifications({ notifications }: { notifications: Item[]
     // Opened on this visit. Kept in the browser history, so Back shows them as read straight away.
     const [opened, setOpened] = useRemember<string[]>([], 'notifications:opened');
     const [busy, setBusy] = useState(false);
+    // New notifications appear at the top as they happen.
+    const me = usePage<SharedData>().props.auth.user?.id;
+    useLive(me ? `user.${me}` : null, ['notification'], () => router.reload({ only: ['notifications'] }));
     const isRead = (n: Item) => n.read || opened.includes(n.id);
     const unread = notifications.filter((n) => !isRead(n)).length;
 
@@ -103,6 +114,10 @@ export default function Notifications({ notifications }: { notifications: Item[]
                 return t('nt.commented', { name });
             case 'new_post':
                 return t('nt.newPost', { name });
+            case 'qa_live':
+                return t('nt.qaLive', { name });
+            case 'qa_answered':
+                return t('nt.qaAnswered', { name });
             case 'payout_paid':
                 return t('nt.payoutPaid', { amount });
             case 'payout_rejected':

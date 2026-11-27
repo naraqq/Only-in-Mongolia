@@ -55,7 +55,9 @@ export default function WelcomeEditor({ welcome }: { welcome: WelcomeSettings })
                     }}
                     className={`relative h-7 w-12 shrink-0 rounded-full transition disabled:opacity-50 ${form.data.enabled ? 'bg-primary' : 'bg-muted-foreground/30'}`}
                 >
-                    <span className={`bg-background absolute top-1 left-1 size-5 rounded-full shadow transition-transform ${form.data.enabled ? 'translate-x-5' : ''}`} />
+                    <span
+                        className={`bg-background absolute top-1 left-1 size-5 rounded-full shadow transition-transform ${form.data.enabled ? 'translate-x-5' : ''}`}
+                    />
                 </button>
             </div>
 

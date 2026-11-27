@@ -70,6 +70,14 @@ class HandleInertiaRequests extends Middleware
                 'payouts' => Payout::where('status', 'requested')->count(),
                 'reports' => Report::where('status', 'open')->count(),
             ] : null,
+            // Real-time updates: where the browser connects (null = Reverb not set up; pages fall back to polling).
+            // The key is public by design (every browser gets it); the secret never leaves the server.
+            'reverb' => config('broadcasting.default') === 'reverb' && config('broadcasting.connections.reverb.key') ? [
+                'key' => config('broadcasting.connections.reverb.key'),
+                'host' => config('broadcasting.connections.reverb.browser.host') ?: null,
+                'port' => (int) config('broadcasting.connections.reverb.browser.port') ?: null,
+                'scheme' => config('broadcasting.connections.reverb.browser.scheme') ?: null,
+            ] : null,
             // The public key browsers need to subscribe to push (null = push not set up on this server).
             'pushKey' => Push::enabled() ? config('services.webpush.public_key') : null,
             'unreadNotifications' => fn () => $request->user()?->unreadNotifications()->count() ?? 0,

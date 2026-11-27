@@ -1,3 +1,4 @@
+import AudioPlayer from '@/components/audio-player';
 import { LibraryButton, PickedThumbs, type Picked } from '@/components/library-picker';
 import MediaThumbs from '@/components/media-thumbs';
 import MoreMenu from '@/components/more-menu';
@@ -10,8 +11,9 @@ import SocialLayout from '@/layouts/social-layout';
 import StudioLayout from '@/layouts/studio-layout';
 import { mnt, priceOk, timeAgo } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
+import { useLive, useLiveConnected } from '@/lib/live';
 import { type SharedData } from '@/types';
-import { Link, useForm, usePage, usePoll } from '@inertiajs/react';
+import { Link, router, useForm, usePage, usePoll } from '@inertiajs/react';
 import {
     ArrowLeft,
     BadgeCheck,
@@ -37,9 +39,9 @@ type Msg = {
     tip_amount: number | null;
     price: number | null;
     locked: boolean;
-    counts: { image: number; video: number };
+    counts: { image: number; video: number; audio?: number };
     created_at: string;
-    media: { id: number; type: 'image' | 'video'; url: string; stamp?: string | null }[];
+    media: { id: number; type: 'image' | 'video' | 'audio'; url: string; stamp?: string | null }[];
 };
 type Thread = { id: number; other: Person; messages: Msg[]; cannotSend: string | null; iBlocked: boolean };
 
@@ -74,12 +76,25 @@ export default function Messages({
 }) {
     const { t } = useT();
     const [q, setQ] = useState('');
-    usePoll(4000, { only: ['conversations', 'thread', 'unreadMessages'] });
+    // New messages arrive in real time; the 4-second check only runs while that connection is down.
+    const reload = () => router.reload({ only: ['conversations', 'thread', 'unreadMessages'] });
+    const connected = useLiveConnected();
+    const poll = usePoll(4000, { only: ['conversations', 'thread', 'unreadMessages'] }, { autoStart: false });
+    useEffect(() => {
+        if (connected) poll.stop();
+        else poll.start();
+        return () => poll.stop();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [connected]);
+    useLive(thread ? `conversation.${thread.id}` : null, ['message'], reload);
+    useLive(`user.${me}`, ['inbox'], reload);
     const shown = conversations.filter((c) => !q.trim() || `${c.other.name} ${c.other.handle ?? ''}`.toLowerCase().includes(q.trim().toLowerCase()));
 
     return (
         <Shell area={area} title={thread ? thread.other.name : t('nav.messages')}>
-            <div className={`flex gap-4 ${area === 'studio' ? 'h-[calc(100svh-6.5rem)] pb-2' : 'h-[calc(100svh-3.5rem-4rem)] md:h-svh md:py-4'}`}>
+            <div
+                className={`flex gap-4 ${area === 'studio' ? 'h-[calc(100svh-6.5rem-var(--player-h,0px))] pb-2' : 'h-[calc(100svh-3.5rem-4rem-var(--player-h,0px))] md:h-[calc(100svh-var(--player-h,0px))] md:py-4'}`}
+            >
                 {/* Inbox */}
                 <aside
                     className={`bg-card w-full shrink-0 flex-col overflow-hidden md:flex md:w-[340px] md:rounded-2xl md:shadow-xs ${thread ? 'hidden' : 'flex'}`}
@@ -277,7 +292,8 @@ function Conversation({ thread, me, area }: { thread: Thread; me: number; area: 
                                             <div className="flex w-64 flex-col items-center gap-2 rounded-2xl bg-gradient-to-br from-zinc-800 to-black p-5 text-center text-white">
                                                 <Lock className="size-6" />
                                                 <span className="text-sm text-white/70">
-                                                    {m.counts.image > 0 && `📷 ${m.counts.image}`} {m.counts.video > 0 && `🎬 ${m.counts.video}`}
+                                                    {m.counts.image > 0 && `📷 ${m.counts.image}`} {m.counts.video > 0 && `🎬 ${m.counts.video}`}{' '}
+                                                    {!!m.counts.audio && `🎧 ${m.counts.audio}`}
                                                 </span>
                                                 <UnlockButton
                                                     href={route('messages.buy', m.id)}
@@ -296,7 +312,17 @@ function Conversation({ thread, me, area }: { thread: Thread; me: number; area: 
                                         {m.media.length > 0 && (
                                             <div className={`grid gap-1 overflow-hidden rounded-2xl ${m.media.length > 1 ? 'grid-cols-2' : ''}`}>
                                                 {m.media.map((x) =>
-                                                    x.type === 'video' ? (
+                                                    x.type === 'audio' ? (
+                                                        <div key={x.id} className="col-span-full min-w-[260px]">
+                                                            <AudioPlayer
+                                                                src={x.url}
+                                                                stamp={x.stamp}
+                                                                compact
+                                                                artist={mine ? null : thread.other.name}
+                                                                href={typeof window !== 'undefined' ? window.location.pathname : null}
+                                                            />
+                                                        </div>
+                                                    ) : x.type === 'video' ? (
                                                         <div key={x.id} className="relative">
                                                             <video
                                                                 src={x.url}
@@ -468,7 +494,7 @@ function Composer({ conversationId }: { conversationId: number }) {
                     ref={files}
                     type="file"
                     multiple
-                    accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
+                    accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm,audio/*,.mp3,.m4a,.aac,.wav,.ogg,.opus,.flac"
                     className="hidden"
                     onChange={(e) => {
                         form.setData('media', [...form.data.media, ...Array.from(e.target.files ?? [])].slice(0, 10 - picked.length));

@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Fans\Audience;
+use App\Media\Files;
 use App\Media\Library;
 use App\Media\Stamp;
+use App\Media\Uploads;
 use App\Messaging\Outbox;
 use App\Models\Conversation;
 use App\Models\CreatorProfile;
@@ -13,11 +15,11 @@ use App\Models\MessageMedia;
 use App\Models\User;
 use App\Moderation\Moderation;
 use App\Support\Blocking;
+use App\Support\Live;
 use App\Support\Messaging;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -125,6 +127,7 @@ class MessageController extends Controller
                 $conversation->markRead($me);
                 $sent++;
             }
+            Live::user($users->pluck('id')->all(), 'inbox'); // one batch of pings per 200 fans
         }, 'users.id', 'id');
         // The files are shared by every copy, so one scan covers them all.
         if ($first) {
@@ -135,14 +138,14 @@ class MessageController extends Controller
     }
 
     /** A message photo or video, only for the two people in the conversation. */
-    public function media(Request $request, MessageMedia $media, Stamp $stamp): BinaryFileResponse
+    public function media(Request $request, MessageMedia $media, Stamp $stamp): BinaryFileResponse|RedirectResponse
     {
         $conversation = $media->message->conversation;
         abort_unless($conversation->includes($request->user()), 404);
         abort_unless($media->message->isUnlockedFor($request->user()), 403);
         // Flagged by the automatic scan (copies of a mass message share files): not served while it waits for review.
         abort_if(! $request->user()->is_admin && MessageMedia::where('path', $media->path)->where('scan_status', 'flagged')->exists(), 404);
-        abort_unless(Storage::exists($media->path), 404);
+        abort_unless(Files::exists($media->path), 404);
         if ($media->type === 'image' && ($text = Stamp::forMessage($media->message, $request->user()))) {
             return response()->file($stamp->image($media->path, $text), ['Content-Type' => 'image/jpeg', ...[
                 'Cache-Control' => 'private, max-age=3600',
@@ -150,11 +153,7 @@ class MessageController extends Controller
             ]]);
         }
 
-        return response()->file(Storage::path($media->path), [
-            'Content-Type' => $media->mime,
-            'Cache-Control' => 'private, max-age=3600',
-            'X-Content-Type-Options' => 'nosniff',
-        ]);
+        return Files::response($media->path, $media->mime, ['Cache-Control' => 'private, max-age=3600']);
     }
 
     private function validateMessage(Request $request): array
@@ -165,7 +164,7 @@ class MessageController extends Controller
             // Creators: photos and videos picked from their media library.
             'vault' => ['nullable', 'array', 'max:'.Library::MAX_PER_ITEM],
             'vault.*' => ['integer'],
-            'media.*' => ['file', 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm', 'max:40960'],
+            'media.*' => Uploads::rule(),
             // A price locks the photos/videos, so it only applies to messages that have some.
             'price' => ['nullable', 'integer', 'min:'.config('creators.min_ppv'), 'max:'.config('creators.max_ppv')],
         ], ['body.required_without_all' => __('Write something or add a photo or video.')]);
@@ -187,12 +186,12 @@ class MessageController extends Controller
             throw ValidationException::withMessages(['media' => __('A message can have at most 10 photos and videos.')]);
         }
         $picked = $creator ? Library::pick($creator, $picks) : [];
+        Uploads::checkSizes($request->file('media', []));
         $hashes = Moderation::screen($request->file('media', []));
 
         $uploads = collect($request->file('media', []))->map(fn ($file, $i) => [
-            'type' => str_starts_with($file->getMimeType(), 'video/') ? 'video' : 'image',
-            'path' => $file->store("messages/{$me->id}"), // private disk
-            'mime' => $file->getMimeType(),
+            ...Uploads::describe($file),
+            'path' => Files::store($file, "messages/{$me->id}"), // the media disk (private)
             'sha256' => $hashes[$i],
         ])->all();
         if ($creator) {

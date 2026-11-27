@@ -1,3 +1,4 @@
+import { type Picked } from '@/components/library-picker';
 import MassMessage from '@/components/mass-message';
 import PostCard, { type PostItem } from '@/components/post-card';
 import PostComposer, { type ComposerHandle } from '@/components/post-composer';
@@ -7,8 +8,8 @@ import { ask } from '@/lib/confirm';
 import { mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
 import { Link, router } from '@inertiajs/react';
-import { ArrowRight, Check, Copy, CreditCard, ExternalLink, Heart, PenSquare, ShieldCheck, UserPlus, Wallet, type LucideIcon } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { ArrowRight, Check, Copy, CreditCard, ExternalLink, Heart, PenSquare, UserPlus, Wallet, type LucideIcon } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 type StudioCreator = { handle: string; display_name: string; price_monthly: number; adult_content: boolean; avatar_url: string | null };
 type Stats = { subscribers: number; followers: number; earnedThisMonth: number; feePercent: number };
@@ -20,7 +21,20 @@ const FILTERS: [Filter, TKey][] = [
 ];
 
 /** Studio home: how the page is doing, write a post, manage posts; earnings, sharing and messaging fans on the side. */
-export default function Studio({ creator, posts, stats }: { creator: StudioCreator; posts: (PostItem & { held: boolean })[]; stats: Stats }) {
+export default function Studio({
+    creator,
+    posts,
+    stats,
+    prefill,
+    prefillFor,
+}: {
+    creator: StudioCreator;
+    posts: (PostItem & { held: boolean })[];
+    stats: Stats;
+    /** Library files to start with (from Studio → Library: "Post" or "Message fans"). */
+    prefill: Picked[];
+    prefillFor: 'post' | 'fans';
+}) {
     const { t } = useT();
     const [editing, setEditing] = useState<number | null>(null);
     const [filter, setFilter] = useState<Filter>('all');
@@ -35,6 +49,17 @@ export default function Studio({ creator, posts, stats }: { creator: StudioCreat
         composerBox.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         composer.current?.focus();
     }
+
+    // Arriving from the library with files: bring the right composer into view, and drop ?use from the address
+    // so a reload or the redirect after posting doesn't attach them again.
+    const massBox = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!prefill.length) return;
+        if (prefillFor === 'fans') massBox.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        else write();
+        window.history.replaceState(window.history.state, '', route('studio'));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
         <StudioLayout
@@ -63,10 +88,11 @@ export default function Studio({ creator, posts, stats }: { creator: StudioCreat
                     {/* Write and manage */}
                     <div className="flex min-w-0 flex-col gap-5">
                         <div ref={composerBox}>
-                            <PostComposer ref={composer} adultAllowed={creator.adult_content} className="border-border border-b p-4" />
-                            <p className="text-muted-foreground mt-2 flex items-start gap-1.5 px-1 text-xs">
-                                <ShieldCheck className="mt-px size-3.5 shrink-0" /> {t('st.rules')}
-                            </p>
+                            <PostComposer
+                                ref={composer}
+                                adultAllowed={creator.adult_content}
+                                initialPicked={prefillFor === 'post' ? prefill : undefined}
+                            />
                         </div>
 
                         <section>
@@ -157,7 +183,13 @@ export default function Studio({ creator, posts, stats }: { creator: StudioCreat
 
                         <ShareCard handle={creator.handle} />
 
-                        <MassMessage subscribers={stats.subscribers} followers={stats.followers} />
+                        <div ref={massBox}>
+                            <MassMessage
+                                subscribers={stats.subscribers}
+                                followers={stats.followers}
+                                initialPicked={prefillFor === 'fans' ? prefill : undefined}
+                            />
+                        </div>
                     </aside>
                 </div>
             </div>

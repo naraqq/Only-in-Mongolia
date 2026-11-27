@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Push\Push;
 use App\Push\SendPush;
 use App\Push\Texts;
+use App\Support\Live;
 use Illuminate\Support\Facades\DB;
 
 /** Putting a message into a conversation: by hand (the chat), in bulk (mass messages), or automatically (welcome, win-back). */
@@ -19,7 +20,7 @@ class Outbox
      */
     public static function deliver(Conversation $conversation, User $from, ?string $body, array $files, bool $mass = false, ?int $price = null, ?string $kind = null): Message
     {
-        return DB::transaction(function () use ($conversation, $from, $body, $files, $mass, $price, $kind) {
+        $message = DB::transaction(function () use ($conversation, $from, $body, $files, $mass, $price, $kind) {
             $message = $conversation->messages()->create([
                 'sender_id' => $from->id,
                 'body' => trim((string) $body) ?: null,
@@ -34,6 +35,13 @@ class Outbox
 
             return $message;
         });
+        // Real time: the open chat and both inboxes refresh. Mass messages ping in batches instead (MessageController::mass).
+        if (! $mass) {
+            Live::conversation($conversation->id);
+            Live::user([$conversation->user_low_id, $conversation->user_high_id], 'inbox');
+        }
+
+        return $message;
     }
 
     /**

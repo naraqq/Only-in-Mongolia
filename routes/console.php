@@ -1,9 +1,11 @@
 <?php
 
+use App\Media\Files;
 use App\Models\Post;
 use App\Models\Subscription;
 use App\Payments\Renewals;
 use App\Push\Push;
+use App\Support\Live;
 use App\Support\Notify;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -60,6 +62,24 @@ Artisan::command('posts:announce', function () {
 
 Schedule::command('posts:announce')->everyMinute();
 
+// Live Q&As: when one starts, remind the fans who asked (exactly once per Q&A).
+Artisan::command('qa:start', function () {
+    $n = 0;
+    Post::with('creator')->whereNull('qa_announced_at')->whereNotNull('qa_starts_at')->where('qa_starts_at', '<=', now())
+        ->where('qa_ends_at', '>', now())->published()
+        ->chunkById(100, function ($posts) use (&$n) {
+            foreach ($posts as $post) {
+                $post->forceFill(['qa_announced_at' => now()])->saveQuietly();
+                Notify::qaLive($post);
+                Live::qa($post->id);
+                $n++;
+            }
+        });
+    $this->info("Started {$n} Q&As.");
+})->purpose('Tell fans who asked for a reminder that a live Q&A has started');
+
+Schedule::command('qa:start')->everyMinute();
+
 // Stamped photo copies (see App\Media\Stamp) are rebuilt on demand, so ones nobody opened for a week can go.
 Artisan::command('media:prune-stamps {--days=7}', function () {
     $cutoff = now()->subDays((int) $this->option('days'))->getTimestamp();
@@ -76,8 +96,10 @@ Artisan::command('media:prune-stamps {--days=7}', function () {
             $disk->deleteDirectory($dir);
         }
     }
-    $this->info("Removed {$gone} stamped copies.");
-})->purpose('Delete stamped photo copies nobody has opened recently');
+    // Local copies of R2 files (for stamping and scanning) are downloaded again when needed.
+    $cached = Files::pruneCache((int) $this->option('days'));
+    $this->info("Removed {$gone} stamped copies and {$cached} cached downloads.");
+})->purpose('Delete stamped photo copies and cached media downloads nobody has used recently');
 
 Schedule::command('media:prune-stamps')->dailyAt('04:30');
 

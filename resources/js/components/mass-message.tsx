@@ -10,12 +10,23 @@ import { ImagePlus, LoaderCircle, Lock, Megaphone } from 'lucide-react';
 import { useRef, useState, type FormEvent } from 'react';
 
 /** Studio: one message to every subscriber (or follower), delivered into each fan's own conversation. */
-export default function MassMessage({ subscribers, followers, className = '' }: { subscribers: number; followers: number; className?: string }) {
+export default function MassMessage({
+    subscribers,
+    followers,
+    className = '',
+    initialPicked,
+}: {
+    subscribers: number;
+    followers: number;
+    className?: string;
+    /** Files handed over from the library ("Message fans" there). */
+    initialPicked?: Picked[];
+}) {
     const { t } = useT();
     const flash = usePage<{ flash?: { status?: string } }>().props.flash;
     const form = useForm({ body: '', audience: 'subscribers' as 'subscribers' | 'followers', media: [] as File[], price: 5000 });
     const [ppv, setPpv] = useState(false);
-    const [picked, setPicked] = useState<Picked[]>([]);
+    const [picked, setPicked] = useState<Picked[]>(initialPicked ?? []);
     const hasMedia = form.data.media.length > 0 || picked.length > 0;
     const { ppvLimits } = usePage<{ ppvLimits: { min: number; max: number } }>().props;
     const priced = ppv && form.data.media.length + picked.length > 0;
@@ -101,7 +112,7 @@ export default function MassMessage({ subscribers, followers, className = '' }: 
                     ref={files}
                     type="file"
                     multiple
-                    accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
+                    accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm,audio/*,.mp3,.m4a,.aac,.wav,.ogg,.opus,.flac"
                     className="hidden"
                     onChange={(e) => {
                         form.setData('media', [...form.data.media, ...Array.from(e.target.files ?? [])].slice(0, 10 - picked.length));

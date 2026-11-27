@@ -36,7 +36,9 @@ export default function ConfirmHost() {
                                     <Dialog.Title className={shown.title ? 'text-lg leading-snug font-bold' : 'sr-only'}>
                                         {shown.title ?? shown.confirm}
                                     </Dialog.Title>
-                                    <Dialog.Description className={`text-[15px] leading-snug ${shown.title ? 'text-muted-foreground mt-1' : 'font-semibold'}`}>
+                                    <Dialog.Description
+                                        className={`text-[15px] leading-snug ${shown.title ? 'text-muted-foreground mt-1' : 'font-semibold'}`}
+                                    >
                                         {shown.message}
                                     </Dialog.Description>
                                 </div>

@@ -1,6 +1,7 @@
 import AppLogo from '@/components/app-logo';
 import LangSwitch from '@/components/lang-switch';
 import { useT } from '@/lib/i18n';
+import { useLayoutArea } from '@/lib/layout-area';
 import { Link } from '@inertiajs/react';
 import { ArrowUpRight, Pause, Play } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -14,6 +15,7 @@ interface AuthLayoutProps {
 }
 
 export default function AuthSimpleLayout({ children, title, description }: AuthLayoutProps) {
+    useLayoutArea('auth');
     return (
         <div className="bg-background text-foreground grid min-h-svh lg:grid-cols-[1.2fr_1fr]">
             <section className="flex min-w-0 flex-col lg:order-2">

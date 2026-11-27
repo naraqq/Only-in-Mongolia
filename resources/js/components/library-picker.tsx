@@ -1,9 +1,9 @@
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useT } from '@/lib/i18n';
-import { Check, Images, LoaderCircle, Play, X } from 'lucide-react';
+import { AudioLines, Check, Images, LoaderCircle, Play, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-export type LibraryItem = { id: number; type: 'image' | 'video'; url: string; uses: number; created_at: string };
+export type LibraryItem = { id: number; type: 'image' | 'video' | 'audio'; url: string; uses: number; created_at: string };
 
 export type Picked = Pick<LibraryItem, 'id' | 'type' | 'url'>;
 
@@ -152,7 +152,9 @@ export function PickedThumbs({ picked, onRemove, className = '' }: { picked: Pic
 export function Thumb({ item, className = '' }: { item: Pick<LibraryItem, 'type' | 'url'>; className?: string }) {
     return (
         <div className={`relative bg-zinc-200 dark:bg-zinc-800 ${className}`}>
-            {item.type === 'video' ? (
+            {item.type === 'audio' ? (
+                <AudioTile />
+            ) : item.type === 'video' ? (
                 <>
                     <video src={`${item.url}#t=0.1`} muted playsInline preload="metadata" className="size-full object-cover" />
                     <span className="absolute inset-0 grid place-items-center">
@@ -165,5 +167,15 @@ export function Thumb({ item, className = '' }: { item: Pick<LibraryItem, 'type'
                 <img src={item.url} alt="" loading="lazy" className="size-full object-cover" />
             )}
         </div>
+    );
+}
+
+/** Audio has no picture: a sound-wave tile in the brand colours. */
+export function AudioTile({ name }: { name?: string }) {
+    return (
+        <span className="from-primary/90 to-primary/50 text-primary-foreground absolute inset-0 flex flex-col items-center justify-center gap-1 bg-gradient-to-br p-2 text-center">
+            <AudioLines className="size-8" />
+            {name && <span className="line-clamp-2 text-[11px] leading-tight font-semibold break-all">{name}</span>}
+        </span>
     );
 }

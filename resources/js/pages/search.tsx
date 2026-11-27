@@ -14,7 +14,7 @@ type Filters = {
     q: string;
     tab: 'all' | 'creators' | 'posts';
     sort: 'relevance' | 'latest' | 'popular';
-    media: 'any' | 'image' | 'video';
+    media: 'any' | 'image' | 'video' | 'audio';
     date: 'any' | 'week' | 'month' | 'year';
 };
 type ResultPost = PostItem & { author: { name: string; handle: string; avatar_url: string | null } };
@@ -32,7 +32,10 @@ type Props = {
 const tabs = { all: 'search.all', creators: 'search.creators', posts: 'search.posts' } satisfies Record<Filters['tab'], TKey>;
 const sorts = { relevance: 'search.relevance', latest: 'search.latest', popular: 'search.popular' } satisfies Record<Filters['sort'], TKey>;
 const dates = { any: 'search.anyDate', week: 'search.week', month: 'search.month', year: 'search.year' } satisfies Record<Filters['date'], TKey>;
-const media = { any: 'search.anyMedia', image: 'search.photos', video: 'search.videos' } satisfies Record<Filters['media'], TKey>;
+const media = { any: 'search.anyMedia', image: 'search.photos', video: 'search.videos', audio: 'search.audio' } satisfies Record<
+    Filters['media'],
+    TKey
+>;
 
 export default function Search({ filters, creators, posts, page, moreCreators, morePosts, recent }: Props) {
     const { t } = useT();

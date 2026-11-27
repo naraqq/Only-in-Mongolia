@@ -30,7 +30,9 @@ export function useAppearance() {
     const updateAppearance = (mode: Appearance) => {
         setAppearance(mode);
         apply(mode); // instantly, then remember it on the server
-        router.post(route('appearance', mode), {}, { preserveScroll: true, preserveState: true });
+        // Prefetched pages carry the old appearance; drop them so navigating doesn't switch it back.
+        router.flushAll();
+        router.post(route('appearance', mode), {}, { preserveScroll: true, preserveState: true, onFinish: () => router.flushAll() });
     };
 
     return { appearance, updateAppearance };

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Conversation;
 use App\Models\User;
+use App\Support\Live;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
@@ -59,6 +60,7 @@ class NotificationController extends Controller
     public function readAll(Request $request): RedirectResponse
     {
         $request->user()->unreadNotifications()->update(['read_at' => now()]);
+        Live::user($request->user()->id, 'notification'); // other open tabs clear their badge too
 
         return back();
     }
@@ -70,6 +72,7 @@ class NotificationController extends Controller
 
         return match ($n->type) {
             'new_post', 'expiring', 'commented', 'replied' => isset($d['handle']) ? route('creator.show', $d['handle']) : null,
+            'qa_live', 'qa_answered' => isset($d['handle']) ? route('creator.show', ['handle' => $d['handle'], 'focus' => $d['post_id'] ?? null]).(isset($d['post_id']) ? '#post-'.$d['post_id'] : '') : null,
             'trial_started' => route('studio'),
             'tipped', 'subscribed', 'followed' => $actor && ($c = Conversation::findBetween($me, $actor)) ? route('messages.show', $c) : route('studio'),
             'payout_paid', 'payout_rejected', 'charge_refunded' => route('studio.earnings'),

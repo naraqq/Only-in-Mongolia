@@ -1,5 +1,6 @@
 import FollowButton from '@/components/follow-button';
 import InputError from '@/components/input-error';
+import { AudioTile } from '@/components/library-picker';
 import MediaLightbox from '@/components/media-lightbox';
 import MoreMenu from '@/components/more-menu';
 import PostCard, { type PostItem } from '@/components/post-card';
@@ -8,6 +9,7 @@ import TipButton from '@/components/tip-button';
 import { Button } from '@/components/ui/button';
 import UserAvatar from '@/components/user-avatar';
 import SocialLayout from '@/layouts/social-layout';
+import { useCreatorVisit } from '@/lib/attribution';
 import { coverBg, mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
 import { toast } from '@/lib/toast';
@@ -86,6 +88,7 @@ export default function CreatorPage({
     const price = mnt(creator.price_monthly);
     const author = { name: creator.display_name, handle: creator.handle, avatar_url: creator.avatar_url };
     const flash = usePage<{ flash?: { status?: string } }>().props.flash;
+    useCreatorVisit(creator.handle, 'profile');
     useEffect(() => {
         if (flash?.status === 'trial-started') toast(t('pro.trialStarted'), { tone: 'success' });
     }, [flash?.status, t]);
@@ -268,7 +271,14 @@ type Author = { name: string; handle: string; avatar_url: string | null };
 /** A media-tab post opened full screen, with its likes and comments beside it. */
 function GridViewer({ post, author, onClose }: { post: PostItem; author: Author; onClose: () => void }) {
     const state = usePostState(post);
-    return <MediaLightbox media={post.media} start={0} onClose={onClose} aside={<PostPanel post={post} author={author} state={state} />} />;
+    return (
+        <MediaLightbox
+            media={post.media.filter((m) => m.type !== 'audio')}
+            start={0}
+            onClose={onClose}
+            aside={<PostPanel post={post} author={author} state={state} />}
+        />
+    );
 }
 
 function MediaGrid({ posts, handle, author }: { posts: PostItem[]; handle: string; author: Author }) {
@@ -278,11 +288,13 @@ function MediaGrid({ posts, handle, author }: { posts: PostItem[]; handle: strin
         <div className="grid grid-cols-3 gap-0.5 p-0.5">
             {posts.map((p) => {
                 const first = p.media[0];
-                const many = p.counts.image + p.counts.video > 1;
+                const many = p.counts.image + p.counts.video + (p.counts.audio ?? 0) > 1;
                 const inner = (
                     <>
                         {first ? (
-                            first.type === 'video' ? (
+                            first.type === 'audio' ? (
+                                <AudioTile />
+                            ) : first.type === 'video' ? (
                                 <video src={first.url} muted preload="metadata" className="size-full object-cover" />
                             ) : (
                                 <img src={first.url} alt="" loading="lazy" className="size-full object-cover transition group-hover:scale-105" />
@@ -303,7 +315,7 @@ function MediaGrid({ posts, handle, author }: { posts: PostItem[]; handle: strin
                 );
                 const tile = 'group relative aspect-square overflow-hidden bg-zinc-900';
                 // Visible media opens in the full-screen viewer; locked tiles go to the post to unlock it.
-                return first ? (
+                return first && first.type !== 'audio' ? (
                     <button key={p.id} type="button" onClick={() => setOpen(p)} className={`${tile} cursor-pointer`}>
                         {inner}
                     </button>
