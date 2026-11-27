@@ -3,6 +3,7 @@ import InputError from '@/components/input-error';
 import { Thumb, type LibraryItem } from '@/components/library-picker';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import VideoPlayer from '@/components/video-player';
 import StudioLayout from '@/layouts/studio-layout';
 import { ask } from '@/lib/confirm';
 import { mnt } from '@/lib/format';
@@ -449,7 +450,7 @@ function Details({ item, onClose, onRemove }: { item: Item | null; onClose: () =
                                     </div>
                                 </div>
                             ) : item.type === 'video' ? (
-                                <video src={item.url} controls playsInline className="max-h-[90svh] w-full object-contain" />
+                                <VideoPlayer key={item.id} src={item.url} autoPlay className="w-full" videoClassName="max-h-[90svh] w-full" />
                             ) : (
                                 <img src={item.url} alt="" className="max-h-[90svh] w-full object-contain" />
                             )}

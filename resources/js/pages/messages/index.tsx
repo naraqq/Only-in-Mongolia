@@ -3,10 +3,10 @@ import { LibraryButton, PickedThumbs, type Picked } from '@/components/library-p
 import MediaThumbs from '@/components/media-thumbs';
 import MoreMenu from '@/components/more-menu';
 import PriceField from '@/components/price-field';
-import StampOverlay from '@/components/stamp-overlay';
 import TipButton from '@/components/tip-button';
 import UnlockButton from '@/components/unlock-button';
 import UserAvatar from '@/components/user-avatar';
+import VideoPlayer from '@/components/video-player';
 import SocialLayout from '@/layouts/social-layout';
 import StudioLayout from '@/layouts/studio-layout';
 import { mnt, priceOk, timeAgo } from '@/lib/format';
@@ -323,17 +323,13 @@ function Conversation({ thread, me, area }: { thread: Thread; me: number; area: 
                                                             />
                                                         </div>
                                                     ) : x.type === 'video' ? (
-                                                        <div key={x.id} className="relative">
-                                                            <video
-                                                                src={x.url}
-                                                                controls
-                                                                preload="metadata"
-                                                                controlsList={x.stamp ? 'nodownload' : undefined}
-                                                                onContextMenu={x.stamp ? (e) => e.preventDefault() : undefined}
-                                                                className="max-h-80 w-full bg-black"
-                                                            />
-                                                            <StampOverlay text={x.stamp} />
-                                                        </div>
+                                                        <VideoPlayer
+                                                            key={x.id}
+                                                            src={x.url}
+                                                            id={`mm${x.id}`}
+                                                            stamp={x.stamp}
+                                                            videoClassName="max-h-80 w-full"
+                                                        />
                                                     ) : (
                                                         <a key={x.id} href={x.url} target="_blank" rel="noreferrer">
                                                             <img src={x.url} alt="" className="max-h-80 w-full object-cover" loading="lazy" />

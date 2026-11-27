@@ -1,6 +1,6 @@
 import AudioPlayer from '@/components/audio-player';
+import FeedVideo from '@/components/feed-video';
 import MediaLightbox from '@/components/media-lightbox';
-import StampOverlay from '@/components/stamp-overlay';
 import { useT } from '@/lib/i18n';
 import { ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 import { useRef, useState, type MouseEvent, type ReactNode } from 'react';
@@ -59,18 +59,22 @@ function Visual({ media, onDoubleLike, aside, className }: { media: Media[]; onD
     const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
     const [index, setIndex] = useState(0);
     const [open, setOpen] = useState<number | null>(null);
+    const [openAt, setOpenAt] = useState<number | undefined>(undefined);
     const [burst, setBurst] = useState(0);
     const many = media.length > 1;
+
+    const like = () => {
+        if (!onDoubleLike) return;
+        onDoubleLike();
+        setBurst((b) => b + 1);
+    };
 
     // One click opens the viewer; a second click right after it likes instead.
     function click(e: MouseEvent, i: number) {
         if (media[i].type === 'video') return;
         clearTimeout(timer.current);
         if (e.detail >= 2) {
-            if (onDoubleLike) {
-                onDoubleLike();
-                setBurst((b) => b + 1);
-            }
+            like();
             return;
         }
         timer.current = setTimeout(() => setOpen(i), 230);
@@ -95,18 +99,18 @@ function Visual({ media, onDoubleLike, aside, className }: { media: Media[]; onD
                         onClick={m.type === 'image' ? (event) => click(event, i) : undefined}
                     >
                         {m.type === 'video' ? (
-                            <>
-                                <video
-                                    src={m.url}
-                                    controls
-                                    playsInline
-                                    preload="metadata"
-                                    controlsList={m.stamp ? 'nodownload' : undefined}
-                                    onContextMenu={m.stamp ? (e) => e.preventDefault() : undefined}
-                                    className={many ? 'size-full bg-black object-contain' : 'max-h-[640px] w-full bg-black'}
-                                />
-                                <StampOverlay text={m.stamp} />
-                            </>
+                            <FeedVideo
+                                src={m.url}
+                                stamp={m.stamp}
+                                active={open === null}
+                                onOpen={(at) => {
+                                    setOpenAt(at);
+                                    setOpen(i);
+                                }}
+                                onDoubleTap={onDoubleLike ? like : undefined}
+                                className={many ? 'size-full' : ''}
+                                videoClassName={many ? 'size-full' : 'max-h-[640px] w-full'}
+                            />
                         ) : (
                             <img
                                 src={m.url}
@@ -161,7 +165,7 @@ function Visual({ media, onDoubleLike, aside, className }: { media: Media[]; onD
                 </>
             )}
 
-            <MediaLightbox media={media} start={open} onClose={() => setOpen(null)} aside={aside} />
+            <MediaLightbox media={media} start={open} startAt={openAt} onClose={() => setOpen(null)} aside={aside} />
         </div>
     );
 }

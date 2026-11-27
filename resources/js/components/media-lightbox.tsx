@@ -1,4 +1,4 @@
-import StampOverlay from '@/components/stamp-overlay';
+import VideoPlayer from '@/components/video-player';
 import { useT } from '@/lib/i18n';
 import * as Dialog from '@radix-ui/react-dialog';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
@@ -15,9 +15,12 @@ export default function MediaLightbox({
     start,
     onClose,
     aside,
+    startAt,
 }: {
     media: Media[];
     start: number | null;
+    /** Where to start the video that was opened (seconds), e.g. where its feed preview was. */
+    startAt?: number;
     onClose: () => void;
     aside?: ReactNode;
 }) {
@@ -54,18 +57,16 @@ export default function MediaLightbox({
                     >
                         {m &&
                             (m.type === 'video' ? (
-                                <span key={m.id} className="relative inline-grid max-h-full max-w-full">
-                                    <video
-                                        src={m.url}
-                                        controls
-                                        autoPlay
-                                        playsInline
-                                        controlsList={m.stamp ? 'nodownload' : undefined}
-                                        onContextMenu={m.stamp ? (e) => e.preventDefault() : undefined}
-                                        className="lb-media max-h-full max-w-full lg:max-h-[94vh]"
-                                    />
-                                    <StampOverlay text={m.stamp} />
-                                </span>
+                                <VideoPlayer
+                                    key={m.id}
+                                    src={m.url}
+                                    id={`m${m.id}`}
+                                    stamp={m.stamp}
+                                    autoPlay
+                                    startAt={i === start ? startAt : undefined}
+                                    className="lb-media max-h-full max-w-full rounded-lg"
+                                    videoClassName={`max-w-full lg:max-h-[94vh] ${aside ? 'max-h-[55vh]' : 'max-h-[100svh]'}`}
+                                />
                             ) : (
                                 <Photo key={m.id} src={m.url} />
                             ))}
