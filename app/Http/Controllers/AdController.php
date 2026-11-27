@@ -18,9 +18,13 @@ class AdController extends Controller
 
     public function slot(Request $request): JsonResponse
     {
-        // Brand safety: on 18+ creators' pages, only campaigns that opted in.
+        // Brand safety: on 18+ creators' pages, only campaigns that opted in. Each banner only where it's meant to
+        // show, and not again today for someone who has seen it as often as its daily limit allows.
         $adult = $request->boolean('adult');
-        $live = Ad::live()->when($adult, fn ($q) => $q->where('allow_adult', true))->get();
+        $place = $request->query('place') === 'creators' ? 'creators' : 'feed';
+        $shown = $request->session()->get(self::shownKey(), []);
+        $live = Ad::for($place, $adult)->get()
+            ->reject(fn (Ad $ad) => $ad->frequency_cap && ($shown[$ad->id] ?? 0) >= $ad->frequency_cap);
 
         return response()->json([
             'ads' => $this->pick($live)->map(fn (Ad $ad) => [
@@ -49,6 +53,13 @@ class AdController extends Controller
         Ad::tally($new, 'impressions');
         $request->session()->put($key, [...$seen, ...$new]);
 
+        // Every time it was seen today (for the daily limit), not only the first.
+        $shown = $request->session()->get(self::shownKey(), []);
+        foreach (Ad::whereIn('id', $ids)->pluck('id') as $id) {
+            $shown[$id] = ($shown[$id] ?? 0) + 1;
+        }
+        $request->session()->put(self::shownKey(), $shown);
+
         return response()->json(['ok' => true]);
     }
 
@@ -58,6 +69,12 @@ class AdController extends Controller
         Ad::tally([$ad->id], 'clicks');
 
         return redirect()->away($ad->trackedUrl());
+    }
+
+    /** Today's "how many times has this browser seen each banner". */
+    private static function shownKey(): string
+    {
+        return 'ads_shown.'.now()->toDateString();
     }
 
     /** Up to SLOTS different banners, the higher a banner's weight the more often it's among them. */

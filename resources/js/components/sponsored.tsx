@@ -25,14 +25,14 @@ const SEEN_MS = 1000;
  * the app (counted) and open the advertiser's site in a new tab. On 18+ creators' pages only campaigns that
  * opted in are shown.
  */
-export default function Sponsored({ adult = false }: { adult?: boolean }) {
+export default function Sponsored({ adult = false, place = 'feed' }: { adult?: boolean; place?: 'feed' | 'creators' }) {
     const { t } = useT();
     const [ads, setAds] = useState<Ad[]>([]);
     const [advertise, setAdvertise] = useState<string | null>(null);
 
     useEffect(() => {
         let alive = true;
-        sendJson<{ ads: Ad[]; advertise: string | null }>('GET', route('ads.slot', adult ? { adult: 1 } : {}))
+        sendJson<{ ads: Ad[]; advertise: string | null }>('GET', route('ads.slot', { place, ...(adult ? { adult: 1 } : {}) }))
             .then((r) => {
                 if (!alive) return;
                 setAds(r.ads);
@@ -42,7 +42,7 @@ export default function Sponsored({ adult = false }: { adult?: boolean }) {
         return () => {
             alive = false;
         };
-    }, [adult]);
+    }, [adult, place]);
 
     if (!ads.length && !advertise) return null;
 

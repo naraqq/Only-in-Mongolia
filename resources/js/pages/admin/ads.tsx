@@ -1,3 +1,4 @@
+import AdTargeting, { targetingSummary, type Placement } from '@/components/ad-targeting';
 import DateTimePicker from '@/components/date-time-picker';
 import InputError from '@/components/input-error';
 import { Banner } from '@/components/sponsored';
@@ -37,6 +38,8 @@ type Ad = {
     active: boolean;
     weight: number;
     allow_adult: boolean;
+    placement: Placement;
+    frequency_cap: number | null;
     starts_on: string;
     ends_on: string | null;
     image: string | null;
@@ -78,6 +81,9 @@ type Review = {
     domain: string;
     submitted_at: string | null;
     past_start: boolean;
+    placement: Placement;
+    frequency_cap: number | null;
+    allow_adult: boolean;
     company: {
         name: string;
         register_number: string;
@@ -193,9 +199,9 @@ export default function AdminAds({ ads, review, days }: { ads: Ad[]; review: Rev
                                     <p className="text-muted-foreground mt-0.5 text-xs">
                                         {day(ad.starts_on)} – {ad.ends_on ? day(ad.ends_on) : t('ads.noEnd')}
                                         {ad.weight > 1 && ` · ×${ad.weight}`}
-                                        {ad.allow_adult && ' · 18+'}
                                         {ad.price ? ` · ${mnt(ad.price)}` : ''}
                                     </p>
+                                    <p className="text-muted-foreground text-xs">{targetingSummary(t, ad)}</p>
                                     {ad.reject_reason && ad.status === 'rejected' && (
                                         <p className="mt-1 line-clamp-2 text-xs text-red-600 dark:text-red-400">{ad.reject_reason}</p>
                                     )}
@@ -315,6 +321,8 @@ function ReviewCard({ c }: { c: Review }) {
                     <dd className="font-semibold">
                         {day(c.starts_on)} – {day(c.ends_on)} ({t('biz.nDays', { n: c.days ?? 0 })})
                     </dd>
+                    <dt className="text-muted-foreground">{t('tg.title')}</dt>
+                    <dd className="font-semibold">{targetingSummary(t, c)}</dd>
                     <dt className="text-muted-foreground">{t('biz.paid')}</dt>
                     <dd className="font-semibold">{c.price ? mnt(c.price) : '—'}</dd>
                     <dt className="text-muted-foreground">{t('ads.link')}</dt>
@@ -427,6 +435,8 @@ function AdForm({ ad, onClose }: { ad: Ad | 'new' | null; onClose: () => void })
         ends_on: '',
         weight: 1,
         allow_adult: false as boolean,
+        placement: 'all' as Placement,
+        frequency_cap: null as number | null,
         active: true as boolean,
         media: null as File | null,
     });
@@ -443,6 +453,8 @@ function AdForm({ ad, onClose }: { ad: Ad | 'new' | null; onClose: () => void })
             ends_on: existing?.ends_on ?? '',
             weight: existing?.weight ?? 1,
             allow_adult: existing?.allow_adult ?? false,
+            placement: existing?.placement ?? 'all',
+            frequency_cap: existing?.frequency_cap ?? null,
             active: existing?.active ?? true,
             media: null,
         });
@@ -523,18 +535,12 @@ function AdForm({ ad, onClose }: { ad: Ad | 'new' | null; onClose: () => void })
                                 ))}
                             </div>
                         </Field>
-                        <label className="flex items-start gap-2 text-sm">
-                            <input
-                                type="checkbox"
-                                className="mt-1"
-                                checked={form.data.allow_adult}
-                                onChange={(e) => form.setData('allow_adult', e.target.checked)}
-                            />
-                            <span>
-                                <span className="font-semibold">{t('ads.allowAdult')}</span>
-                                <span className="text-muted-foreground block text-xs">{t('ads.allowAdultHint')}</span>
-                            </span>
-                        </label>
+                        <AdTargeting
+                            placement={form.data.placement}
+                            frequencyCap={form.data.frequency_cap}
+                            allowAdult={form.data.allow_adult}
+                            onChange={(c) => form.setData((d) => ({ ...d, ...c }))}
+                        />
                     </div>
 
                     <div className="flex flex-col gap-2">

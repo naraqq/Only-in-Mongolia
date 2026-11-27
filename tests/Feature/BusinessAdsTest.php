@@ -203,6 +203,21 @@ class BusinessAdsTest extends TestCase
         Storage::disk('public')->assertMissing($oldVideo);
     }
 
+    public function test_a_company_chooses_where_its_banner_shows_how_often_and_whether_on_18_plus_pages(): void
+    {
+        $user = $this->owner();
+        $fields = [
+            'title' => 'Шинэ латте', 'url' => 'https://example.com', 'starts_on' => now()->toDateString(), 'ends_on' => now()->toDateString(),
+            'media' => UploadedFile::fake()->image('b.jpg', 1200, 1000), 'pay' => 'qpay',
+        ];
+        $this->actingAs($user)->post('/business/campaigns', [...$fields, 'frequency_cap' => 4])->assertSessionHasErrors('frequency_cap');
+        $this->post('/business/campaigns', [...$fields, 'placement' => 'creators', 'frequency_cap' => 3, 'allow_adult' => true])->assertSessionHasNoErrors();
+
+        $ad = Ad::sole();
+        $this->assertSame(['creators', 3, true], [$ad->placement, $ad->frequency_cap, $ad->allow_adult]);
+        $this->get('/business')->assertInertia(fn ($p) => $p->where('campaigns.0.placement', 'creators')->where('campaigns.0.frequency_cap', 3));
+    }
+
     public function test_the_business_pages_open(): void
     {
         $user = $this->owner();

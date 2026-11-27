@@ -41,6 +41,37 @@ class SponsoredAdsTest extends TestCase
         $this->assertSame([$adultOk->id], collect($this->getJson('/ads/slot?adult=1')->json('ads'))->pluck('id')->all());
     }
 
+    public function test_banners_show_only_where_they_are_meant_to(): void
+    {
+        $everywhere = $this->ad();
+        $feed = $this->ad(['placement' => 'feed']);
+        $creators = $this->ad(['placement' => 'creators']);
+        $ids = fn (string $q) => collect($this->getJson("/ads/slot?{$q}")->json('ads'))->pluck('id')->sort()->values()->all();
+
+        // Two slots: run often enough to see every banner that can show there, and never the others.
+        $onFeed = collect(range(1, 20))->flatMap(fn () => $ids('place=feed'))->unique()->sort()->values()->all();
+        $onCreators = collect(range(1, 20))->flatMap(fn () => $ids('place=creators'))->unique()->sort()->values()->all();
+        $this->assertSame([$everywhere->id, $feed->id], $onFeed);
+        $this->assertSame([$everywhere->id, $creators->id], $onCreators);
+    }
+
+    public function test_a_banner_stops_showing_to_someone_who_saw_it_its_daily_limit(): void
+    {
+        $capped = $this->ad(['frequency_cap' => 2]);
+        $free = $this->ad();
+        $slot = fn () => collect($this->getJson('/ads/slot')->json('ads'))->pluck('id')->sort()->values()->all();
+
+        $this->assertSame([$capped->id, $free->id], $slot());
+        $this->postJson('/ads/views', ['ids' => [$capped->id, $free->id]]);
+        $this->assertSame([$capped->id, $free->id], $slot()); // seen once: still allowed
+        $this->postJson('/ads/views', ['ids' => [$capped->id, $free->id]]);
+        $this->assertSame([$free->id], $slot()); // seen twice today: not again for this visitor
+
+        $this->travel(1)->days();
+        $this->assertSame([$capped->id, $free->id], $slot()); // a new day
+        $this->assertSame(1, (int) DB::table('ad_stats')->where('ad_id', $capped->id)->sum('impressions')); // still one view a day
+    }
+
     public function test_views_count_once_per_visitor_per_day_and_clicks_go_on_with_our_tags(): void
     {
         $ad = $this->ad();

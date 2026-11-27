@@ -16,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -48,7 +49,7 @@ class AdController extends Controller
                 ]),
             // Everything else, except campaigns companies haven't paid for.
             'ads' => Ad::with('company:id,name')->whereNotIn('review_status', [Ad::UNPAID, Ad::PENDING])->latest('id')->get()->map(fn (Ad $ad) => [
-                ...$ad->only('id', 'advertiser', 'title', 'body', 'url', 'active', 'weight', 'allow_adult', 'price', 'reject_reason'),
+                ...$ad->only('id', 'advertiser', 'title', 'body', 'url', 'active', 'weight', 'allow_adult', 'placement', 'frequency_cap', 'price', 'reject_reason'),
                 'starts_on' => $ad->starts_on->toDateString(),
                 'ends_on' => $ad->ends_on?->toDateString(),
                 'image' => $ad->imageUrl(),
@@ -179,6 +180,8 @@ class AdController extends Controller
             'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
             'weight' => ['required', 'integer', 'min:1', 'max:10'],
             'allow_adult' => ['boolean'],
+            'placement' => ['sometimes', Rule::in(Ad::PLACEMENTS)],
+            'frequency_cap' => ['nullable', 'integer', Rule::in(Ad::FREQUENCY_CAPS)],
             'active' => ['boolean'],
             'media' => BannerMedia::rule($creating),
         ]);

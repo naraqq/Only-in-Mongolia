@@ -402,7 +402,7 @@ export function RightRail() {
             <SearchBox />
 
             {/* Sponsored banners (on an 18+ creator's page, only campaigns that opted in). */}
-            <Sponsored adult={adultPage} />
+            <Sponsored adult={adultPage} place={page.component.startsWith('creator/') ? 'creators' : 'feed'} />
 
             {suggestions.length > 0 && (
                 <section>

@@ -1,3 +1,4 @@
+import AdTargeting, { type Placement } from '@/components/ad-targeting';
 import DateTimePicker from '@/components/date-time-picker';
 import InputError from '@/components/input-error';
 import { Banner } from '@/components/sponsored';
@@ -47,6 +48,9 @@ export default function NewCampaign({
         starts_on: iso(today),
         ends_on: iso(week),
         media: null as File | null,
+        placement: 'all' as Placement,
+        frequency_cap: null as number | null,
+        allow_adult: false as boolean,
         pay: (balance > 0 ? 'wallet' : 'qpay') as 'wallet' | 'qpay',
     });
     const [mediaError, setMediaError] = useState<string | null>(null);
@@ -170,6 +174,17 @@ export default function NewCampaign({
                             </Field>
                         </div>
                         {tooLong && <p className="text-sm text-red-600">{t('biz.maxDays', { n: maxDays })}</p>}
+                    </section>
+
+                    <section className="bg-card flex flex-col gap-4 rounded-2xl p-5 shadow-xs">
+                        <h2 className="font-bold">{t('tg.title')}</h2>
+                        <AdTargeting
+                            placement={form.data.placement}
+                            frequencyCap={form.data.frequency_cap}
+                            allowAdult={form.data.allow_adult}
+                            onChange={(c) => form.setData((d) => ({ ...d, ...c }))}
+                        />
+                        <InputError message={form.errors.placement ?? form.errors.frequency_cap} />
                     </section>
 
                     <section className="bg-card flex flex-col gap-3 rounded-2xl p-5 shadow-xs">

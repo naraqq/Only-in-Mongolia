@@ -1,3 +1,4 @@
+import { targetingSummary, type Placement } from '@/components/ad-targeting';
 import BusinessLayout from '@/layouts/business-layout';
 import { ask } from '@/lib/confirm';
 import { mnt } from '@/lib/format';
@@ -23,6 +24,9 @@ type Campaign = {
     domain: string;
     impressions: number;
     clicks: number;
+    placement: Placement;
+    frequency_cap: number | null;
+    allow_adult: boolean;
     receipt: { id: number; number: string; ebarimt: 'none' | 'pending' | 'issued' | 'failed' | 'returned' } | null;
 };
 
@@ -116,6 +120,7 @@ export default function BusinessIndex({ campaigns }: { company: { name: string; 
                                         {c.days ? ` · ${t('biz.nDays', { n: c.days })}` : ''}
                                         {c.price ? ` · ${mnt(c.price)}` : ''}
                                     </p>
+                                    <p className="text-muted-foreground text-xs">{targetingSummary(t, c)}</p>
                                     {c.status === 'review' && <p className="text-muted-foreground mt-1 text-xs">{t('biz.reviewWait')}</p>}
                                     {c.status === 'rejected' && c.reject_reason && (
                                         <p className="mt-1 text-xs text-red-600 dark:text-red-400">

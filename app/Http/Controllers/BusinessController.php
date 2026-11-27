@@ -18,6 +18,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -115,6 +116,9 @@ class BusinessController extends Controller
             'starts_on' => ['required', 'date', 'after_or_equal:today', 'before:+1 year'],
             'ends_on' => ['required', 'date', 'after_or_equal:starts_on'],
             'media' => BannerMedia::rule(true),
+            'placement' => ['nullable', Rule::in(Ad::PLACEMENTS)],
+            'frequency_cap' => ['nullable', 'integer', Rule::in(Ad::FREQUENCY_CAPS)],
+            'allow_adult' => ['boolean'],
             'pay' => ['required', 'in:qpay,wallet'],
         ]);
         $days = Ad::days($data['starts_on'], $data['ends_on']);
@@ -124,13 +128,14 @@ class BusinessController extends Controller
         $media = BannerMedia::store($request->file('media'), $ffmpeg);
 
         $ad = $company->ads()->create([
-            ...collect($data)->only('title', 'body', 'url', 'starts_on', 'ends_on')->all(),
+            ...collect($data)->only('title', 'body', 'url', 'starts_on', 'ends_on', 'frequency_cap')->all(),
+            'placement' => $data['placement'] ?? 'all',
             ...$media,
             'advertiser' => $company->name,
             'review_status' => Ad::UNPAID,
             'active' => true,
             'weight' => 1,
-            'allow_adult' => false,
+            'allow_adult' => (bool) ($data['allow_adult'] ?? false),
             'price' => Ad::priceFor($days),
             'created_by' => $request->user()->id,
         ]);
@@ -213,7 +218,7 @@ class BusinessController extends Controller
     public static function campaignCard(Ad $ad): array
     {
         return [
-            ...$ad->only('id', 'title', 'body', 'url', 'advertiser', 'price', 'active', 'reject_reason'),
+            ...$ad->only('id', 'title', 'body', 'url', 'advertiser', 'price', 'active', 'reject_reason', 'placement', 'frequency_cap', 'allow_adult'),
             'status' => $ad->status(),
             'starts_on' => $ad->starts_on->toDateString(),
             'ends_on' => $ad->ends_on?->toDateString(),

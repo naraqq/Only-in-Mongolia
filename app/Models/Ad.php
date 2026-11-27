@@ -27,13 +27,19 @@ class Ad extends Model
 
     public const REJECTED = 'rejected';
 
+    /** Where a banner can show. */
+    public const PLACEMENTS = ['all', 'feed', 'creators'];
+
+    /** The daily limits offered per viewer (null = no limit). */
+    public const FREQUENCY_CAPS = [1, 2, 3, 5];
+
     protected $fillable = [
         'company_id', 'advertiser', 'title', 'body', 'image_path', 'video_path', 'poster_path', 'url', 'starts_on', 'ends_on',
-        'active', 'weight', 'allow_adult', 'created_by', 'review_status', 'reject_reason', 'reviewed_by', 'reviewed_at', 'submitted_at', 'price',
+        'active', 'weight', 'allow_adult', 'placement', 'frequency_cap', 'created_by', 'review_status', 'reject_reason', 'reviewed_by', 'reviewed_at', 'submitted_at', 'price',
     ];
 
     protected $casts = [
-        'starts_on' => 'date', 'ends_on' => 'date', 'active' => 'boolean', 'allow_adult' => 'boolean', 'weight' => 'integer',
+        'starts_on' => 'date', 'ends_on' => 'date', 'active' => 'boolean', 'allow_adult' => 'boolean', 'weight' => 'integer', 'frequency_cap' => 'integer',
         'reviewed_at' => 'datetime', 'submitted_at' => 'datetime', 'price' => 'integer',
     ];
 
@@ -49,6 +55,12 @@ class Ad extends Model
 
         return $q->where('review_status', self::APPROVED)->where('active', true)->where('starts_on', '<=', $today)
             ->where(fn ($w) => $w->whereNull('ends_on')->orWhere('ends_on', '>=', $today));
+    }
+
+    /** Running banners that may show on $place ('feed' or 'creators'), on an 18+ page or not. */
+    public function scopeFor(Builder $q, string $place, bool $adult): Builder
+    {
+        return $q->live()->whereIn('placement', ['all', $place])->when($adult, fn ($q) => $q->where('allow_adult', true));
     }
 
     /** unpaid | review | rejected | running | scheduled | ended | paused */
