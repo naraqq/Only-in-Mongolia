@@ -37,7 +37,12 @@ function control(v: HTMLVideoElement) {
 const sent = () => (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) => JSON.parse(c[1].body));
 
 describe('useWatchReport', () => {
-    beforeEach(() => vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}')))));
+    beforeEach(() =>
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(() => Promise.resolve(new Response('{}'))),
+        ),
+    );
     afterEach(() => vi.unstubAllGlobals());
 
     it('counts only what was really played, and the furthest point, on pause', () => {
