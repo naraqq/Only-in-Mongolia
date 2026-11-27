@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import UserAvatar from '@/components/user-avatar';
 import SocialLayout from '@/layouts/social-layout';
 import StudioLayout from '@/layouts/studio-layout';
+import { categoryLabel } from '@/lib/categories';
 import { coverBg } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
 import { toast } from '@/lib/toast';
@@ -35,6 +36,7 @@ type Creator = {
     dm_policy: Policy;
     cover_url: string | null;
     bundles: Record<string, number>;
+    categories: string[];
 };
 
 const POLICIES: { value: Policy; label: TKey }[] = [
@@ -54,7 +56,10 @@ export default function EditProfile({
     stats,
     creator,
     limits,
+    categories = [],
 }: {
+    /** What a page can be about (config creators.categories). */
+    categories?: string[];
     /** Opened from the studio: always the form, in the studio layout. */
     area?: 'social' | 'studio';
     editing: boolean;
@@ -72,6 +77,7 @@ export default function EditProfile({
         price_monthly: creator?.price_monthly ?? 0,
         dm_policy: (creator?.dm_policy ?? 'followers') as Policy,
         bundles: (creator?.bundles ?? {}) as Record<string, number>,
+        categories: (creator?.categories ?? []) as string[],
     });
     const studio = area === 'studio';
     const [editing, setEditingState] = useState(startEditing);
@@ -279,6 +285,32 @@ export default function EditProfile({
                                                         : t('pe.bundleOff')}
                                                 </p>
                                             </div>
+                                        );
+                                    })}
+                                </div>
+                            </Field>
+                            <Field label={t('pe.categories')} hint={t('pe.categoriesHint')} error={form.errors.categories}>
+                                <div className="flex flex-wrap gap-2">
+                                    {categories.map((c) => {
+                                        const on = form.data.categories.includes(c);
+                                        const full = !on && form.data.categories.length >= 2;
+                                        const label = categoryLabel(c);
+                                        return (
+                                            <button
+                                                key={c}
+                                                type="button"
+                                                disabled={full}
+                                                aria-pressed={on}
+                                                onClick={() =>
+                                                    form.setData(
+                                                        'categories',
+                                                        on ? form.data.categories.filter((x) => x !== c) : [...form.data.categories, c],
+                                                    )
+                                                }
+                                                className={`rounded-full px-3 py-1.5 text-sm font-semibold transition disabled:opacity-40 ${on ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
+                                            >
+                                                {label ? t(label) : c}
+                                            </button>
                                         );
                                     })}
                                 </div>

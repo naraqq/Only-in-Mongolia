@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Discovery\Suggestions;
 use App\Models\CreatorProfile;
 use App\Models\Post;
 use App\Models\User;
@@ -9,6 +10,7 @@ use App\Support\Attribution;
 use App\Support\Blocking;
 use App\Support\Notify;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -18,6 +20,9 @@ use Inertia\Response;
 /** The fan side: home, discovering creators, following them, and the feed. */
 class FanController extends Controller
 {
+    /** Posts per page of the home feed (more load as the fan scrolls). */
+    private const PAGE = 20;
+
     /** Home is the feed. Visitors log in first (with their phone number); creator pages stay public for sharing. */
     public function home(Request $request): Response|RedirectResponse
     {
@@ -28,19 +33,27 @@ class FanController extends Controller
     {
         $viewer = $request->user();
         $search = mb_substr(trim((string) $request->query('q', '')), 0, 60);
-        $sort = $request->query('sort') === 'popular' ? 'popular' : 'new';
+        $sort = in_array($request->query('sort'), ['popular', 'new'], true) ? $request->query('sort') : 'trending';
+        $category = in_array($request->query('category'), config('creators.categories'), true) ? $request->query('category') : null;
 
         $creators = CreatorProfile::listableFor($viewer)->withCount(['posts', 'followers'])
             ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w
                 ->where('handle', 'like', '%'.ltrim(mb_strtolower($search), '@').'%')
                 ->orWhere('display_name', 'like', "%{$search}%")
                 ->orWhere('bio', 'like', "%{$search}%")))
-            ->when($sort === 'popular', fn ($q) => $q->orderByDesc('followers_count'), fn ($q) => $q->latest('reviewed_at'))
+            ->when($category, fn ($q) => $q->inCategory($category))
+            ->when($sort === 'trending', fn ($q) => $q->trending()->latest('reviewed_at'))
+            ->when($sort === 'popular', fn ($q) => $q->orderByDesc('followers_count'))
+            ->when($sort === 'new', fn ($q) => $q->latest('reviewed_at'))
             ->take(60)->get();
+
+        // Which categories have pages, for the filter (only those, so no empty choices).
+        $used = CreatorProfile::listableFor($viewer)->whereNotNull('categories')->pluck('categories')->flatten()->countBy();
 
         return Inertia::render('creators/index', [
             'creators' => $creators->map->toCard($viewer),
-            'filters' => ['q' => $search, 'sort' => $sort],
+            'filters' => ['q' => $search, 'sort' => $sort, 'category' => $category],
+            'categories' => collect(config('creators.categories'))->filter(fn ($c) => $used->has($c))->values(),
         ]);
     }
 
@@ -81,7 +94,7 @@ class FanController extends Controller
         $starter = ! $own && ($ids->isEmpty() || $request->query('view') === 'starter');
 
         $posts = $starter ? [] : Post::published()->whereIn('creator_profile_id', $ids->when($own, fn ($c) => $c->merge([$own])))
-            ->with(['media', 'creator.user:id,avatar_path'])->withEngagement($viewer)->latest()->latest('id')->take(50)->get()
+            ->with(['media', 'creator.user:id,avatar_path'])->withEngagement($viewer)->latest()->latest('id')->take(self::PAGE)->get()
             ->map(fn (Post $post) => $this->feedPost($post, $viewer));
 
         return Inertia::render('feed', [
@@ -89,6 +102,45 @@ class FanController extends Controller
             'followingCount' => $ids->count(),
             'starterPosts' => $starter ? $this->starterPosts($viewer, $ids) : null,
         ]);
+    }
+
+    /**
+     * The next posts of the home feed, older than post $before (newest first, as on the page). When there are no
+     * more, `suggested`: recent free posts from creators they might like (App\Discovery\Suggestions).
+     */
+    public function feedMore(Request $request): JsonResponse
+    {
+        $viewer = $request->user();
+        $before = Post::find((int) $request->query('before'));
+        $ids = $viewer->following()->where('status', CreatorProfile::APPROVED)->pluck('creator_profiles.id');
+        $own = $viewer->creatorProfile()->where('status', CreatorProfile::APPROVED)->value('id');
+        $posts = collect();
+        if ($before) {
+            $posts = Post::published()->whereIn('creator_profile_id', $ids->when($own, fn ($c) => $c->merge([$own])))
+                ->where(fn ($q) => $q->where('created_at', '<', $before->created_at)
+                    ->orWhere(fn ($w) => $w->where('created_at', $before->created_at)->where('id', '<', $before->id)))
+                ->with(['media', 'creator.user:id,avatar_path'])->withEngagement($viewer)->latest()->latest('id')->take(self::PAGE)->get();
+        }
+
+        return response()->json([
+            'posts' => $posts->map(fn (Post $post) => $this->feedPost($post, $viewer))->values(),
+            'done' => $posts->count() < self::PAGE,
+            'suggested' => $posts->count() < self::PAGE ? $this->suggestedPosts($viewer) : [],
+        ]);
+    }
+
+    /** One recent free post from each of the creators suggested to them, for "you might also like". */
+    private function suggestedPosts(User $viewer): array
+    {
+        $creators = Suggestions::for($viewer, 8)->filter(fn (CreatorProfile $c) => ! $c->adult_content)->pluck('id');
+        if ($creators->isEmpty()) {
+            return [];
+        }
+
+        return CreatorProfile::whereIn('id', $creators)->whereHas('starterPost')
+            ->with(['starterPost' => fn ($q) => $q->with('media')->withEngagement($viewer), 'user:id,avatar_path'])->get()
+            ->sortBy(fn ($c) => $creators->search($c->id))
+            ->map(fn (CreatorProfile $c) => $this->feedPost($c->starterPost->setRelation('creator', $c), $viewer))->values()->all();
     }
 
     private function starterPosts(User $viewer, Collection $following): array
@@ -103,7 +155,7 @@ class FanController extends Controller
         $remaining = 12 - $selected->count();
         if ($remaining > 0) {
             $selected = $selected->concat((clone $eligible)->whereNotIn('handle', array_keys($topics))
-                ->latest('reviewed_at')->latest('id')->take($remaining)->get());
+                ->trending()->latest('reviewed_at')->take($remaining)->get());
         }
 
         return $selected->map(function (CreatorProfile $creator) use ($viewer, $following, $topics) {
@@ -111,7 +163,7 @@ class FanController extends Controller
 
             return [
                 ...$this->feedPost($post, $viewer),
-                'topic' => $topics[$creator->handle] ?? null,
+                'topic' => $creator->categories[0] ?? $topics[$creator->handle] ?? null,
                 'following' => $following->contains($creator->id),
             ];
         })->values()->all();

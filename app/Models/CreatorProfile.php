@@ -3,8 +3,14 @@
 namespace App\Models;
 
 use App\Support\RegisterNumber;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class CreatorProfile extends Model
 {
@@ -18,7 +24,7 @@ class CreatorProfile extends Model
     public const SUSPENDED = 'suspended';
 
     protected $fillable = [
-        'user_id', 'handle', 'display_name', 'bio', 'price_monthly', 'adult_content', 'dm_policy', 'bundles',
+        'user_id', 'handle', 'display_name', 'bio', 'price_monthly', 'adult_content', 'dm_policy', 'bundles', 'categories',
         'legal_name', 'register_number', 'id_front_path', 'id_back_path', 'selfie_path',
         'bank_name', 'bank_account', 'account_holder', 'consented_at', 'consent_ip',
         'status', 'review_note', 'reviewed_at', 'reviewed_by', 'trial_days',
@@ -28,6 +34,7 @@ class CreatorProfile extends Model
     protected $casts = [
         'price_monthly' => 'integer',
         'bundles' => 'array',
+        'categories' => 'array',
         'welcome_enabled' => 'boolean',
         'welcome_vault' => 'array',
         'welcome_price' => 'integer',
@@ -66,7 +73,7 @@ class CreatorProfile extends Model
         return $this->status === self::APPROVED;
     }
 
-    public function followers(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    public function followers(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'follows')->withTimestamps();
     }
@@ -80,13 +87,40 @@ class CreatorProfile extends Model
 
     public function coverUrl(): ?string
     {
-        return $this->cover_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->cover_path) : null;
+        return $this->cover_path ? Storage::disk('public')->url($this->cover_path) : null;
     }
 
-    public function scopeListableFor(\Illuminate\Database\Eloquent\Builder $q, ?User $viewer): \Illuminate\Database\Eloquent\Builder
+    public function scopeListableFor(Builder $q, ?User $viewer): Builder
     {
         return $q->where('status', self::APPROVED)->when(! $viewer, fn ($w) => $w->where('adult_content', false))
             ->with('user:id,avatar_path'); // cards show the avatar
+    }
+
+    /** Pages about $category (one of config creators.categories). */
+    public function scopeInCategory(Builder $q, string $category): Builder
+    {
+        return $q->whereJsonContains('categories', $category);
+    }
+
+    /**
+     * Ordered by momentum over the last $days days rather than size: new followers (×3), likes on their posts (×2)
+     * and post views (×1), so a newer creator people are discovering right now can rise above a big quiet one.
+     * Adds a `trend` column.
+     */
+    public function scopeTrending(Builder $q, int $days = 7): Builder
+    {
+        $since = now()->subDays($days);
+        $follows = DB::table('follows')->selectRaw('count(*)')
+            ->whereColumn('follows.creator_profile_id', 'creator_profiles.id')->where('follows.created_at', '>=', $since);
+        $likes = DB::table('post_likes')->join('posts', 'posts.id', '=', 'post_likes.post_id')->selectRaw('count(*)')
+            ->whereColumn('posts.creator_profile_id', 'creator_profiles.id')->where('post_likes.created_at', '>=', $since);
+        $views = DB::table('post_views')->join('posts', 'posts.id', '=', 'post_views.post_id')->selectRaw('count(*)')
+            ->whereColumn('posts.creator_profile_id', 'creator_profiles.id')->where('post_views.day', '>=', $since->toDateString());
+
+        return $q->select('creator_profiles.*')
+            ->selectRaw('(3 * ('.$follows->toSql().') + 2 * ('.$likes->toSql().') + ('.$views->toSql().')) as trend',
+                [...$follows->getBindings(), ...$likes->getBindings(), ...$views->getBindings()])
+            ->orderByDesc('trend');
     }
 
     /** What a creator card shows (public information only). */
@@ -112,7 +146,7 @@ class CreatorProfile extends Model
         return $discount === null ? null : intdiv($this->price_monthly * $months * (100 - $discount), 100 * 100) * 100;
     }
 
-    public function promoCodes(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function promoCodes(): HasMany
     {
         return $this->hasMany(PromoCode::class);
     }
@@ -124,7 +158,7 @@ class CreatorProfile extends Model
             return null;
         }
         $had = Subscription::where('user_id', $fan->id)->where('creator_profile_id', $this->id)->exists()
-            || \Illuminate\Support\Facades\DB::table('subscription_trials')->where('user_id', $fan->id)->where('creator_profile_id', $this->id)->exists();
+            || DB::table('subscription_trials')->where('user_id', $fan->id)->where('creator_profile_id', $this->id)->exists();
 
         return $had ? null : $this->trial_days;
     }
@@ -142,6 +176,7 @@ class CreatorProfile extends Model
     {
         return [
             ...$this->only('handle', 'display_name', 'bio', 'price_monthly', 'adult_content'),
+            'categories' => $this->categories ?? [],
             'avatar_url' => $this->avatarUrl(),
             'cover_url' => $this->coverUrl(),
             'posts_count' => (int) ($this->posts_count ?? $this->posts()->count()),
@@ -150,22 +185,22 @@ class CreatorProfile extends Model
         ];
     }
 
-    public function vaultItems(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function vaultItems(): HasMany
     {
         return $this->hasMany(VaultItem::class);
     }
 
-    public function posts(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function posts(): HasMany
     {
         return $this->hasMany(Post::class)->latest()->latest('id'); // newest first, stable within the same second
     }
 
-    public function series(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function series(): HasMany
     {
         return $this->hasMany(CreatorSeries::class);
     }
 
-    public function starterPost(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function starterPost(): HasOne
     {
         return $this->hasOne(Post::class)->ofMany(
             ['created_at' => 'max', 'id' => 'max'],
@@ -180,17 +215,17 @@ class CreatorProfile extends Model
         return $viewer !== null && $this->subscriptions()->active()->where('user_id', $viewer->id)->exists();
     }
 
-    public function subscriptions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class);
     }
 
-    public function payouts(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function payouts(): HasMany
     {
         return $this->hasMany(Payout::class);
     }
 
-    public function payments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
     }

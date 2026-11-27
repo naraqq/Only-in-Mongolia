@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Discovery\Suggestions;
 use App\Models\Ad;
 use App\Models\Conversation;
 use App\Models\CreatorProfile;
@@ -9,7 +10,6 @@ use App\Models\Payout;
 use App\Models\Report;
 use App\Push\Push;
 use App\Support\Appearance;
-use App\Support\Blocking;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -93,10 +93,7 @@ class HandleInertiaRequests extends Middleware
     {
         $viewer = $request->user();
 
-        return CreatorProfile::listableFor($viewer)
-            ->when($viewer, fn ($q) => $q->where('user_id', '!=', $viewer->id)->whereNotIn('user_id', Blocking::idsAround($viewer))
-                ->whereDoesntHave('followers', fn ($f) => $f->whereKey($viewer->id)))
-            ->withCount(['posts', 'followers'])->orderByDesc('followers_count')->latest('reviewed_at')
-            ->take(5)->get()->map->toCard($viewer)->all();
+        // Personal: fans of who they follow, the same topics, then what's trending (App\Discovery\Suggestions).
+        return Suggestions::for($viewer, 5)->map->toCard($viewer)->all();
     }
 }

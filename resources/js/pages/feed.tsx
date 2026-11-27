@@ -4,26 +4,17 @@ import PostCard, { type PostItem } from '@/components/post-card';
 import PostComposer from '@/components/post-composer';
 import { Button } from '@/components/ui/button';
 import SocialLayout, { RightRail } from '@/layouts/social-layout';
+import { CATEGORY_LABELS } from '@/lib/categories';
 import { mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import { Rss } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type FeedPost = PostItem & { author: { name: string; handle: string; price: number; avatar_url: string | null } };
-const topicLabels = {
-    music: 'starter.music',
-    style: 'starter.style',
-    art: 'starter.art',
-    food: 'starter.food',
-    travel: 'starter.travel',
-    photography: 'starter.photography',
-    fitness: 'starter.fitness',
-    technology: 'starter.technology',
-    comics: 'starter.comics',
-} as const;
-type Topic = keyof typeof topicLabels;
+const topicLabels = CATEGORY_LABELS;
+type Topic = string;
 type StarterPost = FeedPost & { topic: Topic | null; following: boolean };
 
 /** Home for signed-in users: a composer (creators), then the newest posts from everyone they follow. */
@@ -72,11 +63,7 @@ export default function Feed({
                     </Button>
                 </div>
             ) : (
-                <div className="flex flex-col gap-4 p-4">
-                    {posts.map((p) => (
-                        <PostCard key={p.id} post={p} author={p.author} price={mnt(p.author.price)} linkAuthor />
-                    ))}
-                </div>
+                <MoreFeed first={posts} />
             )}
 
             {/* On narrow screens the right-hand suggestions column is hidden, so show them here while the feed is small. */}
@@ -162,5 +149,69 @@ function StarterFeed({ posts }: { posts: StarterPost[] }) {
                 </aside>
             </div>
         </>
+    );
+}
+
+/**
+ * The feed's posts, with more loading as the fan nears the end (feed.more); once there are no more, "You're all
+ * caught up" and free posts from creators they might like.
+ */
+function MoreFeed({ first }: { first: FeedPost[] }) {
+    const { t } = useT();
+    const [posts, setPosts] = useState(first);
+    const [suggested, setSuggested] = useState<FeedPost[] | null>(null);
+    const [done, setDone] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const end = useRef<HTMLDivElement>(null);
+
+    useEffect(() => setPosts(first), [first]);
+
+    useEffect(() => {
+        const el = end.current;
+        if (!el || done || !('IntersectionObserver' in window)) return;
+        const io = new IntersectionObserver(
+            ([entry]) => {
+                if (!entry.isIntersecting || busy) return;
+                const last = posts[posts.length - 1];
+                setBusy(true);
+                fetch(route('feed.more', { before: last?.id ?? 0 }), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+                    .then((r) => (r.ok ? r.json() : Promise.reject()))
+                    .then((d: { posts: FeedPost[]; done: boolean; suggested: FeedPost[] }) => {
+                        setPosts((p) => [...p, ...d.posts.filter((n) => !p.some((x) => x.id === n.id))]);
+                        if (d.done) {
+                            setDone(true);
+                            setSuggested(d.suggested);
+                        }
+                    })
+                    .catch(() => setDone(true))
+                    .finally(() => setBusy(false));
+            },
+            { rootMargin: '800px 0px' },
+        );
+        io.observe(el);
+        return () => io.disconnect();
+    }, [posts, done, busy]);
+
+    return (
+        <div className="flex flex-col gap-4 p-4">
+            {posts.map((p) => (
+                <PostCard key={p.id} post={p} author={p.author} price={mnt(p.author.price)} linkAuthor />
+            ))}
+            {!done && <div ref={end} className="h-10" aria-hidden />}
+            {busy && <p className="text-muted-foreground text-center text-sm">{t('fan.loadingMore')}</p>}
+            {done && (
+                <div className="flex flex-col gap-4">
+                    <p className="text-muted-foreground border-border border-t pt-5 text-center text-sm font-semibold">{t('fan.caughtUp')}</p>
+                    {suggested && suggested.length > 0 && (
+                        <>
+                            <h2 className="font-bold">{t('fan.youMightLike')}</h2>
+                            {suggested.map((p) => (
+                                <PostCard key={`s${p.id}`} post={p} author={p.author} price={mnt(p.author.price)} linkAuthor />
+                            ))}
+                        </>
+                    )}
+                </div>
+            )}
+        </div>
     );
 }

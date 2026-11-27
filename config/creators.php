@@ -13,6 +13,9 @@ return [
 
     // Bundles: creators may sell several months at once at a discount (percent, up to the max).
     'bundle_months' => [3, 6, 12],
+
+    // What a page can be about (a creator picks up to two): Discover filters by these, suggestions use them.
+    'categories' => ['music', 'art', 'photography', 'travel', 'food', 'fitness', 'style', 'technology', 'comics', 'comedy', 'education', 'gaming', 'lifestyle'],
     'max_bundle_discount' => 50,
 
     // Tip limits (₮).

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Support\Images;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -41,9 +42,11 @@ class ProfileEditController extends Controller
             ],
             'creator' => $creator ? [
                 ...$creator->only('handle', 'display_name', 'bio', 'price_monthly', 'dm_policy'),
+                'categories' => $creator->categories ?? [],
                 'bundles' => collect(config('creators.bundle_months'))->mapWithKeys(fn ($m) => [$m => (int) ($creator->bundles[(string) $m] ?? 0)]),
                 'cover_url' => $creator->coverUrl(),
             ] : null,
+            'categories' => config('creators.categories'),
             'limits' => ['min_price' => config('creators.min_price'), 'max_price' => config('creators.max_price'), 'max_discount' => config('creators.max_bundle_discount')],
         ]);
     }
@@ -60,6 +63,8 @@ class ProfileEditController extends Controller
                 'bio' => ['nullable', 'string', 'max:500'],
                 'price_monthly' => ['required', 'integer', 'min:'.config('creators.min_price'), 'max:'.config('creators.max_price')],
                 'dm_policy' => ['required', Rule::in(self::DM_POLICIES)],
+                'categories' => ['nullable', 'array', 'max:2'],
+                'categories.*' => ['string', Rule::in(config('creators.categories'))],
                 'bundles' => ['nullable', 'array'],
                 ...collect(config('creators.bundle_months'))->mapWithKeys(fn ($m) => [
                     "bundles.{$m}" => ['nullable', 'integer', 'min:0', 'max:'.config('creators.max_bundle_discount')],
@@ -74,6 +79,7 @@ class ProfileEditController extends Controller
             'bio' => trim((string) ($data['bio'] ?? '')) ?: null,
             'price_monthly' => $data['price_monthly'],
             'dm_policy' => $data['dm_policy'],
+            'categories' => array_values(array_unique($data['categories'] ?? [])) ?: null,
             'bundles' => collect(config('creators.bundle_months'))
                 ->mapWithKeys(fn ($m) => [(string) $m => (int) ($data['bundles'][$m] ?? $data['bundles'][(string) $m] ?? 0)])
                 ->filter()->all() ?: null,
@@ -114,7 +120,7 @@ class ProfileEditController extends Controller
         return back();
     }
 
-    /** @return array{0: \Illuminate\Database\Eloquent\Model, 1: string, 2: int, 3: int} */
+    /** @return array{0: Model, 1: string, 2: int, 3: int} */
     private function target(Request $request, string $kind): array
     {
         if ($kind === 'avatar') {

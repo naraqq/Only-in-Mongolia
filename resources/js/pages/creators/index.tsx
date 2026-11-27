@@ -1,19 +1,30 @@
 import CreatorCard, { type CreatorCardData } from '@/components/creator-card';
 import SocialLayout from '@/layouts/social-layout';
+import { categoryLabel } from '@/lib/categories';
 import { useT } from '@/lib/i18n';
 import { router } from '@inertiajs/react';
 import { Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-/** Discover creators: search by name, @handle or bio; newest or most followed. */
-export default function Creators({ creators, filters }: { creators: CreatorCardData[]; filters: { q: string; sort: 'new' | 'popular' } }) {
+type Sort = 'trending' | 'new' | 'popular';
+
+/** Discover creators: search by name, @handle or bio; by category; trending (the default), newest or most followed. */
+export default function Creators({
+    creators,
+    filters,
+    categories = [],
+}: {
+    creators: CreatorCardData[];
+    filters: { q: string; sort: Sort; category: string | null };
+    categories?: string[];
+}) {
     const { t } = useT();
     const [q, setQ] = useState(filters.q);
     const go = (next: Partial<typeof filters>) => {
         const f = { ...filters, q, ...next };
         router.get(
             route('creators'),
-            { ...(f.q ? { q: f.q } : {}), ...(f.sort !== 'new' ? { sort: f.sort } : {}) },
+            { ...(f.q ? { q: f.q } : {}), ...(f.sort !== 'trending' ? { sort: f.sort } : {}), ...(f.category ? { category: f.category } : {}) },
             { preserveState: true, replace: true },
         );
     };
@@ -49,7 +60,7 @@ export default function Creators({ creators, filters }: { creators: CreatorCardD
                         />
                     </label>
                     <div className="bg-muted flex rounded-lg p-1 text-sm" role="group">
-                        {(['new', 'popular'] as const).map((s) => (
+                        {(['trending', 'new', 'popular'] as const).map((s) => (
                             <button
                                 key={s}
                                 type="button"
@@ -57,11 +68,30 @@ export default function Creators({ creators, filters }: { creators: CreatorCardD
                                 onClick={() => go({ sort: s })}
                                 className={`rounded-md px-3 py-1.5 font-medium transition ${filters.sort === s ? 'bg-card shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                             >
-                                {t(s === 'new' ? 'fan.sortNew' : 'fan.sortPopular')}
+                                {t(s === 'trending' ? 'fan.sortTrending' : s === 'new' ? 'fan.sortNew' : 'fan.sortPopular')}
                             </button>
                         ))}
                     </div>
                 </div>
+
+                {categories.length > 0 && (
+                    <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]" role="group" aria-label={t('pe.categories')}>
+                        {[null, ...categories].map((c) => {
+                            const label = c ? categoryLabel(c) : null;
+                            return (
+                                <button
+                                    key={c ?? 'all'}
+                                    type="button"
+                                    aria-pressed={filters.category === c}
+                                    onClick={() => go({ category: c })}
+                                    className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${filters.category === c ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
+                                >
+                                    {c ? (label ? t(label) : c) : t('starter.all')}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
 
                 {creators.length === 0 ? (
                     <p className="text-muted-foreground mt-12 text-center">{t('fan.noneFound')}</p>

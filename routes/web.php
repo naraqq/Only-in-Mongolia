@@ -72,6 +72,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('wallet/auto-renew/{handle}', [WalletController::class, 'autoRenew'])->name('wallet.auto-renew');
     Route::post('wallet/topup', [PaymentController::class, 'topup'])->middleware('throttle:10,1')->name('wallet.topup');
     Route::get('feed', [FanController::class, 'feed'])->name('feed');
+    Route::get('feed/more', [FanController::class, 'feedMore'])->middleware('throttle:120,1')->name('feed.more');
     Route::post('@{handle}/follow', [FanController::class, 'follow'])->middleware('throttle:60,1')->name('creator.follow');
     Route::delete('@{handle}/follow', [FanController::class, 'unfollow'])->middleware('throttle:60,1')->name('creator.unfollow');
 
