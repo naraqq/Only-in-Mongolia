@@ -25,20 +25,27 @@ class Files
 
     private const CACHE = 'media-cache';
 
-    public static function diskName(): string
+    public static function diskName(?string $path = null): string
     {
-        return (string) config('filesystems.media_disk', 'local');
+        $disk = (string) config('filesystems.media_disk', 'local');
+
+        if ($path !== null && $disk !== 'local' && config('filesystems.media_local_fallback')
+            && Storage::disk('local')->fileExists($path)) {
+            return 'local';
+        }
+
+        return $disk;
     }
 
-    public static function disk(): Filesystem
+    public static function disk(?string $path = null): Filesystem
     {
-        return Storage::disk(self::diskName());
+        return Storage::disk(self::diskName($path));
     }
 
     /** True when media live in a bucket (R2/S3) rather than on this server. */
-    public static function remote(): bool
+    public static function remote(?string $path = null): bool
     {
-        return config('filesystems.disks.'.self::diskName().'.driver') === 's3';
+        return config('filesystems.disks.'.self::diskName($path).'.driver') === 's3';
     }
 
     /** Save an upload under $dir with a random name; returns its path. */
@@ -54,7 +61,7 @@ class Files
 
     public static function exists(string $path): bool
     {
-        return self::disk()->exists($path);
+        return self::disk($path)->exists($path);
     }
 
     /** @param string|array<int, string> $paths */
@@ -63,15 +70,17 @@ class Files
         $paths = array_values(array_filter((array) $paths));
         if ($paths) {
             self::disk()->delete($paths);
-            Storage::disk('local')->delete(array_map(fn ($p) => self::CACHE.'/'.$p, $paths));
+            $cached = array_map(fn ($path) => self::CACHE.'/'.$path, $paths);
+            $local = config('filesystems.media_local_fallback') ? [...$paths, ...$cached] : $cached;
+            Storage::disk('local')->delete($local);
         }
     }
 
     /** A path on this server's disk for a stored file (a cached download when media are on R2). */
     public static function localPath(string $path): string
     {
-        if (! self::remote()) {
-            return self::disk()->path($path);
+        if (! self::remote($path)) {
+            return self::disk($path)->path($path);
         }
         $local = Storage::disk('local');
         $cached = self::CACHE.'/'.$path;
@@ -97,7 +106,7 @@ class Files
      */
     public static function response(string $path, string $mime, array $headers = []): BinaryFileResponse|RedirectResponse
     {
-        if (self::remote()) {
+        if (self::remote($path)) {
             $url = self::disk()->temporaryUrl($path, now()->addMinutes(self::LINK_MINUTES), [
                 'ResponseContentType' => $mime,
                 'ResponseContentDisposition' => 'inline',
@@ -111,7 +120,7 @@ class Files
             ]);
         }
 
-        return response()->file(self::disk()->path($path), ['Content-Type' => $mime, 'X-Content-Type-Options' => 'nosniff', ...$headers]);
+        return response()->file(self::disk($path)->path($path), ['Content-Type' => $mime, 'X-Content-Type-Options' => 'nosniff', ...$headers]);
     }
 
     /** Forget cached downloads nobody has used for $days days. Returns how many went. */

@@ -52,7 +52,7 @@ class CreatorReviewController extends Controller
         abort_unless(Files::exists($path), 404);
 
         // Streamed through the app even on R2: ID documents never get a link that could be passed on.
-        return Files::disk()->response($path, headers: ['Cache-Control' => 'private, no-store']);
+        return Files::disk($path)->response($path, headers: ['Cache-Control' => 'private, no-store']);
     }
 
     public function decide(Request $request, CreatorProfile $creator): RedirectResponse

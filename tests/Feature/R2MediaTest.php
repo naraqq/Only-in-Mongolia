@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Media\Files;
 use App\Models\CreatorProfile;
 use App\Models\Post;
 use App\Models\User;
@@ -73,6 +74,28 @@ class R2MediaTest extends TestCase
 
         $this->actingAs($fan)->get("/media/{$media->id}")->assertOk()->assertHeader('Content-Type', 'image/jpeg');
         Storage::disk('local')->assertExists('media-cache/'.$media->path); // downloaded once for stamping
+    }
+
+    public function test_existing_local_media_and_documents_remain_accessible_with_r2_enabled(): void
+    {
+        $creator = $this->creator();
+        $media = $this->postWithPhoto($creator, Post::PUBLIC);
+        $local = Storage::disk('local');
+        $remote = Storage::disk('r2');
+        $local->put($media->path, $remote->get($media->path));
+        $remote->delete($media->path);
+
+        $document = 'creator-ids/1/front.jpg';
+        $local->put($document, $local->get($media->path));
+        $creator->update(['id_front_path' => $document]);
+        config(['filesystems.media_local_fallback' => true]);
+
+        $this->get("/media/{$media->id}")->assertOk()->assertHeader('Content-Type', 'image/jpeg');
+        $admin = User::factory()->create(['is_admin' => true]);
+        $this->actingAs($admin)->get(route('admin.creators.document', [$creator, 'front']))->assertOk();
+
+        Files::delete([$media->path, $document]);
+        $local->assertMissing([$media->path, $document]);
     }
 
     public function test_media_copy_moves_existing_files_to_the_bucket_and_can_run_again(): void

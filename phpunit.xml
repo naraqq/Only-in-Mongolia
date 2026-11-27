@@ -22,6 +22,7 @@
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_STORE" value="array"/>
+        <env name="MEDIA_DISK" value="local" force="true"/>
         <!-- MySQL, like production: the separate test database from compose.dev.yaml (CI provides its own). -->
         <env name="DB_CONNECTION" value="mysql"/>
         <env name="ADMIN_REQUIRE_2FA" value="false"/>

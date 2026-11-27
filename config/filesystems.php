@@ -86,6 +86,9 @@ return [
 
     'media_disk' => env('MEDIA_DISK', 'local'),
 
+    // Serve existing local uploads when switching new uploads to a bucket without a bulk copy.
+    'media_local_fallback' => env('MEDIA_LOCAL_FALLBACK', false),
+
     /*
     |--------------------------------------------------------------------------
     | Symbolic Links
