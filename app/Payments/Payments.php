@@ -2,6 +2,7 @@
 
 namespace App\Payments;
 
+use App\Billing\Receipts;
 use App\Messaging\Welcome;
 use App\Models\Ad;
 use App\Models\Conversation;
@@ -176,6 +177,7 @@ class Payments
             // Paid: now it waits for an admin. (A second payment for the same campaign changes nothing.)
             Ad::whereKey($payment->ad_id)->where('review_status', Ad::UNPAID)
                 ->update(['review_status' => Ad::PENDING, 'submitted_at' => now(), 'updated_at' => now()]);
+            Receipts::issue($payment); // the company's receipt (and e-barimt, when on)
 
             return;
         }
@@ -247,6 +249,7 @@ class Payments
                 // The company is told by the campaign's own notice (approved/rejected), not a generic refund.
                 Ad::whereKey($fresh->ad_id)->whereIn('review_status', [Ad::UNPAID, Ad::PENDING, Ad::APPROVED])
                     ->update(['review_status' => Ad::REJECTED, 'reject_reason' => $reason, 'reviewed_by' => $admin->id, 'reviewed_at' => now(), 'updated_at' => now()]);
+                Receipts::refunded($fresh);
 
                 return $fresh;
             }

@@ -4,7 +4,7 @@ import CheckoutLayout from '@/layouts/checkout-layout';
 import { mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { Link, router } from '@inertiajs/react';
-import { ArrowRight, CircleCheck, FlaskConical, LoaderCircle, QrCode, ShieldCheck, Smartphone } from 'lucide-react';
+import { ArrowRight, CircleCheck, FlaskConical, LoaderCircle, QrCode, ReceiptText, ShieldCheck, Smartphone } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 type BankLink = { name: string; description: string; logo: string; link: string };
@@ -29,6 +29,7 @@ type Campaign = {
     poster: string | null;
     video: string | null;
     domain: string;
+    receipt: { id: number; number: string; ebarimt: 'none' | 'pending' | 'issued' | 'failed' | 'returned' } | null;
 };
 
 const POLL_MS = 3000;
@@ -128,6 +129,14 @@ export default function AdPayment({ payment, campaign, paidAt }: { payment: Paym
                     >
                         {t('biz.toCampaigns')} <ArrowRight className="size-5" />
                     </Link>
+                    {campaign?.receipt && (
+                        <a
+                            href={route('business.receipts.show', campaign.receipt.id)}
+                            className="text-muted-foreground hover:text-foreground mt-4 inline-flex items-center gap-1.5 text-sm font-semibold"
+                        >
+                            <ReceiptText className="size-4" /> {t('biz.downloadReceipt', { number: campaign.receipt.number })}
+                        </a>
+                    )}
                 </div>
             ) : (
                 <>

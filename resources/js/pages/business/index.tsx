@@ -3,7 +3,7 @@ import { ask } from '@/lib/confirm';
 import { mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
 import { Link, router, usePage } from '@inertiajs/react';
-import { CreditCard, Download, ExternalLink, Eye, Film, Megaphone, MousePointerClick, Pause, Play, Plus, Trash2 } from 'lucide-react';
+import { CreditCard, Download, ExternalLink, Eye, Film, Megaphone, MousePointerClick, Pause, Play, Plus, ReceiptText, Trash2 } from 'lucide-react';
 
 type Status = 'unpaid' | 'review' | 'rejected' | 'running' | 'scheduled' | 'ended' | 'paused';
 type Campaign = {
@@ -23,6 +23,7 @@ type Campaign = {
     domain: string;
     impressions: number;
     clicks: number;
+    receipt: { id: number; number: string; ebarimt: 'none' | 'pending' | 'issued' | 'failed' | 'returned' } | null;
 };
 
 const STATUS: Record<Status, [TKey, string]> = {
@@ -161,6 +162,20 @@ export default function BusinessIndex({ campaigns }: { company: { name: string; 
                                                 className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 items-center gap-1 rounded-full px-2.5 text-xs font-semibold"
                                             >
                                                 <Download className="size-3.5" /> {t('ads.report')}
+                                            </a>
+                                        )}
+                                        {c.receipt && (
+                                            <a
+                                                href={route('business.receipts.show', c.receipt.id)}
+                                                className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 items-center gap-1 rounded-full px-2.5 text-xs font-semibold"
+                                                title={c.receipt.number}
+                                            >
+                                                <ReceiptText className="size-3.5" /> {t('biz.receipt')}
+                                                {c.receipt.ebarimt === 'issued' && (
+                                                    <span className="rounded bg-emerald-500/15 px-1 text-[10px] font-bold text-emerald-600">
+                                                        {t('biz.ebarimt')}
+                                                    </span>
+                                                )}
                                             </a>
                                         )}
                                         <a

@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Billing\Receipts;
 use App\Jobs\ProcessAdVideo;
 use App\Media\Ffmpeg;
 use App\Models\Ad;
 use App\Models\Company;
+use App\Models\Payment;
+use App\Models\Receipt;
 use App\Payments\InsufficientBalance;
 use App\Payments\PaymentException;
 use App\Payments\Payments;
@@ -185,6 +188,15 @@ class BusinessController extends Controller
         return $ad->report();
     }
 
+    /** The company's receipt for a payment, as a PDF. */
+    public function receipt(Request $request, Receipt $receipt): \Symfony\Component\HttpFoundation\Response
+    {
+        $company = $request->user()->company;
+        abort_unless($company && $receipt->company_id === $company->id, 404);
+
+        return Receipts::pdf($receipt);
+    }
+
     private function checkout(Request $request, Ad $ad, bool $fromWallet): RedirectResponse
     {
         try {
@@ -255,6 +267,15 @@ class BusinessController extends Controller
             'domain' => preg_replace('/^www\./', '', (string) parse_url($ad->url, PHP_URL_HOST)),
             'submitted_at' => $ad->submitted_at?->toIso8601String(),
             'past_start' => $ad->starts_on->lt(Carbon::today()),
+            'receipt' => self::receiptFor($ad),
         ];
+    }
+
+    /** The receipt for a campaign's payment (the latest one, if it was paid more than once), for the list. */
+    public static function receiptFor(Ad $ad): ?array
+    {
+        $receipt = Receipt::whereIn('payment_id', Payment::where('ad_id', $ad->id)->where('purpose', Payment::AD)->select('id'))->latest('id')->first();
+
+        return $receipt ? ['id' => $receipt->id, 'number' => $receipt->number, 'ebarimt' => $receipt->ebarimt_status] : null;
     }
 }

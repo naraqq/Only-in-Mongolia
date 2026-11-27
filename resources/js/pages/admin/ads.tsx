@@ -21,6 +21,7 @@ import {
     Pencil,
     Play,
     Plus,
+    ReceiptText,
     Trash2,
     X,
 } from 'lucide-react';
@@ -44,6 +45,7 @@ type Ad = {
     company: string | null;
     price: number | null;
     reject_reason: string | null;
+    receipt: { id: number; number: string; ebarimt: 'none' | 'pending' | 'issued' | 'failed' | 'returned' } | null;
     status: Status;
     impressions: number;
     clicks: number;
@@ -217,6 +219,20 @@ export default function AdminAds({ ads, review, days }: { ads: Ad[]; review: Rev
                                         >
                                             <Download className="size-3.5" /> {t('ads.report')}
                                         </a>
+                                        {ad.receipt && (
+                                            <a
+                                                href={route('admin.receipts.show', ad.receipt.id)}
+                                                className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 items-center gap-1 rounded-full px-2.5 text-xs font-semibold"
+                                                title={ad.receipt.number}
+                                            >
+                                                <ReceiptText className="size-3.5" /> {ad.receipt.number}
+                                                {ad.receipt.ebarimt === 'failed' && (
+                                                    <span className="rounded bg-red-500/15 px-1 text-[10px] font-bold text-red-600">
+                                                        {t('biz.ebarimtFailed')}
+                                                    </span>
+                                                )}
+                                            </a>
+                                        )}
                                         <a
                                             href={ad.url}
                                             target="_blank"

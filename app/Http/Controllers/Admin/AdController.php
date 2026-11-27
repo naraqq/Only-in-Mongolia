@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Billing\Receipts;
 use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\Controller;
 use App\Models\Ad;
 use App\Models\Payment;
+use App\Models\Receipt;
 use App\Notifications\Activity;
 use App\Payments\Payments;
 use App\Support\Images;
@@ -58,6 +60,7 @@ class AdController extends Controller
                 'video' => $ad->videoUrl(),
                 'poster' => $ad->posterUrl(),
                 'company' => $ad->company?->name,
+                'receipt' => $ad->company_id ? BusinessController::receiptFor($ad) : null,
                 'status' => $ad->status(),
                 'impressions' => (int) ($period[$ad->id]->impressions ?? 0),
                 'clicks' => (int) ($period[$ad->id]->clicks ?? 0),
@@ -150,6 +153,12 @@ class AdController extends Controller
         $ad->delete();
 
         return back();
+    }
+
+    /** Any company's receipt, as a PDF. */
+    public function receipt(Receipt $receipt): \Symfony\Component\HttpFoundation\Response
+    {
+        return Receipts::pdf($receipt);
     }
 
     /** One banner's day-by-day numbers, as a CSV to send the advertiser. */

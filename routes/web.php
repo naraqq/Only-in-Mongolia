@@ -190,6 +190,7 @@ Route::middleware('auth')->prefix('business')->name('business')->group(function 
     Route::post('campaigns/{ad}/toggle', [BusinessController::class, 'toggle'])->name('.campaigns.toggle');
     Route::delete('campaigns/{ad}', [BusinessController::class, 'destroy'])->name('.campaigns.destroy');
     Route::get('campaigns/{ad}/report.csv', [BusinessController::class, 'report'])->name('.campaigns.report');
+    Route::get('receipts/{receipt}.pdf', [BusinessController::class, 'receipt'])->name('.receipts.show');
 });
 
 // QPay's server-to-server notification. It only makes us ask QPay for the status, so it can be public.
@@ -218,6 +219,7 @@ Route::middleware(['auth', EnsureAdmin::class, RecordAdminAction::class])->prefi
     Route::delete('ads/{ad}', [AdminAdController::class, 'destroy'])->name('ads.destroy');
     Route::post('ads/{ad}/approve', [AdminAdController::class, 'approve'])->name('ads.approve');
     Route::post('ads/{ad}/reject', [AdminAdController::class, 'reject'])->name('ads.reject');
+    Route::get('receipts/{receipt}.pdf', [AdminAdController::class, 'receipt'])->name('receipts.show');
     Route::get('ads/{ad}/report.csv', [AdminAdController::class, 'report'])->name('ads.report');
     Route::get('users/{user}', [AdminUserController::class, 'show'])->name('users.show');
     Route::post('users/{user}/ban', [AdminUserController::class, 'ban'])->name('users.ban');
