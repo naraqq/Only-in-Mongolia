@@ -5,7 +5,7 @@ import { useLayoutEffect, useSyncExternalStore } from 'react';
  * Moving between pages of the same part changes nothing; moving to another part shows the brand splash
  * (components/layout-splash.tsx) over the new layout while it settles in.
  */
-export type LayoutArea = 'client' | 'studio' | 'admin' | 'auth';
+export type LayoutArea = 'client' | 'studio' | 'admin' | 'business' | 'auth';
 
 let current: LayoutArea | null = null;
 let splash = { key: 0, label: '' };

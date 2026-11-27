@@ -62,9 +62,9 @@ recover_failed_deploy() {
 }
 trap recover_failed_deploy ERR
 if [[ -n "$CURRENT" ]]; then
-    compose "$CURRENT" stop app worker scheduler
+    stop_writers "$CURRENT"
 else
-    compose "$revision" stop app worker scheduler
+    stop_writers "$revision"
 fi
 start_dependencies "$revision"
 backup_database "$revision"

@@ -1,14 +1,32 @@
 import DateTimePicker from '@/components/date-time-picker';
 import InputError from '@/components/input-error';
+import { Banner } from '@/components/sponsored';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import AdminLayout from '@/layouts/admin-layout';
 import { ask } from '@/lib/confirm';
+import { mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
 import { router, useForm } from '@inertiajs/react';
-import { Download, ExternalLink, Eye, ImagePlus, Megaphone, MousePointerClick, Pause, Pencil, Play, Plus, Trash2 } from 'lucide-react';
+import {
+    Building2,
+    Check,
+    Download,
+    ExternalLink,
+    Eye,
+    Film,
+    ImagePlus,
+    Megaphone,
+    MousePointerClick,
+    Pause,
+    Pencil,
+    Play,
+    Plus,
+    Trash2,
+    X,
+} from 'lucide-react';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
-type Status = 'running' | 'scheduled' | 'ended' | 'paused';
+type Status = 'running' | 'scheduled' | 'ended' | 'paused' | 'rejected';
 type Ad = {
     id: number;
     advertiser: string;
@@ -20,7 +38,12 @@ type Ad = {
     allow_adult: boolean;
     starts_on: string;
     ends_on: string | null;
-    image: string;
+    image: string | null;
+    video: string | null;
+    poster: string | null;
+    company: string | null;
+    price: number | null;
+    reject_reason: string | null;
     status: Status;
     impressions: number;
     clicks: number;
@@ -33,6 +56,35 @@ const STATUS: Record<Status, [TKey, string]> = {
     scheduled: ['ads.scheduled', 'bg-sky-500/15 text-sky-600 dark:text-sky-400'],
     ended: ['ads.ended', 'bg-muted text-muted-foreground'],
     paused: ['ads.paused', 'bg-amber-500/15 text-amber-600 dark:text-amber-400'],
+    rejected: ['ads.rejected', 'bg-red-500/15 text-red-600 dark:text-red-400'],
+};
+
+/** A company's paid campaign waiting for review. */
+type Review = {
+    id: number;
+    title: string;
+    body: string | null;
+    url: string;
+    advertiser: string;
+    price: number | null;
+    starts_on: string;
+    ends_on: string | null;
+    days: number | null;
+    image: string | null;
+    video: string | null;
+    poster: string | null;
+    domain: string;
+    submitted_at: string | null;
+    past_start: boolean;
+    company: {
+        name: string;
+        register_number: string;
+        email: string;
+        website: string | null;
+        logo: string | null;
+        contact: string | null;
+        phone: string | null;
+    } | null;
 };
 
 const num = (n: number) => n.toLocaleString('en-US');
@@ -40,7 +92,7 @@ const rate = (clicks: number, views: number) => (views ? `${((clicks / views) * 
 const day = (d: string | null) => (d ? d.replaceAll('-', '.') : '');
 
 /** Admin → Sponsored: other companies' banners in the right-hand column, and how each did. */
-export default function AdminAds({ ads, days, contact }: { ads: Ad[]; days: number; contact: string | null }) {
+export default function AdminAds({ ads, review, days }: { ads: Ad[]; review: Review[]; days: number }) {
     const { t } = useT();
     const [editing, setEditing] = useState<Ad | 'new' | null>(null);
     const running = ads.filter((a) => a.status === 'running');
@@ -88,7 +140,19 @@ export default function AdminAds({ ads, days, contact }: { ads: Ad[]; days: numb
                     </div>
                 </div>
 
-                {!contact && <p className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">{t('ads.noContact')}</p>}
+                {review.length > 0 && (
+                    <section className="flex flex-col gap-3">
+                        <h2 className="flex items-center gap-2 text-sm font-bold">
+                            {t('ads.toReview')}
+                            <span className="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[11px]">{review.length}</span>
+                        </h2>
+                        <ul className="grid gap-3 xl:grid-cols-2">
+                            {review.map((c) => (
+                                <ReviewCard key={c.id} c={c} />
+                            ))}
+                        </ul>
+                    </section>
+                )}
 
                 {ads.length === 0 ? (
                     <button
@@ -106,7 +170,14 @@ export default function AdminAds({ ads, days, contact }: { ads: Ad[]; days: numb
                     <ul className="grid gap-3 xl:grid-cols-2">
                         {ads.map((ad) => (
                             <li key={ad.id} className="bg-card flex gap-4 overflow-hidden rounded-2xl p-3 shadow-xs">
-                                <img src={ad.image} alt="" className="aspect-[6/5] w-32 shrink-0 rounded-xl object-cover sm:w-40" />
+                                <div className="relative aspect-[6/5] w-32 shrink-0 overflow-hidden rounded-xl bg-zinc-200 sm:w-40 dark:bg-zinc-800">
+                                    {ad.poster && <img src={ad.poster} alt="" className="size-full object-cover" />}
+                                    {ad.video && (
+                                        <span className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                                            <Film className="size-3" /> {t('biz.video')}
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="flex min-w-0 flex-1 flex-col">
                                     <div className="flex items-start gap-2">
                                         <div className="min-w-0 flex-1">
@@ -121,19 +192,25 @@ export default function AdminAds({ ads, days, contact }: { ads: Ad[]; days: numb
                                         {day(ad.starts_on)} – {ad.ends_on ? day(ad.ends_on) : t('ads.noEnd')}
                                         {ad.weight > 1 && ` · ×${ad.weight}`}
                                         {ad.allow_adult && ' · 18+'}
+                                        {ad.price ? ` · ${mnt(ad.price)}` : ''}
                                     </p>
+                                    {ad.reject_reason && ad.status === 'rejected' && (
+                                        <p className="mt-1 line-clamp-2 text-xs text-red-600 dark:text-red-400">{ad.reject_reason}</p>
+                                    )}
                                     <div className="mt-auto grid grid-cols-3 gap-2 pt-2 text-sm">
                                         <Stat label={t('ads.views')} value={num(ad.impressions)} />
                                         <Stat label={t('ads.clicks')} value={num(ad.clicks)} />
                                         <Stat label={t('ads.ctr')} value={rate(ad.clicks, ad.impressions)} />
                                     </div>
                                     <div className="mt-2 flex flex-wrap items-center gap-1">
-                                        <SmallButton icon={Pencil} label={t('ads.edit')} onClick={() => setEditing(ad)} />
-                                        <SmallButton
-                                            icon={ad.active ? Pause : Play}
-                                            label={t(ad.active ? 'ads.pause' : 'ads.resume')}
-                                            onClick={() => router.post(route('admin.ads.toggle', ad.id), {}, { preserveScroll: true })}
-                                        />
+                                        {!ad.company && <SmallButton icon={Pencil} label={t('ads.edit')} onClick={() => setEditing(ad)} />}
+                                        {ad.status !== 'rejected' && (
+                                            <SmallButton
+                                                icon={ad.active ? Pause : Play}
+                                                label={t(ad.active ? 'ads.pause' : 'ads.resume')}
+                                                onClick={() => router.post(route('admin.ads.toggle', ad.id), {}, { preserveScroll: true })}
+                                            />
+                                        )}
                                         <a
                                             href={route('admin.ads.report', ad.id)}
                                             className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 items-center gap-1 rounded-full px-2.5 text-xs font-semibold"
@@ -167,6 +244,122 @@ export default function AdminAds({ ads, days, contact }: { ads: Ad[]; days: numb
 
             <AdForm ad={editing} onClose={() => setEditing(null)} />
         </AdminLayout>
+    );
+}
+
+/** A paid campaign to approve (it runs on its dates) or reject (with a reason the company sees; it's refunded). */
+function ReviewCard({ c }: { c: Review }) {
+    const { t } = useT();
+    const [rejecting, setRejecting] = useState(false);
+    const form = useForm({ reason: '' });
+
+    function reject(e: FormEvent) {
+        e.preventDefault();
+        form.post(route('admin.ads.reject', c.id), { preserveScroll: true });
+    }
+
+    return (
+        <li className="bg-card ring-primary/30 flex flex-col gap-3 rounded-2xl p-3 shadow-xs ring-1 sm:flex-row">
+            <div className="w-full shrink-0 sm:w-56">
+                <Banner
+                    preview
+                    ad={{
+                        id: c.id,
+                        advertiser: c.advertiser,
+                        title: c.title,
+                        body: c.body,
+                        image: c.poster,
+                        video: c.video,
+                        href: c.url,
+                        domain: c.domain,
+                    }}
+                />
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col gap-2 text-sm">
+                {c.company && (
+                    <div className="flex items-center gap-2">
+                        {c.company.logo ? (
+                            <img src={c.company.logo} alt="" className="size-8 rounded-lg object-cover" />
+                        ) : (
+                            <span className="bg-muted grid size-8 place-items-center rounded-lg">
+                                <Building2 className="text-muted-foreground size-4" />
+                            </span>
+                        )}
+                        <div className="min-w-0">
+                            <p className="truncate font-bold">{c.company.name}</p>
+                            <p className="text-muted-foreground truncate text-xs">
+                                {t('biz.registerShort')} {c.company.register_number} · {c.company.email}
+                                {c.company.phone && ` · ${c.company.phone}`}
+                            </p>
+                        </div>
+                    </div>
+                )}
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                    <dt className="text-muted-foreground">{t('biz.dates')}</dt>
+                    <dd className="font-semibold">
+                        {day(c.starts_on)} – {day(c.ends_on)} ({t('biz.nDays', { n: c.days ?? 0 })})
+                    </dd>
+                    <dt className="text-muted-foreground">{t('biz.paid')}</dt>
+                    <dd className="font-semibold">{c.price ? mnt(c.price) : '—'}</dd>
+                    <dt className="text-muted-foreground">{t('ads.link')}</dt>
+                    <dd className="truncate">
+                        <a href={c.url} target="_blank" rel="noreferrer" className="text-primary font-semibold hover:underline">
+                            {c.domain}
+                        </a>
+                    </dd>
+                </dl>
+                {c.past_start && (
+                    <p className="rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-700 dark:text-amber-300">{t('ads.lateNote')}</p>
+                )}
+                {rejecting ? (
+                    <form onSubmit={reject} className="mt-auto flex flex-col gap-2">
+                        <textarea
+                            value={form.data.reason}
+                            onChange={(e) => form.setData('reason', e.target.value)}
+                            maxLength={300}
+                            rows={2}
+                            autoFocus
+                            placeholder={t('ads.rejectReason')}
+                            className="border-input bg-background w-full rounded-xl border px-3 py-2 text-sm"
+                        />
+                        <InputError message={form.errors.reason} />
+                        <div className="flex gap-2">
+                            <button
+                                type="submit"
+                                disabled={form.processing || !form.data.reason.trim()}
+                                className="inline-flex h-9 items-center gap-1.5 rounded-full bg-red-600 px-4 text-xs font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
+                            >
+                                <X className="size-4" /> {t('ads.rejectRefund')}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setRejecting(false)}
+                                className="text-muted-foreground h-9 px-3 text-xs font-semibold"
+                            >
+                                {t('dlg.cancel')}
+                            </button>
+                        </div>
+                    </form>
+                ) : (
+                    <div className="mt-auto flex gap-2">
+                        <button
+                            type="button"
+                            onClick={() => router.post(route('admin.ads.approve', c.id), {}, { preserveScroll: true })}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-emerald-600 px-4 text-xs font-bold text-white transition hover:bg-emerald-700"
+                        >
+                            <Check className="size-4" /> {t('ads.approve')}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setRejecting(true)}
+                            className="text-muted-foreground hover:bg-muted inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-xs font-bold"
+                        >
+                            <X className="size-4" /> {t('ads.reject')}
+                        </button>
+                    </div>
+                )}
+            </div>
+        </li>
     );
 }
 

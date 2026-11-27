@@ -1,4 +1,5 @@
 import { UploadAborted, uploadInChunks, UploadRejected, type UploadKind, type UploadResult } from '@/lib/chunked-upload';
+import { makePreviewQueued, type MadePreview } from '@/lib/video-preview';
 import { router } from '@inertiajs/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -63,6 +64,50 @@ function discard(id: string) {
         keepalive: true,
         headers: { Accept: 'application/json', 'X-XSRF-TOKEN': xsrf(), 'X-Requested-With': 'XMLHttpRequest' },
     }).catch(() => {});
+}
+
+/**
+ * A video's still and seek-bar frames (lib/video-preview) go up once both they and the upload itself are ready.
+ * Kept outside React on purpose: the post is often sent (and the composer closed) before the frames are done.
+ */
+type PendingPreview = { id?: string; preview?: MadePreview | null; settled?: boolean };
+const pendingPreviews = new Map<string, PendingPreview>();
+
+function previewStep(key: string, change: Partial<PendingPreview>) {
+    const p: PendingPreview = { ...pendingPreviews.get(key), ...change };
+    pendingPreviews.set(key, p);
+    if (p.settled) return;
+    if (p.preview === null) {
+        p.settled = true; // the browser couldn't make one: the player falls back to the video itself
+    } else if (p.id && p.preview) {
+        p.settled = true;
+        void sendPreview(p.id, p.preview).finally(() => pendingPreviews.delete(key));
+    }
+}
+
+async function sendPreview(id: string, preview: MadePreview, attempt = 0): Promise<void> {
+    const body = new FormData();
+    body.append('poster', preview.poster, 'poster.jpg');
+    if (preview.thumbs && preview.grid) {
+        body.append('thumbs', preview.thumbs, 'thumbs.jpg');
+        Object.entries(preview.grid).forEach(([k, v]) => body.append(k, String(v)));
+    }
+    body.append('width', String(preview.width));
+    body.append('height', String(preview.height));
+    body.append('duration', String(Math.round(preview.duration * 1000) / 1000));
+    try {
+        const res = await fetch(route('uploads.preview', id), {
+            method: 'POST',
+            body,
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json', 'X-XSRF-TOKEN': xsrf(), 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        if (res.ok || res.status < 500 || attempt >= 2) return; // refused or gone: nothing a retry fixes
+    } catch {
+        if (attempt >= 2) return;
+    }
+    await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+    return sendPreview(id, preview, attempt + 1);
 }
 
 /** A frame from a video (about a tenth of the way in) and its length. Fails quietly for formats the browser can't play. */
@@ -144,7 +189,10 @@ export function useUploads(max: number, leaveWarning: string) {
                     patch(item.key, (i) => (i.status === 'uploading' ? { sent, speed: m.shown } : {}));
                 },
             })
-                .then((result) => patch(item.key, { status: 'done', result, sent: item.file.size, speed: 0 }))
+                .then((result) => {
+                    patch(item.key, { status: 'done', result, sent: item.file.size, speed: 0 });
+                    if (item.kind === 'video') previewStep(item.key, { id: result.id });
+                })
                 .catch((e) => {
                     if (e instanceof UploadAborted || controller.signal.aborted) {
                         if (pausing.current.delete(item.key)) patch(item.key, { status: 'paused', speed: 0 });
@@ -199,7 +247,10 @@ export function useUploads(max: number, leaveWarning: string) {
             }
             if (fresh.length) {
                 setItems((l) => [...l, ...fresh]);
-                fresh.forEach((item) => probe(item.url, item.kind).then((info) => patch(item.key, info)));
+                fresh.forEach((item) => {
+                    probe(item.url, item.kind).then((info) => patch(item.key, info));
+                    if (item.kind === 'video') makePreviewQueued(item.file).then((preview) => previewStep(item.key, { preview }));
+                });
             }
             return refused;
         },
@@ -212,6 +263,7 @@ export function useUploads(max: number, leaveWarning: string) {
         controllers.current.get(key)?.abort();
         controllers.current.delete(key);
         if (item.uploadId) discard(item.uploadId);
+        previewStep(key, { settled: true });
         URL.revokeObjectURL(item.url);
         setItems((l) => l.filter((i) => i.key !== key));
     }, []);
@@ -246,6 +298,7 @@ export function useUploads(max: number, leaveWarning: string) {
         controllers.current.clear();
         latest.current.forEach((i) => {
             if (discardOnServer && i.uploadId) discard(i.uploadId);
+            if (discardOnServer) previewStep(i.key, { settled: true });
             URL.revokeObjectURL(i.url);
         });
         setItems([]);

@@ -1,6 +1,6 @@
 import AppLogo from '@/components/app-logo';
 import AppLogoIcon from '@/components/app-logo-icon';
-import AreaSwitch, { type AreaTarget } from '@/components/area-switch';
+import AreaSwitch, { adminWaiting, useBusinessSwitch, type AreaTarget } from '@/components/area-switch';
 import { type CreatorCardData } from '@/components/creator-card';
 import LangSwitch from '@/components/lang-switch';
 import NowPlayingBar from '@/components/now-playing-bar';
@@ -61,7 +61,7 @@ export default function SocialLayout({
         SharedData & {
             unreadMessages: number;
             unreadNotifications: number;
-            adminCounts: { applications: number; payouts: number; reports: number } | null;
+            adminCounts: { applications: number; payouts: number; reports: number; ads: number } | null;
         }
     >();
     const { auth, unreadMessages, unreadNotifications, adminCounts } = page.props;
@@ -117,6 +117,7 @@ export default function SocialLayout({
     ];
 
     // Other parts of the app (they have their own layout): shown apart from the menu, as switches.
+    const business = useBusinessSwitch();
     const areas: AreaTarget[] = [
         ...(creator
             ? [{ label: t('nav.studio'), sub: t('nav.studioSub'), href: route('studio'), icon: Clapperboard, tone: 'studio' } as AreaTarget]
@@ -129,10 +130,11 @@ export default function SocialLayout({
                       href: route('admin.dashboard'),
                       icon: ShieldCheck,
                       tone: 'admin',
-                      badge: adminCounts ? adminCounts.applications + adminCounts.payouts + adminCounts.reports : 0,
+                      badge: adminWaiting(adminCounts),
                   } as AreaTarget,
               ]
             : []),
+        ...(business ? [business] : []),
     ];
 
     // The big button: "New post" for creators, "Log in" for guests. Fans become creators from their profile page.

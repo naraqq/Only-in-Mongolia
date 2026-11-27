@@ -95,9 +95,26 @@ verify_release() {
     [[ "$status" == 200 ]]
 }
 
+# Containers that write to the database or uploads, stopped around backups and migrations. The media worker
+# (video conversion) only exists in newer releases, so it's included only when the release has it.
+writer_services() {
+    local revision=$1
+    printf '%s\n' app worker scheduler
+    if compose "$revision" config --services 2>/dev/null | grep -qx media-worker; then
+        printf '%s\n' media-worker
+    fi
+}
+
+stop_writers() {
+    local revision=$1 writers
+    mapfile -t writers < <(writer_services "$revision")
+    compose "$revision" stop "${writers[@]}"
+}
+
 start_release() {
     local revision=$1 host=$2
-    local services=(app worker scheduler)
+    local services
+    mapfile -t services < <(writer_services "$revision")
     # Real-time server (Reverb), in releases that have it (older ones, e.g. after a rollback, don't).
     if compose "$revision" config --services 2>/dev/null | grep -qx reverb; then
         services+=(reverb)

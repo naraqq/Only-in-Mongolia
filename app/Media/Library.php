@@ -69,6 +69,7 @@ class Library
             $used = PostMedia::where('path', $path)->exists() || MessageMedia::where('path', $path)->exists()
                 || VaultItem::where('path', $path)->exists();
             if (! $used) {
+                Previews::delete($path);
                 Files::delete($path);
                 Storage::disk('local')->deleteDirectory(Stamp::folder($path)); // stamped copies live on this server
             }

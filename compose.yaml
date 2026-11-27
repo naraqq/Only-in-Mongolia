@@ -74,6 +74,19 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # Video conversion (App\Jobs\TranscodeVideo): its own worker, so a long video never holds up notifications.
+  media-worker:
+    <<: *laravel
+    user: www-data
+    init: true
+    restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 100s
+    command: ["php", "artisan", "queue:work", "media", "--queue=media", "--tries=4", "--timeout=7200", "--max-jobs=50", "--memory=512"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
   scheduler:
     <<: *laravel
     user: www-data

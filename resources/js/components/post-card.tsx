@@ -13,6 +13,7 @@ import UserAvatar from '@/components/user-avatar';
 import { mnt, timeAgo } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { usePostState, type PostState } from '@/lib/use-post-state';
+import type { Thumbs } from '@/lib/video-preview';
 import { useSeen } from '@/lib/views';
 import { type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
@@ -44,7 +45,15 @@ export type PostItem = {
     locked: 'login' | 'subscribe' | 'buy' | null;
     price: number | null;
     body: string | null;
-    media: { id: number; type: 'image' | 'video' | 'audio'; url: string; stamp?: string | null }[];
+    media: {
+        id: number;
+        type: 'image' | 'video' | 'audio';
+        url: string;
+        stamp?: string | null;
+        poster?: string | null;
+        thumbs?: Thumbs | null;
+        duration?: number | null;
+    }[];
     counts: { image: number; video: number; audio?: number };
     likes_count: number;
     comments_count: number;

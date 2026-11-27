@@ -139,6 +139,17 @@ describe('FeedVideo', () => {
         expect(video.paused).toBe(true);
     });
 
+    it('lets go of its download while the full player has the same video, and comes back at the same moment', () => {
+        const { container, rerender } = render(<FeedVideo src="/media/1" onOpen={() => {}} />);
+        const video = container.querySelector('video')!;
+        video.currentTime = 12;
+        rerender(<FeedVideo src="/media/1" onOpen={() => {}} active={false} />);
+        expect(video.hasAttribute('src')).toBe(false); // the connection is free for the full player
+
+        rerender(<FeedVideo src="/media/1" onOpen={() => {}} active />);
+        expect(video.getAttribute('src')).toBe('/media/1#t=12');
+    });
+
     it('a long video that ended is not started over while still on screen', () => {
         const [a] = twoVideos();
         onScreen(a, 1);

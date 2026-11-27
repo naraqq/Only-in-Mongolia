@@ -55,6 +55,13 @@ services:
     healthcheck:
       <<: *health
       test: ["CMD", "php", "docker/health.php", "queue:work"]
+  media-worker:
+    logging: *log-rotation
+    networks: *backends
+    environment: *redis-client
+    healthcheck:
+      <<: *health
+      test: ["CMD", "php", "docker/health.php", "queue:work"]
   scheduler:
     logging: *log-rotation
     networks: *backends

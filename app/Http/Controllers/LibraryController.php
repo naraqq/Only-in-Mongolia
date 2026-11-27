@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Media\Files;
 use App\Media\Library;
+use App\Media\Paths;
+use App\Media\Transcoding;
 use App\Media\Uploads;
 use App\Models\CreatorProfile;
 use App\Models\VaultItem;
@@ -66,11 +68,13 @@ class LibraryController extends Controller
         $hashes = Moderation::screen($request->file('media'));
 
         foreach ($request->file('media') as $i => $file) {
-            Library::record($creator, [
+            $stored = [
                 ...Uploads::describe($file),
-                'path' => Files::store($file, "library/{$creator->id}"), // the media disk (private)
+                'path' => Files::storeFor($file, $creator->user_id, Paths::LIBRARY), // the media disk (private)
                 'sha256' => $hashes[$i],
-            ]);
+            ];
+            Library::record($creator, $stored);
+            Transcoding::queue($stored['path'], $stored['type']);
         }
 
         return back()->with('status', 'library-added');

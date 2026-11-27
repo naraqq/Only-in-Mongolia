@@ -1,10 +1,20 @@
 import VideoPlayer from '@/components/video-player';
 import { useT } from '@/lib/i18n';
+import type { Thumbs } from '@/lib/video-preview';
 import * as Dialog from '@radix-ui/react-dialog';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 
-type Media = { id: number; type: 'image' | 'video' | 'audio'; url: string; stamp?: string | null };
+type Media = {
+    id: number;
+    type: 'image' | 'video' | 'audio';
+    url: string;
+    stamp?: string | null;
+    /** Videos: a still frame and seek-bar frames, when the uploader's browser made them. */
+    poster?: string | null;
+    thumbs?: Thumbs | null;
+    duration?: number | null;
+};
 
 /**
  * Full-screen viewer for a post's photos and videos. Arrow keys and buttons move between them; Esc closes.
@@ -62,6 +72,9 @@ export default function MediaLightbox({
                                     src={m.url}
                                     id={`m${m.id}`}
                                     stamp={m.stamp}
+                                    poster={m.poster}
+                                    thumbs={m.thumbs}
+                                    duration={m.duration}
                                     autoPlay
                                     startAt={i === start ? startAt : undefined}
                                     className="lb-media max-h-full max-w-full rounded-lg"

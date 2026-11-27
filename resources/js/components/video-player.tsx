@@ -3,6 +3,7 @@ import { block as blockFeed, unblock as unblockFeed } from '@/lib/feed-video';
 import { useT } from '@/lib/i18n';
 import { toggle as toggleAudio } from '@/lib/player';
 import { formatDuration } from '@/lib/use-uploads';
+import { tileAt, type Thumbs } from '@/lib/video-preview';
 import {
     AlertTriangle,
     Check,
@@ -49,7 +50,8 @@ type Flash = { icon: ReactNode; label?: string; key: number; side?: -1 | 0 | 1 }
 
 /**
  * The app's video player. Own controls (the same on every browser), with:
- *  - a seek bar showing what's loaded, the time under the pointer, and drag-to-scrub;
+ *  - a still frame before it plays (when the uploader's browser made one), so nothing loads until it's played;
+ *  - a seek bar showing what's loaded, the time and a frame under the pointer, and drag-to-scrub;
  *  - volume (remembered), speed, picture-in-picture, and full screen of the whole player, so the viewer-ID
  *    stamp on paid videos stays on screen in full screen too (PiP and downloads are off for those);
  *  - phones: tap shows the controls, double-tap the sides skips 10 s, double-tap the middle likes;
@@ -60,6 +62,9 @@ export default function VideoPlayer({
     src,
     id,
     stamp,
+    poster,
+    thumbs,
+    duration: knownDuration,
     autoPlay = false,
     startAt,
     className = '',
@@ -71,6 +76,12 @@ export default function VideoPlayer({
     id?: string | number;
     /** The viewer's ID shown over a paid video. */
     stamp?: string | null;
+    /** A still frame shown before it plays (App\Media\Previews). */
+    poster?: string | null;
+    /** Frames shown above the seek bar while scrubbing. */
+    thumbs?: Thumbs | null;
+    /** Its length, when known before loading (shown on the still). */
+    duration?: number | null;
     autoPlay?: boolean;
     /** Start here (seconds), e.g. where the feed preview was when it was opened. */
     startAt?: number;
@@ -92,7 +103,7 @@ export default function VideoPlayer({
     const [ended, setEnded] = useState(false);
     const [waiting, setWaiting] = useState(false);
     const [time, setTime] = useState(0);
-    const [duration, setDuration] = useState(0);
+    const [duration, setDuration] = useState(knownDuration ?? 0);
     const [buffered, setBuffered] = useState(0);
     const [volume, setVolumeState] = useState(() => Number(stored('vp.volume') ?? 1));
     const [muted, setMuted] = useState(() => stored('vp.muted') === '1');
@@ -407,10 +418,12 @@ export default function VideoPlayer({
         >
             <video
                 ref={video}
-                src={autoPlay ? src : `${src}#t=0.1` /* the fragment makes browsers show the first frame */}
+                // With a still, nothing loads until play; without one, the fragment makes browsers show the first frame.
+                src={autoPlay || poster ? src : `${src}#t=0.1`}
+                poster={poster ?? undefined}
                 autoPlay={autoPlay}
                 playsInline
-                preload="metadata"
+                preload={poster && !autoPlay ? 'none' : 'metadata'}
                 disablePictureInPicture={!!stamp}
                 disableRemotePlayback={!!stamp}
                 controlsList={stamp ? 'nodownload noremoteplayback' : undefined}
@@ -512,7 +525,15 @@ export default function VideoPlayer({
                     }`}
                     onPointerUp={(e) => e.stopPropagation()}
                 >
-                    <SeekBar time={time} duration={duration} buffered={buffered} onSeek={seekTo} onScrub={show} label={t('vp.seek')} />
+                    <SeekBar
+                        time={time}
+                        duration={duration}
+                        buffered={buffered}
+                        thumbs={thumbs}
+                        onSeek={seekTo}
+                        onScrub={show}
+                        label={t('vp.seek')}
+                    />
 
                     <div className="mt-0.5 flex items-center gap-0.5">
                         <button
@@ -659,11 +680,15 @@ function SkipIcon({ dir }: { dir: -1 | 1 }) {
     );
 }
 
-/** Played (brand colour), loaded (lighter) and the rest; drag to scrub, with the time shown above the pointer. */
+/**
+ * Played (brand colour), loaded (lighter) and the rest; drag to scrub, with the time (and, when the video has
+ * them, a frame from that moment) shown above the pointer.
+ */
 function SeekBar({
     time,
     duration,
     buffered,
+    thumbs,
     onSeek,
     onScrub,
     label,
@@ -671,6 +696,7 @@ function SeekBar({
     time: number;
     duration: number;
     buffered: number;
+    thumbs?: Thumbs | null;
     onSeek: (s: number) => void;
     onScrub: () => void;
     label: string;
@@ -685,6 +711,25 @@ function SeekBar({
     const pct = (s: number) => (duration ? (s / duration) * 100 : 0);
     const shownTime = drag !== null ? drag * duration : time;
     const tip = drag ?? hover;
+
+    // Fetch the frames once the controls are up, so the first hover already has them.
+    const [thumbsReady, setThumbsReady] = useState(false);
+    useEffect(() => {
+        if (!thumbs) return;
+        let live = true;
+        const img = new Image();
+        img.onload = () => live && setThumbsReady(true);
+        img.src = thumbs.url;
+        return () => {
+            live = false;
+        };
+    }, [thumbs]);
+    // Shown smaller on narrow players (phones), so the frame never covers most of the picture.
+    const scale = thumbs && bar.current && bar.current.clientWidth < 360 ? 0.75 : 1;
+    const frame =
+        tip !== null && duration > 0 && thumbs && thumbsReady
+            ? { ...tileAt(thumbs, tip * duration), w: thumbs.w * scale, h: thumbs.h * scale }
+            : null;
 
     return (
         <div
@@ -730,7 +775,27 @@ function SeekBar({
                 }`}
                 style={{ left: `${pct(shownTime)}%` }}
             />
-            {tip !== null && duration > 0 && (
+            {tip !== null && duration > 0 && frame && thumbs && (
+                <span
+                    className="pointer-events-none absolute bottom-5 flex -translate-x-1/2 flex-col items-center gap-1"
+                    style={{ left: `clamp(${frame.w / 2 + 4}px, ${tip * 100}%, calc(100% - ${frame.w / 2 + 4}px))` }}
+                >
+                    <span
+                        className="block overflow-hidden rounded-md bg-black bg-no-repeat shadow-lg ring-2 ring-white/90"
+                        style={{
+                            width: frame.w,
+                            height: frame.h,
+                            backgroundImage: `url("${thumbs.url}")`,
+                            backgroundPosition: `-${frame.x * scale}px -${frame.y * scale}px`,
+                            backgroundSize: `${thumbs.cols * frame.w}px auto`,
+                        }}
+                    />
+                    <span className="rounded-md bg-black/85 px-1.5 py-0.5 text-[11px] font-bold text-white tabular-nums">
+                        {formatDuration(tip * duration)}
+                    </span>
+                </span>
+            )}
+            {tip !== null && duration > 0 && !frame && (
                 <span
                     className="pointer-events-none absolute bottom-5 -translate-x-1/2 rounded-md bg-black/85 px-1.5 py-0.5 text-[11px] font-bold text-white tabular-nums"
                     style={{ left: `clamp(1.5rem, ${tip * 100}%, calc(100% - 1.5rem))` }}

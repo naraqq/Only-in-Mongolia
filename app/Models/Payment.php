@@ -26,10 +26,13 @@ class Payment extends Model
     /** Money added to the fan's own wallet (no creator). */
     public const TOPUP = 'topup';
 
-    /** What fans pay creators for: everything except wallet top-ups. */
+    /** A company paying for a sponsored banner (no creator; all of it is the platform's). */
+    public const AD = 'ad';
+
+    /** What fans pay creators for: everything except wallet top-ups and companies' banners. */
     public const SALES = [self::SUBSCRIPTION, self::TIP, self::PPV];
 
-    protected $fillable = ['user_id', 'creator_profile_id', 'purpose', 'post_id', 'message_id', 'note', 'amount', 'platform_fee', 'status', 'provider', 'invoice_id', 'qr_text', 'qr_image', 'bank_links', 'paid_at', 'refunded_at', 'refunded_by', 'refund_reason', 'months', 'promo_code_id', 'discount', 'source', 'source_id', 'referrer'];
+    protected $fillable = ['user_id', 'creator_profile_id', 'purpose', 'post_id', 'message_id', 'note', 'amount', 'platform_fee', 'status', 'provider', 'invoice_id', 'qr_text', 'qr_image', 'bank_links', 'paid_at', 'refunded_at', 'refunded_by', 'refund_reason', 'months', 'promo_code_id', 'discount', 'source', 'source_id', 'referrer', 'ad_id'];
 
     protected $casts = ['bank_links' => 'array', 'paid_at' => 'datetime', 'refunded_at' => 'datetime', 'months' => 'integer', 'renewal' => 'boolean'];
 

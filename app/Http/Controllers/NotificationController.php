@@ -77,6 +77,7 @@ class NotificationController extends Controller
             'tipped', 'subscribed', 'followed' => $actor && ($c = Conversation::findBetween($me, $actor)) ? route('messages.show', $c) : route('studio'),
             'payout_paid', 'payout_rejected', 'charge_refunded' => route('studio.earnings'),
             'auto_renewed', 'renew_failed' => route('wallet'),
+            'ad_approved', 'ad_rejected' => route('business'),
             'refunded' => isset($d['handle']) ? route('creator.show', $d['handle']) : null,
             'purchased' => isset($d['conversation_id']) ? route('messages.show', $d['conversation_id']) : route('studio'),
             default => null,

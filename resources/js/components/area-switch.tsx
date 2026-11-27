@@ -2,7 +2,7 @@ import UserAvatar from '@/components/user-avatar';
 import { useT } from '@/lib/i18n';
 import { type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { ArrowLeftRight, Clapperboard, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { ArrowLeftRight, Building2, Clapperboard, ShieldCheck, type LucideIcon } from 'lucide-react';
 
 /**
  * A switch to another part of the app (fan side, studio, admin), set apart from the ordinary menu: a coloured tile
@@ -12,7 +12,7 @@ export type AreaTarget = {
     label: string;
     sub: string;
     href: string;
-    tone: 'studio' | 'admin' | 'page';
+    tone: 'studio' | 'admin' | 'page' | 'business';
     icon?: LucideIcon;
     /** Show this photo as the tile (the creator's page). */
     avatar?: { name: string; src: string | null; seed?: string };
@@ -23,12 +23,26 @@ const TONES = {
     studio: 'bg-primary text-primary-foreground',
     admin: 'bg-amber-400 text-amber-950',
     page: 'bg-sky-500 text-white',
+    business: 'bg-violet-600 text-white',
 };
 
-/** The other parts of the app this person can switch to from a work area (studio or admin). */
-export function useWorkAreaSwitches(here: 'studio' | 'admin'): AreaTarget[] {
+type AdminCounts = { applications: number; payouts: number; reports: number; ads: number } | null;
+
+/** Everything waiting for admins, for the switch's badge. */
+export const adminWaiting = (c: AdminCounts) => (c ? c.applications + c.payouts + c.reports + (c.ads ?? 0) : 0);
+
+/** The Business area (a company's sponsored banners), for people who advertise. */
+export function useBusinessSwitch(): AreaTarget | null {
     const { t } = useT();
-    const { auth, adminCounts } = usePage<SharedData & { adminCounts: { applications: number; payouts: number; reports: number } | null }>().props;
+    const company = usePage<SharedData>().props.auth.company;
+    return company ? { label: t('biz.title'), sub: company.name, href: route('business'), tone: 'business', icon: Building2 } : null;
+}
+
+/** The other parts of the app this person can switch to from a work area (studio or admin). */
+export function useWorkAreaSwitches(here: 'studio' | 'admin' | 'business'): AreaTarget[] {
+    const { t } = useT();
+    const { auth, adminCounts } = usePage<SharedData & { adminCounts: AdminCounts }>().props;
+    const business = useBusinessSwitch();
     const creator = auth.creator?.status === 'approved' ? auth.creator : null;
     const user = auth.user;
     if (!user) return [];
@@ -56,10 +70,11 @@ export function useWorkAreaSwitches(here: 'studio' | 'admin'): AreaTarget[] {
                       href: route('admin.dashboard'),
                       tone: 'admin',
                       icon: ShieldCheck,
-                      badge: adminCounts ? adminCounts.applications + adminCounts.payouts + adminCounts.reports : 0,
+                      badge: adminWaiting(adminCounts),
                   } as AreaTarget,
               ]
             : []),
+        ...(business && here !== 'business' ? [business] : []),
     ];
 }
 

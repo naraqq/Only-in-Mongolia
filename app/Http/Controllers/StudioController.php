@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Media\ChunkedUploads;
 use App\Media\Files;
 use App\Media\Library;
+use App\Media\Paths;
+use App\Media\Transcoding;
 use App\Media\Uploads;
 use App\Models\CreatorProfile;
 use App\Models\Payment;
@@ -138,11 +140,12 @@ class StudioController extends Controller
             foreach ($request->file('media', []) as $i => $file) {
                 $stored = [
                     ...Uploads::describe($file),
-                    'path' => Files::store($file, "posts/{$creator->id}"), // the media disk (private)
+                    'path' => Files::storeFor($file, $creator->user_id, Paths::POSTS), // the media disk (private)
                     'sha256' => $hashes[$i],
                 ];
                 $post->media()->create([...$stored, 'position' => $position++]);
                 Library::record($creator, $stored);
+                Transcoding::queue($stored['path'], $stored['type']); // after the commit
             }
             Moderation::queue(...$post->media()->get()->all());
 

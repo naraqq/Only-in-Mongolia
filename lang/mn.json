@@ -15,5 +15,10 @@
     "Write something or add a photo or video.": "Текст бичих эсвэл зураг, видео нэмнэ үү.",
     "Photos can be at most 20 MB.": "Зураг хамгийн ихдээ 20 MB байна.",
     "Turn on 18+ content for your page first.": "Эхлээд хуудсандаа 18+ агуулгыг идэвхжүүлнэ үү.",
-    "This account has been blocked.": "Энэ бүртгэлийг хаасан байна."
+    "This account has been blocked.": "Энэ бүртгэлийг хаасан байна.",
+    "A company register number is 7 digits.": "Улсын бүртгэлийн дугаар 7 оронтой.",
+    "A campaign can run at most :days days.": "Нэг кампанит ажил дээд тал нь :days хоног.",
+    "Pictures can be at most 5 MB.": "Зураг 5 MB-аас ихгүй байна.",
+    "This video can’t be played. Try an MP4 file.": "Энэ бичлэгийг тоглуулж чадсангүй. MP4 файл оролдоно уу.",
+    "Videos can be at most :seconds seconds.": "Бичлэг :seconds секундээс урт байж болохгүй."
 }

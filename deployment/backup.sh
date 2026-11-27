@@ -22,5 +22,5 @@ resume_release() {
     exit "$status"
 }
 trap resume_release EXIT
-compose "$revision" stop app worker scheduler
+stop_writers "$revision"
 backup_persistent "$revision"

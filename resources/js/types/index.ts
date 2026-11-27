@@ -2,6 +2,8 @@ export interface Auth {
     user: User;
     /** The signed-in user's creator application, if any. */
     creator: { handle: string; status: 'pending' | 'approved' | 'rejected'; adult_content: boolean } | null;
+    /** The company this person advertises for (the Business area), if any. */
+    company: { name: string; logo: string | null } | null;
 }
 
 export interface SharedData {

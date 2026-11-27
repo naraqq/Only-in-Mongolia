@@ -5,7 +5,7 @@ import { useLayoutArea } from '@/lib/layout-area';
 import { usePage } from '@inertiajs/react';
 import { Banknote, Flag, LayoutDashboard, Megaphone, ScrollText, Sparkles, Users } from 'lucide-react';
 
-type Counts = { applications: number; payouts: number; reports: number } | null;
+type Counts = { applications: number; payouts: number; reports: number; ads: number } | null;
 
 /** The admin area: dashboard, the three review queues with how many items wait in each, and users. */
 export default function AdminLayout(props: PageProps) {
@@ -43,7 +43,7 @@ export default function AdminLayout(props: PageProps) {
                         title: t('adm.manage'),
                         items: [
                             item('au.title', 'admin.users', Users),
-                            item('ads.title', 'admin.ads', Megaphone),
+                            item('ads.title', 'admin.ads', Megaphone, counts?.ads),
                             item('aud.title', 'admin.audit', ScrollText),
                         ],
                     },

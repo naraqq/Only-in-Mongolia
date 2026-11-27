@@ -26,7 +26,7 @@ live_schema=$(schema_fingerprint "$running")
 backup_database "$running"
 # Preserve the recovery target if a rollback is interrupted.
 record_pending "$running" "$target"
-compose "$running" stop app worker scheduler
+stop_writers "$running"
 start_dependencies "$target"
 start_release "$target" "$host"
 record_active "$target" ''

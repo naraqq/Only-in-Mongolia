@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Media\Files;
+use App\Media\Paths;
 use App\Models\CreatorProfile;
 use App\Support\RegisterNumber;
 use Illuminate\Http\RedirectResponse;
@@ -95,8 +96,7 @@ class CreatorApplicationController extends Controller
             return back()->withErrors(['register_number' => __('This register number is already used by another creator account.')]);
         }
 
-        // ID documents go to the private disk; admins view them through a protected route.
-        $dir = "creator-ids/{$user->id}";
+        // ID documents go to the private disk (kyc/{userId}/, see App\Media\Paths); admins view them through a protected route.
         if ($existing) {
             Files::delete([$existing->id_front_path, $existing->id_back_path, $existing->selfie_path]);
         }
@@ -105,9 +105,9 @@ class CreatorApplicationController extends Controller
             ...collect($data)->only('handle', 'display_name', 'bio', 'price_monthly', 'legal_name', 'register_number', 'bank_name', 'bank_account', 'account_holder')->all(),
             'adult_content' => (bool) ($data['adult_content'] ?? false),
             'bank_account' => strtoupper($data['bank_account']),
-            'id_front_path' => Files::store($request->file('id_front'), $dir),
-            'id_back_path' => Files::store($request->file('id_back'), $dir),
-            'selfie_path' => Files::store($request->file('selfie'), $dir),
+            'id_front_path' => Files::storeAt($request->file('id_front'), Paths::kyc($user->id, 'front', $request->file('id_front'))),
+            'id_back_path' => Files::storeAt($request->file('id_back'), Paths::kyc($user->id, 'back', $request->file('id_back'))),
+            'selfie_path' => Files::storeAt($request->file('selfie'), Paths::kyc($user->id, 'selfie', $request->file('selfie'))),
             'consented_at' => now(),
             'consent_ip' => $request->ip(),
             'status' => CreatorProfile::PENDING,

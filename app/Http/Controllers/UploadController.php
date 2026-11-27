@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Media\ChunkedUploads;
+use App\Media\Previews;
 use App\Models\MediaUpload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -52,6 +53,38 @@ class UploadController extends Controller
         $upload = Cache::lock('upload:'.$upload->getKey(), 900)->block(120, fn () => ChunkedUploads::complete($upload->fresh()));
 
         return response()->json(['id' => $upload->getKey(), 'type' => $upload->type, 'mime' => $upload->mime]);
+    }
+
+    /**
+     * A finished video's still frame and seek-bar frames, made by the browser (App\Media\Previews). Can arrive after
+     * the post went out: the frames belong to the stored file, not to the upload.
+     */
+    public function preview(Request $request, MediaUpload $upload): Response
+    {
+        $this->own($request, $upload);
+        abort_unless($upload->completed_at && $upload->type === 'video' && $upload->path, 409);
+        $data = $request->validate([
+            'poster' => ['required', 'file', 'mimetypes:image/jpeg,image/webp,image/png', 'max:2048'],
+            'thumbs' => ['nullable', 'file', 'mimetypes:image/jpeg,image/webp,image/png', 'max:4096', 'required_with:cols'],
+            'cols' => ['nullable', 'required_with:thumbs', 'integer', 'min:1', 'max:20'],
+            'count' => ['nullable', 'required_with:thumbs', 'integer', 'min:1', 'max:400'],
+            'interval' => ['nullable', 'required_with:thumbs', 'numeric', 'min:0.1', 'max:3600'],
+            'w' => ['nullable', 'required_with:thumbs', 'integer', 'min:16', 'max:400'],
+            'h' => ['nullable', 'required_with:thumbs', 'integer', 'min:16', 'max:400'],
+            'width' => ['nullable', 'integer', 'min:1', 'max:16384'],
+            'height' => ['nullable', 'integer', 'min:1', 'max:16384'],
+            'duration' => ['nullable', 'numeric', 'min:0', 'max:86400'],
+        ]);
+        $grid = $request->hasFile('thumbs') ? [
+            'cols' => (int) $data['cols'], 'count' => (int) $data['count'], 'interval' => (float) $data['interval'],
+            'w' => (int) $data['w'], 'h' => (int) $data['h'],
+        ] : null;
+
+        Previews::save($upload->path, $request->file('poster'), $request->file('thumbs'), $grid, [
+            'width' => $data['width'] ?? null, 'height' => $data['height'] ?? null, 'duration' => isset($data['duration']) ? (float) $data['duration'] : null,
+        ]);
+
+        return response()->noContent();
     }
 
     public function destroy(Request $request, MediaUpload $upload): Response

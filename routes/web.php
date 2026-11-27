@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdController;
+use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\Admin\AdController as AdminAdController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\CreatorReviewController;
@@ -170,6 +171,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('uploads/{upload}', [UploadController::class, 'show'])->name('uploads.show');
     Route::post('uploads/{upload}/chunks/{index}', [UploadController::class, 'chunk'])->whereNumber('index')->middleware('throttle:1200,1')->name('uploads.chunk');
     Route::post('uploads/{upload}/complete', [UploadController::class, 'complete'])->middleware('throttle:120,1')->name('uploads.complete');
+    Route::post('uploads/{upload}/preview', [UploadController::class, 'preview'])->middleware('throttle:120,1')->name('uploads.preview');
     Route::delete('uploads/{upload}', [UploadController::class, 'destroy'])->name('uploads.destroy');
     Route::post('studio/posts', [StudioController::class, 'store'])->middleware('throttle:30,60')->name('studio.posts.store');
     Route::patch('studio/posts/{post}', [StudioController::class, 'update'])->name('studio.posts.update');
@@ -177,11 +179,25 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('studio/posts/{post}', [StudioController::class, 'destroy'])->name('studio.posts.destroy');
 });
 
+// Companies advertising by themselves (sponsored banners): their company, campaigns and reports.
+Route::middleware('auth')->prefix('business')->name('business')->group(function () {
+    Route::get('/', [BusinessController::class, 'index']);
+    Route::get('company', [BusinessController::class, 'company'])->name('.company');
+    Route::post('company', [BusinessController::class, 'saveCompany'])->middleware('throttle:20,60')->name('.company.save');
+    Route::get('campaigns/new', [BusinessController::class, 'create'])->name('.campaigns.new');
+    Route::post('campaigns', [BusinessController::class, 'store'])->middleware('throttle:20,60')->name('.campaigns.store');
+    Route::post('campaigns/{ad}/pay', [BusinessController::class, 'pay'])->middleware('throttle:30,60')->name('.campaigns.pay');
+    Route::post('campaigns/{ad}/toggle', [BusinessController::class, 'toggle'])->name('.campaigns.toggle');
+    Route::delete('campaigns/{ad}', [BusinessController::class, 'destroy'])->name('.campaigns.destroy');
+    Route::get('campaigns/{ad}/report.csv', [BusinessController::class, 'report'])->name('.campaigns.report');
+});
+
 // QPay's server-to-server notification. It only makes us ask QPay for the status, so it can be public.
 Route::match(['get', 'post'], 'payments/{payment}/callback', [PaymentController::class, 'callback'])->middleware('throttle:60,1')->name('payments.callback');
 
 // Photos and videos, only after a permission check (see MediaController).
 Route::get('media/{media}', [MediaController::class, 'show'])->name('media.show');
+Route::get('media/{media}/{which}', [MediaController::class, 'preview'])->whereIn('which', ['poster', 'thumbs'])->name('media.preview');
 
 Route::middleware(['auth', EnsureAdmin::class, RecordAdminAction::class])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
@@ -200,6 +216,8 @@ Route::middleware(['auth', EnsureAdmin::class, RecordAdminAction::class])->prefi
     Route::post('ads/{ad}', [AdminAdController::class, 'update'])->name('ads.update');
     Route::post('ads/{ad}/toggle', [AdminAdController::class, 'toggle'])->name('ads.toggle');
     Route::delete('ads/{ad}', [AdminAdController::class, 'destroy'])->name('ads.destroy');
+    Route::post('ads/{ad}/approve', [AdminAdController::class, 'approve'])->name('ads.approve');
+    Route::post('ads/{ad}/reject', [AdminAdController::class, 'reject'])->name('ads.reject');
     Route::get('ads/{ad}/report.csv', [AdminAdController::class, 'report'])->name('ads.report');
     Route::get('users/{user}', [AdminUserController::class, 'show'])->name('users.show');
     Route::post('users/{user}/ban', [AdminUserController::class, 'ban'])->name('users.ban');

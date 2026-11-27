@@ -15,6 +15,7 @@ import {
     HandCoins,
     ImagePlus,
     LockOpen,
+    Megaphone,
     MessageCircle,
     MessageCircleQuestion,
     Radio,
@@ -44,13 +45,15 @@ type Kind =
     | 'refunded'
     | 'charge_refunded'
     | 'qa_live'
-    | 'qa_answered';
+    | 'qa_answered'
+    | 'ad_approved'
+    | 'ad_rejected';
 type Item = {
     id: string;
     kind: Kind;
     read: boolean;
     at: string;
-    data: { amount?: number; renewed?: boolean; note?: string; expires_at?: string };
+    data: { amount?: number; renewed?: boolean; note?: string; expires_at?: string; reason?: string; wallet?: boolean; date?: string };
     actor: { name: string; handle: string | null; avatar_url: string | null } | null;
     url: string | null;
 };
@@ -73,6 +76,8 @@ const ICONS: Record<Kind, [LucideIcon, string]> = {
     renew_failed: [WalletIcon, 'bg-amber-500'],
     qa_live: [Radio, 'bg-red-500'],
     qa_answered: [MessageCircleQuestion, 'bg-violet-500'],
+    ad_approved: [Megaphone, 'bg-emerald-600'],
+    ad_rejected: [Megaphone, 'bg-red-600'],
 };
 
 /** The bell: who followed, subscribed, tipped or bought, new posts, and subscriptions about to end. */
@@ -124,6 +129,10 @@ export default function Notifications({ notifications }: { notifications: Item[]
                 return t('nt.payoutRejected', { amount });
             case 'refunded':
                 return t('nt.refunded', { name, amount });
+            case 'ad_approved':
+                return t('nt.adApproved', { title: n.data.note ?? '', date: (n.data.date ?? '').replaceAll('-', '.') });
+            case 'ad_rejected':
+                return t(n.data.wallet ? 'nt.adRejectedWallet' : 'nt.adRejected', { title: n.data.note ?? '', reason: n.data.reason ?? '', amount });
             case 'charge_refunded':
                 return t('nt.chargeRefunded', { name, amount });
             case 'trial_started':

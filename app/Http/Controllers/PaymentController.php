@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Ad;
 use App\Models\CreatorProfile;
 use App\Models\Message;
 use App\Models\Payment;
@@ -155,6 +156,9 @@ class PaymentController extends Controller
         if ($payment->purpose === Payment::TOPUP) {
             return route('wallet');
         }
+        if ($payment->purpose === Payment::AD) {
+            return route('business');
+        }
         if ($payment->message_id && $payment->message) {
             return route('messages.show', $payment->message->conversation_id);
         }
@@ -166,6 +170,22 @@ class PaymentController extends Controller
     {
         $this->authorizeOwner($request, $payment);
         $creator = $payment->creator;
+
+        if ($payment->purpose === Payment::AD) {
+            $ad = Ad::find($payment->ad_id);
+
+            return Inertia::render('payments/ad', [
+                'payment' => [
+                    ...$payment->only('id', 'amount', 'status'),
+                    'qr_image' => $payment->qr_image,
+                    'bank_links' => $payment->bank_links ?? [],
+                    'fake' => $payment->provider === 'fake',
+                    'wallet' => $payment->provider === Payments::WALLET,
+                ],
+                'campaign' => $ad ? BusinessController::campaignCard($ad) : null,
+                'paidAt' => $payment->paid_at?->toIso8601String(),
+            ]);
+        }
 
         if ($payment->purpose === Payment::TOPUP) {
             return Inertia::render('payments/topup', [
@@ -230,6 +250,7 @@ class PaymentController extends Controller
             Payment::TIP => 'tipped',
             Payment::PPV => 'unlocked',
             Payment::TOPUP => 'topped-up',
+            Payment::AD => 'ad-paid',
             default => 'subscribed',
         });
     }

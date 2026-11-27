@@ -3,6 +3,7 @@
 namespace App\Payments;
 
 use App\Messaging\Welcome;
+use App\Models\Ad;
 use App\Models\Conversation;
 use App\Models\CreatorProfile;
 use App\Models\Message;
@@ -83,6 +84,38 @@ class Payments
         return $payment;
     }
 
+    /**
+     * A company paying for its campaign ($ad), from its wallet or with a QPay invoice. Once paid, the campaign goes
+     * to the admins for review. No creator: the whole amount is the platform's.
+     *
+     * @throws InsufficientBalance when paying from a wallet that holds too little
+     */
+    public function startAd(User $buyer, Ad $ad, bool $fromWallet = false): Payment
+    {
+        $fields = [
+            'user_id' => $buyer->id,
+            'creator_profile_id' => null,
+            'purpose' => Payment::AD,
+            'ad_id' => $ad->id,
+            'amount' => (int) $ad->price,
+            'platform_fee' => (int) $ad->price,
+        ];
+        if ($fromWallet) {
+            return DB::transaction(function () use ($buyer, $ad, $fields) {
+                $payment = Payment::create([...$fields, 'status' => Payment::PAID, 'paid_at' => now(), 'provider' => self::WALLET]);
+                Wallet::debit($buyer, (int) $ad->price, WalletEntry::SPEND, $payment);
+                $this->deliver($payment);
+
+                return $payment;
+            });
+        }
+
+        $payment = Payment::create([...$fields, 'status' => Payment::PENDING, 'provider' => $this->gateway->name()]);
+        $payment->update($this->gateway->createInvoice($payment, 'Only in Mongolia: сурталчилгаа #'.$ad->id, route('payments.callback', $payment)));
+
+        return $payment;
+    }
+
     /** @throws InsufficientBalance when paying from a wallet that holds too little */
     private function start(User $fan, CreatorProfile $creator, string $purpose, int $amount, string $description, array $extra, bool $fromWallet): Payment
     {
@@ -136,6 +169,13 @@ class Payments
     {
         if ($payment->purpose === Payment::TOPUP) {
             Wallet::credit($payment->user, $payment->amount, WalletEntry::TOPUP, $payment);
+
+            return;
+        }
+        if ($payment->purpose === Payment::AD) {
+            // Paid: now it waits for an admin. (A second payment for the same campaign changes nothing.)
+            Ad::whereKey($payment->ad_id)->where('review_status', Ad::UNPAID)
+                ->update(['review_status' => Ad::PENDING, 'submitted_at' => now(), 'updated_at' => now()]);
 
             return;
         }
@@ -202,6 +242,13 @@ class Payments
             }
             if ($fresh->purpose === Payment::PPV) {
                 Purchase::where('payment_id', $fresh->id)->delete();
+            }
+            if ($fresh->purpose === Payment::AD) {
+                // The company is told by the campaign's own notice (approved/rejected), not a generic refund.
+                Ad::whereKey($fresh->ad_id)->whereIn('review_status', [Ad::UNPAID, Ad::PENDING, Ad::APPROVED])
+                    ->update(['review_status' => Ad::REJECTED, 'reject_reason' => $reason, 'reviewed_by' => $admin->id, 'reviewed_at' => now(), 'updated_at' => now()]);
+
+                return $fresh;
             }
 
             $creator = $fresh->creator;

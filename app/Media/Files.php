@@ -3,6 +3,7 @@
 namespace App\Media;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Http\File;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -48,10 +49,29 @@ class Files
         return config('filesystems.disks.'.self::diskName($path).'.driver') === 's3';
     }
 
-    /** Save an upload under $dir with a random name; returns its path. */
-    public static function store(UploadedFile $file, string $dir): string
+    /** Save an upload at $path (from App\Media\Paths); returns the path. */
+    public static function storeAt(UploadedFile $file, string $path): string
     {
-        return $file->store($dir, ['disk' => self::diskName()]);
+        $stored = self::disk()->putFileAs(dirname($path), $file, basename($path));
+        if ($stored === false) {
+            throw new \RuntimeException("Couldn't store the file at {$path}.");
+        }
+
+        return $stored;
+    }
+
+    /** Save an upload by $userId for $purpose (posts, messages, library) in the standard layout; returns its path. */
+    public static function storeFor(UploadedFile $file, int $userId, string $purpose): string
+    {
+        return self::storeAt($file, Paths::media($userId, $purpose, $file));
+    }
+
+    /** Copy a file from this server's disk to $path on the media disk (streamed, so big videos are fine). */
+    public static function putFile(string $localFile, string $path): void
+    {
+        if (self::disk()->putFileAs(dirname($path), new File($localFile), basename($path)) === false) {
+            throw new \RuntimeException("Couldn't store the file at {$path}.");
+        }
     }
 
     public static function put(string $path, string $contents): void

@@ -2,10 +2,20 @@ import AudioPlayer from '@/components/audio-player';
 import FeedVideo from '@/components/feed-video';
 import MediaLightbox from '@/components/media-lightbox';
 import { useT } from '@/lib/i18n';
+import type { Thumbs } from '@/lib/video-preview';
 import { ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 import { useRef, useState, type MouseEvent, type ReactNode } from 'react';
 
-type Media = { id: number; type: 'image' | 'video' | 'audio'; url: string; stamp?: string | null };
+type Media = {
+    id: number;
+    type: 'image' | 'video' | 'audio';
+    url: string;
+    stamp?: string | null;
+    /** Videos: a still frame and seek-bar frames, when the uploader's browser made them. */
+    poster?: string | null;
+    thumbs?: Thumbs | null;
+    duration?: number | null;
+};
 
 /**
  * A post's photos and videos. One item keeps its own shape; several become a swipeable carousel with dots.
@@ -102,6 +112,8 @@ function Visual({ media, onDoubleLike, aside, className }: { media: Media[]; onD
                             <FeedVideo
                                 src={m.url}
                                 stamp={m.stamp}
+                                poster={m.poster}
+                                duration={m.duration}
                                 active={open === null}
                                 onOpen={(at) => {
                                     setOpenAt(at);

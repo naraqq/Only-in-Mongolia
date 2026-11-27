@@ -23,11 +23,13 @@ jobs:
           test "$(docker compose --env-file .env.docker ps --status running -q app | wc -l)" -eq 3
           curl --fail --show-error --retry 5 http://localhost:8080/up
           curl --fail --show-error http://localhost:8080/ -o /dev/null
+      - name: Video conversion has ffmpeg
+        run: docker compose --env-file .env.docker exec -T media-worker php -r 'exec("ffmpeg -hide_banner -version", $o, $c); exec("ffprobe -hide_banner -version", $o, $d); exit($c || $d);'
       - name: Real-time server answers through the proxy, and its API stays private
         run: bash .github/scripts/check-reverb.sh
       - name: Show service logs on failure
         if: failure()
-        run: docker compose --env-file .env.docker logs --no-color app migrate worker scheduler reverb proxy
+        run: docker compose --env-file .env.docker logs --no-color app migrate worker media-worker scheduler reverb proxy
 
   # The production overlay (Redis, private data network, per-service health checks) with production settings.
   production-overlay:
@@ -59,7 +61,7 @@ jobs:
       - name: Every service is running and healthy
         run: |
           $COMPOSE ps
-          for service in proxy app worker scheduler reverb db redis; do
+          for service in proxy app worker media-worker scheduler reverb db redis; do
             healthy="$($COMPOSE ps --status running --format '{{.Health}}' "$service" | grep -c '^healthy$' || true)"
             echo "$service: $healthy healthy"
             test "$healthy" -ge 1
@@ -78,4 +80,4 @@ jobs:
         run: bash .github/scripts/check-reverb.sh
       - name: Show service logs on failure
         if: failure()
-        run: $COMPOSE logs --no-color app migrate worker scheduler reverb proxy redis
+        run: $COMPOSE logs --no-color app migrate worker media-worker scheduler reverb proxy redis

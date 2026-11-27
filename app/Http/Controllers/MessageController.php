@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Fans\Audience;
 use App\Media\Files;
 use App\Media\Library;
+use App\Media\Paths;
 use App\Media\Stamp;
+use App\Media\Transcoding;
 use App\Media\Uploads;
 use App\Messaging\Outbox;
 use App\Models\Conversation;
@@ -191,13 +193,16 @@ class MessageController extends Controller
 
         $uploads = collect($request->file('media', []))->map(fn ($file, $i) => [
             ...Uploads::describe($file),
-            'path' => Files::store($file, "messages/{$me->id}"), // the media disk (private)
+            'path' => Files::storeFor($file, $me->id, Paths::MESSAGES), // the media disk (private)
             'sha256' => $hashes[$i],
         ])->all();
         if ($creator) {
             foreach ($uploads as $file) {
                 Library::record($creator, $file);
             }
+        }
+        foreach ($uploads as $file) {
+            Transcoding::queue($file['path'], $file['type']); // waits for the message to be saved if needed
         }
 
         // A pick already scanned elsewhere keeps its result; anything else waits for the scan.

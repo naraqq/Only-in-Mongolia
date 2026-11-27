@@ -9,9 +9,11 @@ printf 'Active: %s\nPrevious: %s\nPending: %s\n' "${CURRENT:-none}" "${PREVIOUS:
 compose "$revision" ps --all
 if [[ -f "$STATE/releases/$revision/compose.production.yaml" ]]; then
     expected_workers=$(compose "$revision" config --format json 2>/dev/null | jq -er '.services.worker.scale')
-    compose "$revision" ps --format json | jq -es --argjson workers "$expected_workers" '
+    media_workers=0
+    if compose "$revision" config --services 2>/dev/null | grep -qx media-worker; then media_workers=1; fi
+    compose "$revision" ps --format json | jq -es --argjson workers "$expected_workers" --argjson media "$media_workers" '
         [.[] | if type == "array" then .[] else . end] as $rows |
-        {app:3, worker:$workers, scheduler:1, proxy:1, db:1, redis:1} |
+        {app:3, worker:$workers, "media-worker":$media, scheduler:1, proxy:1, db:1, redis:1} |
         to_entries | all(. as $entry |
             [$rows[] | select(.Service == $entry.key and .State == "running" and .Health == "healthy")] |
             length == $entry.value)' >/dev/null || die 'One or more required containers are missing or unhealthy.'

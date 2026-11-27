@@ -17,6 +17,8 @@ const LOOP_UP_TO = 60;
 export default function FeedVideo({
     src,
     stamp,
+    poster,
+    duration: knownDuration,
     onOpen,
     onDoubleTap,
     active = true,
@@ -26,6 +28,10 @@ export default function FeedVideo({
     src: string;
     /** The viewer's ID shown over a paid video. */
     stamp?: string | null;
+    /** A still frame shown until it plays (nothing loads before then). */
+    poster?: string | null;
+    /** Its length, when known before loading. */
+    duration?: number | null;
     /** Open the full player at this many seconds. */
     onOpen: (seconds: number) => void;
     onDoubleTap?: () => void;
@@ -44,7 +50,7 @@ export default function FeedVideo({
     const [playing, setPlaying] = useState(false);
     const [waiting, setWaiting] = useState(false);
     const [time, setTime] = useState(0);
-    const [duration, setDuration] = useState(0);
+    const [duration, setDuration] = useState(knownDuration ?? 0);
     const [error, setError] = useState(false);
 
     useEffect(() => {
@@ -87,9 +93,40 @@ export default function FeedVideo({
         };
     }, [src]);
 
+    // While the post is open in the full player, this one lets go of its download entirely (not just pauses):
+    // a half-read stream keeps the connection busy, and the full player's copy of the same video would wait behind
+    // it (on `php artisan serve` for up to a minute). It picks up again at the same moment when the player closes.
+    const [released, setReleased] = useState(false);
+    const resumeAt = useRef(0);
     useEffect(() => {
-        if (video.current) setEnabled(video.current, active);
+        const v = video.current;
+        if (!v) return;
+        setEnabled(v, active);
+        if (!active) {
+            resumeAt.current = v.currentTime;
+            v.pause();
+            setReleased(true);
+        } else {
+            setReleased(false);
+        }
     }, [active]);
+    useEffect(() => {
+        const v = video.current;
+        if (!v) return;
+        if (released) {
+            v.removeAttribute('src');
+            v.load(); // aborts the download
+            return;
+        }
+        const at = resumeAt.current;
+        if (at > 0) {
+            const restore = () => {
+                if (Number.isFinite(v.duration) && at < v.duration) v.currentTime = at;
+            };
+            v.addEventListener('loadedmetadata', restore, { once: true });
+            return () => v.removeEventListener('loadedmetadata', restore);
+        }
+    }, [released]);
 
     // One tap/click opens the full player; a second one right after it likes instead.
     function onSurface(e: PointerEvent<HTMLDivElement>) {
@@ -113,11 +150,13 @@ export default function FeedVideo({
         >
             <video
                 ref={video}
-                src={`${src}#t=0.1` /* shows the first frame before it plays */}
+                // With a still, nothing loads until it plays; without one, the fragment shows the first frame.
+                src={released ? undefined : poster ? src : `${src}#t=${resumeAt.current > 0 ? resumeAt.current : 0.1}`}
+                poster={poster ?? undefined}
                 muted
                 playsInline
                 loop={loop}
-                preload="metadata"
+                preload={poster ? 'none' : 'metadata'}
                 disablePictureInPicture
                 disableRemotePlayback={!!stamp}
                 controlsList="nodownload noremoteplayback"

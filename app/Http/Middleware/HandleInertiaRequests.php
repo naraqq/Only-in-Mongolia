@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Ad;
 use App\Models\Conversation;
 use App\Models\CreatorProfile;
 use App\Models\Payout;
@@ -53,6 +54,8 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
                 'creator' => fn () => $request->user()?->creatorProfile()->first(['handle', 'status', 'adult_content']),
+                // The company this person advertises for: the "Business" area.
+                'company' => fn () => ($c = $request->user()?->company) ? ['name' => $c->name, 'logo' => $c->logoUrl()] : null,
             ],
             // Right-hand column of the social layout: a few creators the viewer doesn't follow yet.
             // "Санал болгох" (suggested creators) only appears on the home feed.
@@ -69,6 +72,7 @@ class HandleInertiaRequests extends Middleware
                 'applications' => CreatorProfile::where('status', 'pending')->count(),
                 'payouts' => Payout::where('status', 'requested')->count(),
                 'reports' => Report::where('status', 'open')->count(),
+                'ads' => Ad::where('review_status', Ad::PENDING)->count(),
             ] : null,
             // Real-time updates: where the browser connects (null = Reverb not set up; pages fall back to polling).
             // The key is public by design (every browser gets it); the secret never leaves the server.

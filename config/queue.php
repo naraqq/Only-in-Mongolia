@@ -43,6 +43,17 @@ return [
             'after_commit' => false,
         ],
 
+        // Video conversion (App\Jobs\TranscodeVideo): its own queue and worker, since one job can run for an hour
+        // and must not hold up notifications and scans, nor be handed to a second worker while still running.
+        'media' => [
+            'driver' => 'database',
+            'connection' => env('DB_QUEUE_CONNECTION'),
+            'table' => env('DB_QUEUE_TABLE', 'jobs'),
+            'queue' => 'media',
+            'retry_after' => (int) env('MEDIA_TRANSCODE_TIMEOUT', 7200) + 300,
+            'after_commit' => true,
+        ],
+
         'beanstalkd' => [
             'driver' => 'beanstalkd',
             'host' => env('BEANSTALKD_QUEUE_HOST', 'localhost'),

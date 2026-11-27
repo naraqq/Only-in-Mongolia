@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Media\Previews;
 use App\Media\Stamp;
 use App\Models\CreatorProfile;
 use App\Models\Post;
@@ -86,6 +87,20 @@ class CreatorPageController extends Controller
         ]);
     }
 
+    /** A visible post's files; videos also get their still frame and seek-bar frames when the uploader's browser made them. */
+    private static function media(Post $post, array $tag, ?string $stamp): array
+    {
+        $previews = Previews::forPaths($post->media->where('type', 'video')->pluck('path'));
+
+        return $post->media->map(fn ($m) => [
+            'id' => $m->id,
+            'type' => $m->type,
+            'url' => route('media.show', [$m, ...$tag]),
+            'stamp' => $stamp,
+            ...($m->type === 'video' ? Previews::present($previews[$m->path] ?? null, fn (string $which) => route('media.preview', [$m, $which])) : []),
+        ])->all();
+    }
+
     /** A post as the viewer may see it: locked posts reveal only how many photos/videos they hold. */
     public static function present(Post $post, ?User $viewer): array
     {
@@ -105,7 +120,7 @@ class CreatorPageController extends Controller
             'body' => $lock ? null : $post->body,
             'poll' => $lock ? null : PollController::present($post, $viewer),
             'qa' => $lock ? null : QaController::summary($post, $viewer),
-            'media' => $lock ? [] : $post->media->map(fn ($m) => ['id' => $m->id, 'type' => $m->type, 'url' => route('media.show', [$m, ...$tag]), 'stamp' => $stamp])->all(),
+            'media' => $lock ? [] : self::media($post, $tag, $stamp),
             'likes_count' => (int) ($post->likes_count ?? $post->likes()->count()),
             'comments_count' => (int) ($post->comments_count ?? $post->comments()->count()),
             'liked' => (bool) ($post->liked ?? false),

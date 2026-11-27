@@ -7,7 +7,7 @@ RUN npm run build
 
 FROM php:8.4-apache-bookworm
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl unzip libjpeg62-turbo-dev libpng-dev libwebp-dev \
+    && apt-get install -y --no-install-recommends curl unzip libjpeg62-turbo-dev libpng-dev libwebp-dev ffmpeg \
     && docker-php-ext-configure gd --with-jpeg --with-webp \
     && docker-php-ext-install -j"$(nproc)" gd exif pdo_mysql opcache pcntl \
     && pecl install redis-6.2.0 \

@@ -28,11 +28,14 @@ class AdController extends Controller
                 'advertiser' => $ad->advertiser,
                 'title' => $ad->title,
                 'body' => $ad->body,
-                'image' => $ad->imageUrl(),
+                'image' => $ad->posterUrl(),
+                'video' => $ad->videoUrl(),
                 'href' => route('ads.go', $ad),
                 'domain' => preg_replace('/^www\./', '', (string) parse_url($ad->url, PHP_URL_HOST)),
             ])->values(),
             'contact' => config('services.ads.contact'),
+            // Companies buy banners themselves from here.
+            'advertise' => route('business'),
         ]);
     }
 

@@ -158,7 +158,9 @@ class ChunkedUploads
             }
             $hash = Moderation::screen([$file], 'file')[0];
             $described = Uploads::describe($file);
-            $path = Files::store($file, "uploads/{$upload->user_id}"); // the media disk (private)
+            // Straight to its final place (only posts take pieced uploads), so publishing never copies a big file.
+            // Unused ones are removed by prune() like before.
+            $path = Files::storeFor($file, $upload->user_id, Paths::POSTS); // the media disk (private)
         } catch (\Throwable $e) {
             self::discard($upload);
             throw $e;
@@ -166,6 +168,7 @@ class ChunkedUploads
 
         $disk->deleteDirectory($dir);
         $upload->update([...$described, 'path' => $path, 'sha256' => $hash, 'completed_at' => now()]);
+        Transcoding::queue($path, $described['type']); // starts while the creator is still writing the post
 
         return $upload;
     }
@@ -178,6 +181,7 @@ class ChunkedUploads
             return;
         }
         if ($upload->path) {
+            Previews::delete($upload->path);
             Files::delete($upload->path);
         }
         $upload->delete();
