@@ -31,8 +31,9 @@ return new class extends Migration
             ->join('creator_profiles', 'creator_profiles.user_id', '=', 'messages.sender_id')
             ->select('creator_profiles.id as creator_profile_id', 'message_media.type', 'message_media.path', 'message_media.mime', 'message_media.sha256', 'message_media.created_at');
 
-        foreach ([$postFiles, $messageFiles] as $query) {
-            $query->orderBy('created_at')->chunk(500, function ($rows) use ($now) {
+        foreach (['post_media' => $postFiles, 'message_media' => $messageFiles] as $table => $query) {
+            // Qualified: the joined tables have their own created_at.
+            $query->orderBy("$table.created_at")->orderBy("$table.id")->chunk(500, function ($rows) use ($now) {
                 DB::table('vault_items')->insertOrIgnore($rows->map(fn ($r) => [
                     'creator_profile_id' => $r->creator_profile_id, 'type' => $r->type, 'path' => $r->path, 'mime' => $r->mime,
                     'sha256' => $r->sha256, 'created_at' => $r->created_at ?? $now, 'updated_at' => $now,
