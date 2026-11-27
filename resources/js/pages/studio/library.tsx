@@ -454,6 +454,7 @@ function Details({ item, onClose, onRemove }: { item: Item | null; onClose: () =
                                     key={item.id}
                                     src={item.url}
                                     poster={item.poster}
+                                    hls={item.hls}
                                     thumbs={item.thumbs}
                                     duration={item.duration}
                                     autoPlay

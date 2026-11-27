@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Fans\Audience;
 use App\Media\Files;
+use App\Media\Hls;
 use App\Media\Library;
 use App\Media\Paths;
 use App\Media\Previews;
@@ -164,6 +165,15 @@ class MessageController extends Controller
         abort_unless($path && Files::exists($path), 404);
 
         return Files::response($path, 'image/jpeg', ['Cache-Control' => 'private, max-age=86400']);
+    }
+
+    /** A message video's adaptive-streaming playlists and pieces (App\Media\Hls). */
+    public function mediaHls(Request $request, MessageMedia $media, string $file): \Symfony\Component\HttpFoundation\Response
+    {
+        abort_unless($media->type === 'video', 404);
+        $this->mayOpen($request, $media);
+
+        return Hls::respond($media->path, $file, fn (string $f) => route('messages.media.hls', [$media, $f]));
     }
 
     /** Someone in the conversation, with the message unlocked, and the file not held by the automatic scan. */

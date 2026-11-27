@@ -53,6 +53,7 @@ export type PostItem = {
         poster?: string | null;
         thumbs?: Thumbs | null;
         duration?: number | null;
+        hls?: string | null;
     }[];
     counts: { image: number; video: number; audio?: number };
     likes_count: number;

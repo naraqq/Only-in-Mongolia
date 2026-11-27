@@ -107,19 +107,22 @@ class Previews
     /**
      * What the player needs: the still's link and the seek-bar frames' link and layout.
      *
-     * @param  callable(string $which): string  $url  the link for 'poster' or 'thumbs', behind the permission check
-     * @return array{poster: string|null, thumbs: array<string, mixed>|null, duration: float|null}
+     * Plus the adaptive-streaming playlist (App\Media\Hls), when the video has one.
+     *
+     * @param  callable(string $which): string  $url  the link for 'poster', 'thumbs' or 'hls', behind the permission check
+     * @return array{poster: string|null, thumbs: array<string, mixed>|null, duration: float|null, hls: string|null}
      */
     public static function present(?MediaPreview $preview, callable $url): array
     {
-        if (! $preview?->poster_path) {
-            return ['poster' => null, 'thumbs' => null, 'duration' => null];
+        if (! $preview) {
+            return ['poster' => null, 'thumbs' => null, 'duration' => null, 'hls' => null];
         }
 
         return [
-            'poster' => $url('poster'),
-            'thumbs' => $preview->thumbs_path && $preview->thumbs ? ['url' => $url('thumbs'), ...$preview->thumbs] : null,
+            'poster' => $preview->poster_path ? $url('poster') : null,
+            'thumbs' => $preview->poster_path && $preview->thumbs_path && $preview->thumbs ? ['url' => $url('thumbs'), ...$preview->thumbs] : null,
             'duration' => $preview->duration,
+            'hls' => $preview->hls_path ? $url('hls') : null,
         ];
     }
 
@@ -137,6 +140,9 @@ class Previews
         $preview = MediaPreview::where('path', $videoPath)->first();
         if ($preview) {
             Files::delete(array_filter([$preview->poster_path, $preview->thumbs_path]));
+            if ($preview->hls_path) {
+                Files::deleteDirectory(dirname($preview->hls_path));
+            }
             $preview->delete();
         }
     }

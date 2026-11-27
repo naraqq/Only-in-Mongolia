@@ -14,6 +14,7 @@ export type LibraryItem = {
     poster?: string | null;
     thumbs?: Thumbs | null;
     duration?: number | null;
+    hls?: string | null;
 };
 
 export type Picked = Pick<LibraryItem, 'id' | 'type' | 'url' | 'poster'>;

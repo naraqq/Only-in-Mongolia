@@ -62,6 +62,12 @@ class Paths
         return str_ends_with($videoPath, '.web.mp4');
     }
 
+    /** The folder of a video's adaptive-streaming playlists and pieces (App\Media\Hls): next to it, same name. */
+    public static function hls(string $videoPath): string
+    {
+        return self::sibling($videoPath, 'hls');
+    }
+
     /** Where a video's still frame goes: next to the video, same name. */
     public static function poster(string $videoPath): string
     {

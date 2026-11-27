@@ -96,6 +96,23 @@ class Files
         }
     }
 
+    /** Remove a folder of files (a video's adaptive-streaming pieces), wherever it is. */
+    public static function deleteDirectory(string $dir): void
+    {
+        self::disk()->deleteDirectory($dir);
+        if (config('filesystems.media_local_fallback')) {
+            Storage::disk('local')->deleteDirectory($dir);
+        }
+    }
+
+    /** Copy a folder from this server's disk to $dir on the media disk, file by file (streamed). */
+    public static function putDirectory(string $localDir, string $dir): void
+    {
+        foreach (\Illuminate\Support\Facades\File::allFiles($localDir) as $file) {
+            self::putFile($file->getPathname(), $dir.'/'.str_replace('\\', '/', $file->getRelativePathname()));
+        }
+    }
+
     /** A path on this server's disk for a stored file (a cached download when media are on R2). */
     public static function localPath(string $path): string
     {

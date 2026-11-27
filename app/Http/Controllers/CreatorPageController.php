@@ -97,7 +97,7 @@ class CreatorPageController extends Controller
             'type' => $m->type,
             'url' => route('media.show', [$m, ...$tag]),
             'stamp' => $stamp,
-            ...($m->type === 'video' ? Previews::present($previews[$m->path] ?? null, fn (string $which) => route('media.preview', [$m, $which])) : []),
+            ...($m->type === 'video' ? Previews::present($previews[$m->path] ?? null, fn (string $which) => $which === 'hls' ? route('media.hls', [$m, 'master.m3u8']) : route('media.preview', [$m, $which])) : []),
         ])->all();
     }
 

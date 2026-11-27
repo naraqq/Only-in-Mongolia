@@ -65,7 +65,7 @@ class Message extends Model
             'type' => $m->type,
             'url' => route('messages.media', [$m, ...$tag]),
             'stamp' => $stamp,
-            ...($m->type === 'video' ? Previews::present($previews[$m->path] ?? null, fn (string $which) => route('messages.media.preview', [$m, $which])) : []),
+            ...($m->type === 'video' ? Previews::present($previews[$m->path] ?? null, fn (string $which) => $which === 'hls' ? route('messages.media.hls', [$m, 'master.m3u8']) : route('messages.media.preview', [$m, $which])) : []),
         ])->all();
     }
 }

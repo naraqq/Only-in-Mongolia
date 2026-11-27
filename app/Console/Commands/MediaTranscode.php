@@ -4,14 +4,13 @@ namespace App\Console\Commands;
 
 use App\Jobs\TranscodeVideo;
 use App\Media\Ffmpeg;
-use App\Media\Paths;
 use App\Media\Transcoding;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
 /**
  * php artisan media:transcode — convert videos uploaded before conversion existed (or while ffmpeg was missing),
- * and give them their still and seek-bar frames. New uploads are converted by themselves.
+ * and give them what they lack: their still and seek-bar frames, and adaptive streaming for longer ones. New uploads are converted by themselves.
  */
 class MediaTranscode extends Command
 {
@@ -35,7 +34,8 @@ class MediaTranscode extends Command
                 $paths = $paths->merge(DB::table($table)->where('type', 'video')->pluck('path'));
             }
         }
-        $paths = $paths->unique()->reject(fn ($p) => Paths::isWeb($p))->values();
+        // Already converted ones too: they're not converted again, but get whatever they lack (frames, streaming).
+        $paths = $paths->unique()->values();
         $this->info("{$paths->count()} video(s) to convert.");
 
         foreach ($paths as $path) {

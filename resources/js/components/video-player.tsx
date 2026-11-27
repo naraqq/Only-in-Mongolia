@@ -2,6 +2,7 @@ import StampOverlay from '@/components/stamp-overlay';
 import { block as blockFeed, unblock as unblockFeed } from '@/lib/feed-video';
 import { useT } from '@/lib/i18n';
 import { toggle as toggleAudio } from '@/lib/player';
+import { qualityLabel, useStream } from '@/lib/stream';
 import { formatDuration } from '@/lib/use-uploads';
 import { tileAt, type Thumbs } from '@/lib/video-preview';
 import {
@@ -17,6 +18,7 @@ import {
     Play,
     Rewind,
     RotateCcw,
+    Settings2,
     Volume1,
     Volume2,
     VolumeX,
@@ -64,6 +66,7 @@ export default function VideoPlayer({
     stamp,
     poster,
     thumbs,
+    hls,
     duration: knownDuration,
     autoPlay = false,
     startAt,
@@ -78,6 +81,8 @@ export default function VideoPlayer({
     stamp?: string | null;
     /** A still frame shown before it plays (App\Media\Previews). */
     poster?: string | null;
+    /** Adaptive streaming (App\Media\Hls): used instead of `src` where it can be, `src` stays the fallback. */
+    hls?: string | null;
     /** Frames shown above the seek bar while scrubbing. */
     thumbs?: Thumbs | null;
     /** Its length, when known before loading (shown on the still). */
@@ -110,6 +115,7 @@ export default function VideoPlayer({
     const [rate, setRate] = useState(1);
     const [controls, setControls] = useState(true);
     const [menu, setMenu] = useState(false);
+    const stream = useStream(video, src, hls);
     const [full, setFull] = useState(false);
     const [error, setError] = useState(false);
     const [flash, setFlash] = useState<Flash | null>(null);
@@ -419,7 +425,7 @@ export default function VideoPlayer({
             <video
                 ref={video}
                 // With a still, nothing loads until play; without one, the fragment makes browsers show the first frame.
-                src={autoPlay || poster ? src : `${src}#t=0.1`}
+                src={stream.mode !== 'file' ? stream.src : autoPlay || poster ? src : `${src}#t=0.1`}
                 poster={poster ?? undefined}
                 autoPlay={autoPlay}
                 playsInline
@@ -604,11 +610,17 @@ export default function VideoPlayer({
                                 type="button"
                                 onClick={() => setMenu((m) => !m)}
                                 className={`${btn} w-auto min-w-9 px-2 text-xs font-bold`}
-                                aria-label={t('vp.speed')}
+                                aria-label={t(stream.qualities.length > 1 ? 'vp.settings' : 'vp.speed')}
                                 aria-expanded={menu}
-                                title={t('vp.speed')}
+                                title={t(stream.qualities.length > 1 ? 'vp.settings' : 'vp.speed')}
                             >
-                                {rate === 1 ? <Gauge className="size-5" /> : `${rate}×`}
+                                {rate !== 1 ? (
+                                    `${rate}×`
+                                ) : stream.qualities.length > 1 ? (
+                                    <Settings2 className="size-5" />
+                                ) : (
+                                    <Gauge className="size-5" />
+                                )}
                             </button>
                             {menu && (
                                 <>
@@ -637,6 +649,44 @@ export default function VideoPlayer({
                                                 </button>
                                             </li>
                                         ))}
+                                        {stream.qualities.length > 1 && (
+                                            <>
+                                                <li className="mt-1 border-t border-white/10 px-3 pt-2 pb-1.5 text-[11px] font-semibold tracking-wide text-white/50 uppercase">
+                                                    {t('vp.quality')}
+                                                </li>
+                                                {[
+                                                    -1,
+                                                    ...[...stream.qualities]
+                                                        .sort((a, b) => b.height * b.width - a.height * a.width)
+                                                        .map((q) => q.index),
+                                                ].map((i) => {
+                                                    const q = stream.qualities.find((x) => x.index === i);
+                                                    const playing = stream.qualities.find((x) => x.index === stream.current);
+                                                    return (
+                                                        <li key={i}>
+                                                            <button
+                                                                type="button"
+                                                                role="menuitemradio"
+                                                                aria-checked={stream.level === i}
+                                                                onClick={() => {
+                                                                    stream.setLevel(i);
+                                                                    setMenu(false);
+                                                                }}
+                                                                className="flex w-full items-center justify-between px-3 py-1.5 text-left font-medium tabular-nums hover:bg-white/10"
+                                                            >
+                                                                <span>
+                                                                    {q ? qualityLabel(q) : t('vp.auto')}
+                                                                    {!q && playing && (
+                                                                        <span className="text-white/50"> · {qualityLabel(playing)}</span>
+                                                                    )}
+                                                                </span>
+                                                                {stream.level === i && <Check className="size-4" />}
+                                                            </button>
+                                                        </li>
+                                                    );
+                                                })}
+                                            </>
+                                        )}
                                     </ul>
                                 </>
                             )}

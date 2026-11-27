@@ -50,6 +50,7 @@ type Msg = {
         poster?: string | null;
         thumbs?: Thumbs | null;
         duration?: number | null;
+        hls?: string | null;
     }[];
 };
 type Thread = { id: number; other: Person; messages: Msg[]; cannotSend: string | null; iBlocked: boolean };
@@ -338,6 +339,7 @@ function Conversation({ thread, me, area }: { thread: Thread; me: number; area: 
                                                             id={`mm${x.id}`}
                                                             stamp={x.stamp}
                                                             poster={x.poster}
+                                                            hls={x.hls}
                                                             thumbs={x.thumbs}
                                                             duration={x.duration}
                                                             videoClassName="max-h-80 w-full"

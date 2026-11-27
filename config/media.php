@@ -29,6 +29,12 @@ return [
     // Most bits per second for the picture, so a busy scene never outgrows a phone connection.
     'video_max_kbps' => (int) env('MEDIA_VIDEO_MAX_KBPS', 4000),
 
+    // Adaptive streaming (HLS): videos at least this long also get lower qualities (360p, 540p) next to the
+    // converted one, in 4-second pieces, so playback starts fast and adjusts to the viewer's connection.
+    'hls' => (bool) env('MEDIA_HLS', true),
+
+    'hls_min_seconds' => (int) env('MEDIA_HLS_MIN_SECONDS', 30),
+
     // How long one conversion may take (a 2 GB video at 4K can take a while on a small server).
     'timeout' => (int) env('MEDIA_TRANSCODE_TIMEOUT', 7200),
 

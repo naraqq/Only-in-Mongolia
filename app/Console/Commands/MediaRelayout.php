@@ -116,6 +116,16 @@ class MediaRelayout extends Command
                     $frames[$column] = $new;
                 }
             }
+            // Its streaming playlists and pieces (App\Media\Hls) move along, file by file.
+            if ($preview->hls_path) {
+                $fromDir = dirname($preview->hls_path);
+                $toDir = Paths::hls($to);
+                foreach (Files::disk($preview->hls_path)->allFiles($fromDir) as $piece) {
+                    $this->copy($piece, $toDir.substr($piece, strlen($fromDir)));
+                    $old[] = $piece;
+                }
+                $frames['hls_path'] = "{$toDir}/master.m3u8";
+            }
         }
 
         DB::transaction(function () use ($from, $to, $preview, $frames) {

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Media\Files;
+use App\Media\Hls;
 use App\Media\Library;
 use App\Media\Paths;
 use App\Media\Previews;
@@ -131,6 +132,14 @@ class LibraryController extends Controller
         return Files::response($path, 'image/jpeg', ['Cache-Control' => 'private, max-age=86400']);
     }
 
+    /** A library video's adaptive-streaming playlists and pieces (App\Media\Hls). */
+    public function hls(Request $request, VaultItem $item, string $file): \Symfony\Component\HttpFoundation\Response
+    {
+        abort_unless($item->creator_profile_id === $this->creator($request)->id && $item->type === 'video', 404);
+
+        return Hls::respond($item->path, $file, fn (string $f) => route('studio.library.hls', [$item, $f]));
+    }
+
     private function items(CreatorProfile $creator, ?string $type, int $limit): array
     {
         $items = $creator->vaultItems()->when($type, fn ($q) => $q->where('type', $type))->latest('id')->take($limit)->get();
@@ -146,7 +155,7 @@ class LibraryController extends Controller
             'views' => $stats[$v->path]['views'] ?? 0,
             'earned' => $stats[$v->path]['earned'] ?? 0,
             'created_at' => $v->created_at->toIso8601String(),
-            ...($v->type === 'video' ? Previews::present($previews[$v->path] ?? null, fn (string $which) => route('studio.library.preview', [$v, $which])) : []),
+            ...($v->type === 'video' ? Previews::present($previews[$v->path] ?? null, fn (string $which) => $which === 'hls' ? route('studio.library.hls', [$v, 'master.m3u8']) : route('studio.library.preview', [$v, $which])) : []),
         ])->all();
     }
 }

@@ -1,6 +1,7 @@
 import StampOverlay from '@/components/stamp-overlay';
 import { canAutoplay, finished, register, report, setEnabled, setFeedSound, useFeedSound } from '@/lib/feed-video';
 import { useT } from '@/lib/i18n';
+import { useStream } from '@/lib/stream';
 import { formatDuration } from '@/lib/use-uploads';
 import { AlertTriangle, LoaderCircle, Play, Volume2, VolumeX } from 'lucide-react';
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
@@ -18,6 +19,7 @@ export default function FeedVideo({
     src,
     stamp,
     poster,
+    hls,
     duration: knownDuration,
     onOpen,
     onDoubleTap,
@@ -30,6 +32,8 @@ export default function FeedVideo({
     stamp?: string | null;
     /** A still frame shown until it plays (nothing loads before then). */
     poster?: string | null;
+    /** Adaptive streaming (App\Media\Hls), when the video has it. */
+    hls?: string | null;
     /** Its length, when known before loading. */
     duration?: number | null;
     /** Open the full player at this many seconds. */
@@ -97,6 +101,7 @@ export default function FeedVideo({
     // a half-read stream keeps the connection busy, and the full player's copy of the same video would wait behind
     // it (on `php artisan serve` for up to a minute). It picks up again at the same moment when the player closes.
     const [released, setReleased] = useState(false);
+    const stream = useStream(video, src, hls, !released);
     const resumeAt = useRef(0);
     useEffect(() => {
         const v = video.current;
@@ -151,7 +156,15 @@ export default function FeedVideo({
             <video
                 ref={video}
                 // With a still, nothing loads until it plays; without one, the fragment shows the first frame.
-                src={released ? undefined : poster ? src : `${src}#t=${resumeAt.current > 0 ? resumeAt.current : 0.1}`}
+                src={
+                    released
+                        ? undefined
+                        : stream.mode !== 'file'
+                          ? stream.src
+                          : poster
+                            ? src
+                            : `${src}#t=${resumeAt.current > 0 ? resumeAt.current : 0.1}`
+                }
                 poster={poster ?? undefined}
                 muted
                 playsInline

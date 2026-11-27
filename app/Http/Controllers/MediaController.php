@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Media\Files;
+use App\Media\Hls;
 use App\Media\Previews;
 use App\Media\Stamp;
 use App\Models\Post;
@@ -10,6 +11,7 @@ use App\Models\PostMedia;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Every photo and video goes through here: the file is only sent if the viewer may see its post.
@@ -43,6 +45,15 @@ class MediaController extends Controller
         abort_unless($path && Files::exists($path), 404);
 
         return Files::response($path, 'image/jpeg', ['Cache-Control' => 'private, max-age=86400']);
+    }
+
+    /** The video's adaptive-streaming playlists and pieces (App\Media\Hls), for whoever may watch it. */
+    public function hls(Request $request, PostMedia $media, string $file): Response
+    {
+        abort_unless($media->type === 'video', 404);
+        $this->allowed($request, $media);
+
+        return Hls::respond($media->path, $file, fn (string $f) => route('media.hls', [$media, $f]));
     }
 
     /** The post the file is in, when the viewer may see it (403/404 otherwise). */

@@ -167,6 +167,50 @@ class VideoTranscodingTest extends TestCase
         $this->assertSame(0, MediaPreview::count());
     }
 
+    public function test_longer_videos_also_stream_adaptively_behind_the_same_permission_check(): void
+    {
+        Queue::fake([RetireOriginalVideo::class]);
+        $path = 'users/1/posts/2026/11/clip.mov';
+        $media = $this->postedVideo($path);
+        (new TranscodeVideo($path))->handle($this->ffmpeg);
+
+        $web = Paths::web($path);
+        $preview = MediaPreview::where('path', $web)->sole();
+        $this->assertSame(Paths::hls($web).'/master.m3u8', $preview->hls_path);
+        $this->assertSame([360, 540], $this->ffmpeg->hlsRungs); // below the converted 720p
+        Storage::disk('local')->assertExists([Paths::hls($web).'/v0/seg_0000.m4s', Paths::hls($web).'/v2/index.m3u8']);
+        $this->assertSame(route('media.hls', [$media, 'master.m3u8']), Previews::present($preview, fn ($w) => $w === 'hls' ? route('media.hls', [$media, 'master.m3u8']) : $w)['hls']);
+
+        // Every file the playlists name comes back through the app (this server's disk; on R2 they're signed links).
+        $master = $this->get(route('media.hls', [$media, 'master.m3u8']))->assertOk()->assertHeader('Content-Type', 'application/vnd.apple.mpegurl')->getContent();
+        $this->assertStringContainsString(route('media.hls', [$media, 'v0/index.m3u8']), $master);
+        $variant = $this->get(route('media.hls', [$media, 'v0/index.m3u8']))->assertOk()->getContent();
+        $this->assertStringContainsString('URI="'.route('media.hls', [$media, 'v0/init_0.mp4']).'"', $variant);
+        $this->assertStringContainsString(route('media.hls', [$media, 'v0/seg_0000.m4s']), $variant);
+        $this->assertSame('piece 0', file_get_contents($this->get(route('media.hls', [$media, 'v0/seg_0000.m4s']))->assertOk()->getFile()->getPathname()));
+        $this->get(route('media.hls', [$media, 'v0/../../secret.txt']))->assertNotFound();
+
+        // Not for someone who may not watch the video.
+        $media->post->update(['visibility' => Post::SUBSCRIBERS]);
+        $this->get(route('media.hls', [$media, 'master.m3u8']))->assertForbidden();
+
+        // Removed together with the video's frames.
+        Previews::delete($web);
+        Storage::disk('local')->assertMissing(Paths::hls($web).'/master.m3u8');
+    }
+
+    public function test_short_videos_play_as_one_file(): void
+    {
+        Queue::fake([RetireOriginalVideo::class]);
+        config(['media.hls_min_seconds' => 60]); // the fake's videos are 30 s
+        $path = 'users/1/posts/2026/11/clip.mov';
+        $this->postedVideo($path);
+        (new TranscodeVideo($path))->handle($this->ffmpeg);
+
+        $this->assertNull($this->ffmpeg->hlsRungs);
+        $this->assertNull(MediaPreview::where('path', Paths::web($path))->value('hls_path'));
+    }
+
     public function test_finishing_a_pieced_video_upload_queues_its_conversion(): void
     {
         Queue::fake();
@@ -239,5 +283,30 @@ class FakeFfmpeg extends Ffmpeg
     {
         $this->framesMade++;
         imagejpeg(imagecreatetruecolor($grid['cols'] * $grid['w'], (int) ceil($grid['count'] / $grid['cols']) * $grid['h']), $out);
+    }
+
+    public ?array $hlsRungs = null;
+
+    /** Playlists and one piece per quality, laid out like ffmpeg's. */
+    public function hls(string $in, string $dir, array $probe, array $rungs): void
+    {
+        $this->hlsRungs = $rungs;
+        $variants = '';
+        foreach ([...$rungs, 'top'] as $i => $r) {
+            @mkdir("{$dir}/v{$i}", 0777, true);
+            file_put_contents("{$dir}/v{$i}/index.m3u8", "#EXTM3U
+#EXT-X-MAP:URI=\"init_{$i}.mp4\"
+#EXTINF:4.000000,
+seg_0000.m4s
+#EXT-X-ENDLIST
+");
+            file_put_contents("{$dir}/v{$i}/init_{$i}.mp4", 'init');
+            file_put_contents("{$dir}/v{$i}/seg_0000.m4s", "piece {$i}");
+            $variants .= "#EXT-X-STREAM-INF:BANDWIDTH=500000
+v{$i}/index.m3u8
+";
+        }
+        file_put_contents("{$dir}/master.m3u8", "#EXTM3U
+{$variants}");
     }
 }

@@ -117,6 +117,48 @@ class Ffmpeg
     }
 
     /**
+     * Adaptive streaming: the video in pieces of about 4 seconds at several qualities, with playlists, in $dir:
+     * master.m3u8 → v{n}/index.m3u8 → v{n}/init_{n}.mp4 + v{n}/seg_NNNN.m4s. $rungs are the lower qualities, by
+     * their shorter side (360, 540); the top quality is the video itself, copied without re-encoding. The lower
+     * ones are encoded for quality with a ceiling, so a calm video doesn't get bigger than its top quality.
+     *
+     * @param  list<int>  $rungs
+     */
+    public function hls(string $in, string $dir, array $probe, array $rungs): void
+    {
+        $audio = $probe['acodec'] !== null;
+        $n = count($rungs);
+        $split = $n > 1 ? "[0:v]split={$n}".implode('', array_map(fn ($i) => "[s{$i}]", range(0, $n - 1))).';' : '';
+        $scales = [];
+        foreach ($rungs as $i => $side) {
+            $from = $n > 1 ? "[s{$i}]" : '[0:v]';
+            $scales[] = "{$from}scale=w='if(gte(iw,ih),-2,{$side})':h='if(gte(iw,ih),{$side},-2)'[v{$i}]";
+        }
+        $args = [config('media.ffmpeg'), '-hide_banner', '-nostdin', '-y', '-i', $in, '-filter_complex', $split.implode(';', $scales)];
+        $map = [];
+        foreach ($rungs as $i => $side) {
+            $kbps = $side <= 360 ? 800 : 1500;
+            $args = [...$args, '-map', "[v{$i}]", ...($audio ? ['-map', '0:a:0'] : []),
+                "-c:v:{$i}", 'libx264', "-crf:v:{$i}", '24', "-maxrate:v:{$i}", "{$kbps}k", "-bufsize:v:{$i}", ($kbps * 2).'k',
+                "-force_key_frames:v:{$i}", 'expr:gte(t,n_forced*2)'];
+            $map[] = "v:{$i}".($audio ? ",a:{$i}" : '');
+        }
+        $args = [...$args, '-map', '0:v:0', ...($audio ? ['-map', '0:a:0'] : []), "-c:v:{$n}", 'copy'];
+        $map[] = "v:{$n}".($audio ? ",a:{$n}" : '');
+        $args = [...$args,
+            '-preset', 'veryfast', '-sc_threshold', '0', '-pix_fmt', 'yuv420p',
+            ...($audio ? ['-c:a', 'aac', '-b:a', '96k', '-ac', '2'] : []),
+            '-f', 'hls', '-hls_time', '4', '-hls_playlist_type', 'vod', '-hls_segment_type', 'fmp4', '-hls_flags', 'independent_segments',
+            '-hls_fmp4_init_filename', 'init.mp4', '-hls_segment_filename', "{$dir}/v%v/seg_%04d.m4s",
+            '-master_pl_name', 'master.m3u8', '-var_stream_map', implode(' ', $map), "{$dir}/v%v/index.m3u8",
+        ];
+        $run = Process::timeout((int) config('media.timeout'))->path($dir)->run($args);
+        if (! $run->successful() || ! is_file("{$dir}/master.m3u8")) {
+            throw new RuntimeException('ffmpeg HLS failed: '.trim(substr($run->errorOutput(), -800)));
+        }
+    }
+
+    /**
      * Seek-bar frames: one every $grid['interval'] seconds, each w×h, laid out $grid['cols'] per row, as one JPEG.
      *
      * @param  array{cols: int, count: int, interval: float, w: int, h: int}  $grid

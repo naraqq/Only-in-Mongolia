@@ -14,6 +14,7 @@ type Media = {
     poster?: string | null;
     thumbs?: Thumbs | null;
     duration?: number | null;
+    hls?: string | null;
 };
 
 /**
@@ -73,6 +74,7 @@ export default function MediaLightbox({
                                     id={`m${m.id}`}
                                     stamp={m.stamp}
                                     poster={m.poster}
+                                    hls={m.hls}
                                     thumbs={m.thumbs}
                                     duration={m.duration}
                                     autoPlay

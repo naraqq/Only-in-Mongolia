@@ -15,6 +15,7 @@ type Media = {
     poster?: string | null;
     thumbs?: Thumbs | null;
     duration?: number | null;
+    hls?: string | null;
 };
 
 /**
@@ -113,6 +114,7 @@ function Visual({ media, onDoubleLike, aside, className }: { media: Media[]; onD
                                 src={m.url}
                                 stamp={m.stamp}
                                 poster={m.poster}
+                                hls={m.hls}
                                 duration={m.duration}
                                 active={open === null}
                                 onOpen={(at) => {

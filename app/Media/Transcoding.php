@@ -82,6 +82,12 @@ class Transcoding
                 // The video itself is fine; it just plays without a still or seek-bar frames.
                 Log::warning('Could not make video frames.', ['path' => $target, 'error' => $e->getMessage()]);
             }
+            try {
+                Hls::make($target, $file, $probe, $ffmpeg, $work);
+            } catch (\Throwable $e) {
+                // It plays as the single MP4 instead.
+                Log::warning('Could not make adaptive streaming.', ['path' => $target, 'error' => $e->getMessage()]);
+            }
         } finally {
             File::deleteDirectory($work);
         }

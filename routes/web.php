@@ -120,6 +120,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('messages/{conversation}', [MessageController::class, 'send'])->middleware('throttle:60,1')->name('messages.send');
     Route::get('message-media/{media}', [MessageController::class, 'media'])->name('messages.media');
     Route::get('message-media/{media}/{which}', [MessageController::class, 'mediaPreview'])->whereIn('which', ['poster', 'thumbs'])->name('messages.media.preview');
+    Route::get('message-media/{media}/hls/{file}', [MessageController::class, 'mediaHls'])->where('file', '[A-Za-z0-9_./]+')->name('messages.media.hls');
     Route::post('@{handle}/message', [MessageController::class, 'start'])->middleware('throttle:30,1')->name('creator.message');
     Route::post('studio/mass-message', [MessageController::class, 'mass'])->middleware('throttle:5,60')->name('studio.mass');
 
@@ -165,6 +166,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('studio/library/{item}/usage', [LibraryController::class, 'usage'])->name('studio.library.usage');
     Route::get('studio/library/{item}/file', [LibraryController::class, 'file'])->name('studio.library.file');
     Route::get('studio/library/{item}/{which}', [LibraryController::class, 'preview'])->whereIn('which', ['poster', 'thumbs'])->name('studio.library.preview');
+    Route::get('studio/library/{item}/hls/{file}', [LibraryController::class, 'hls'])->where('file', '[A-Za-z0-9_./]+')->name('studio.library.hls');
     Route::get('studio/earnings', [EarningsController::class, 'index'])->name('studio.earnings');
     Route::post('studio/earnings/payout', [EarningsController::class, 'requestPayout'])->middleware('throttle:10,60')->name('studio.payout');
     Route::get('studio/earnings/statement.csv', [EarningsController::class, 'statement'])->name('studio.statement');
@@ -201,6 +203,7 @@ Route::match(['get', 'post'], 'payments/{payment}/callback', [PaymentController:
 // Photos and videos, only after a permission check (see MediaController).
 Route::get('media/{media}', [MediaController::class, 'show'])->name('media.show');
 Route::get('media/{media}/{which}', [MediaController::class, 'preview'])->whereIn('which', ['poster', 'thumbs'])->name('media.preview');
+Route::get('media/{media}/hls/{file}', [MediaController::class, 'hls'])->where('file', '[A-Za-z0-9_./]+')->name('media.hls');
 
 Route::middleware(['auth', EnsureAdmin::class, RecordAdminAction::class])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
