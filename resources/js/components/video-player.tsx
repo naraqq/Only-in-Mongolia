@@ -747,7 +747,7 @@ function SkipIcon({ dir }: { dir: -1 | 1 }) {
  * Played (brand colour), loaded (lighter) and the rest; drag to scrub, with the time (and, when the video has
  * them, a frame from that moment) shown above the pointer.
  */
-function SeekBar({
+export function SeekBar({
     time,
     duration,
     buffered,

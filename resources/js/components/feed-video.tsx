@@ -1,19 +1,21 @@
 import StampOverlay from '@/components/stamp-overlay';
-import { canAutoplay, finished, register, report, setEnabled, setFeedSound, useFeedSound } from '@/lib/feed-video';
+import { SeekBar } from '@/components/video-player';
+import { canAutoplay, finished, hold, playNow, register, report, setEnabled, setFeedSound, useFeedSound } from '@/lib/feed-video';
 import { useT } from '@/lib/i18n';
 import { useStream } from '@/lib/stream';
 import { formatDuration } from '@/lib/use-uploads';
+import { type Thumbs } from '@/lib/video-preview';
 import { useWatchReport } from '@/lib/watch';
-import { AlertTriangle, LoaderCircle, Play, Volume2, VolumeX } from 'lucide-react';
-import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { AlertTriangle, LoaderCircle, Maximize, Minimize, Pause, Play, Volume2, VolumeX } from 'lucide-react';
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 
 /** Videos up to this long loop in the feed, like reels; longer ones stop at the end. */
 const LOOP_UP_TO = 60;
 
 /**
- * A video in the feed, the way social apps show them: plays by itself (muted) when it's the one on screen,
- * with just a sound button, the time left and a thin progress line. Tap or click opens it in the full player
- * (with the post and comments beside it), continuing from the same moment; double-tap likes.
+ * A video in the feed, played where it is, the way social apps do: it starts by itself (muted) when it's the one
+ * on screen; a tap or click pauses and resumes it (a double tap likes); a progress bar to scrub (with frames from
+ * the video when it has them), sound, and full screen of this same video, carrying on from the same moment.
  * Which feed video plays, and whether the feed has sound, is decided in lib/feed-video.
  */
 export default function FeedVideo({
@@ -21,9 +23,9 @@ export default function FeedVideo({
     stamp,
     poster,
     hls,
+    thumbs,
     watchId,
     duration: knownDuration,
-    onOpen,
     onDoubleTap,
     active = true,
     className = '',
@@ -40,10 +42,10 @@ export default function FeedVideo({
     watchId?: number;
     /** Its length, when known before loading. */
     duration?: number | null;
-    /** Open the full player at this many seconds. */
-    onOpen: (seconds: number) => void;
+    /** Frames shown above the progress bar while scrubbing. */
+    thumbs?: Thumbs | null;
     onDoubleTap?: () => void;
-    /** False while the post is open in the full player: this one stays still meanwhile. */
+    /** False while the post's photos are open full screen: this one stays still meanwhile. */
     active?: boolean;
     className?: string;
     videoClassName?: string;
@@ -61,6 +63,9 @@ export default function FeedVideo({
     const [time, setTime] = useState(0);
     const [duration, setDuration] = useState(knownDuration ?? 0);
     const [error, setError] = useState(false);
+    const [buffered, setBuffered] = useState(0);
+    const [full, setFull] = useState(false);
+    const [flash, setFlash] = useState<{ icon: ReactNode; key: number } | null>(null);
 
     useEffect(() => {
         const v = video.current;
@@ -79,6 +84,13 @@ export default function FeedVideo({
             ['play', () => setPlaying(true)],
             ['pause', () => setPlaying(false)],
             ['timeupdate', () => setTime(v.currentTime)],
+            [
+                'progress',
+                () => {
+                    const b = v.buffered;
+                    for (let i = 0; i < b.length; i++) if (b.start(i) <= v.currentTime + 0.5 && b.end(i) >= v.currentTime) setBuffered(b.end(i));
+                },
+            ],
             ['loadedmetadata', () => setDuration(v.duration)],
             ['durationchange', () => setDuration(v.duration)],
             ['waiting', () => setWaiting(true)],
@@ -142,7 +154,48 @@ export default function FeedVideo({
         }
     }, [released]);
 
-    // One tap/click opens the full player; a second one right after it likes instead.
+    // Full screen of this player (the viewer's ID on paid videos stays on it), and back.
+    useEffect(() => {
+        const onFull = () => setFull(document.fullscreenElement === root.current);
+        document.addEventListener('fullscreenchange', onFull);
+        return () => document.removeEventListener('fullscreenchange', onFull);
+    }, []);
+
+    function togglePlay() {
+        const v = video.current;
+        if (!v) return;
+        if (v.paused || v.ended) {
+            playNow(v);
+            setFlash({ icon: <Play className="size-7 translate-x-0.5 fill-current" />, key: Date.now() });
+        } else {
+            hold(v);
+            setFlash({ icon: <Pause className="size-7 fill-current" />, key: Date.now() });
+        }
+    }
+
+    async function toggleFull() {
+        const el = root.current;
+        const v = video.current as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null;
+        if (!el || !v) return;
+        try {
+            if (document.fullscreenElement) return await document.exitFullscreen();
+            setFeedSound(true); // full screen is for watching properly
+            if (v.paused) playNow(v);
+            if (el.requestFullscreen) await el.requestFullscreen();
+            else if (!stamp) v.webkitEnterFullscreen?.(); // iPhone: only the bare video can (not for paid ones: the ID would hide)
+        } catch {
+            /* refused */
+        }
+    }
+
+    function seekTo(s: number) {
+        const v = video.current;
+        if (!v || !Number.isFinite(v.duration)) return;
+        v.currentTime = Math.min(Math.max(0, s), v.duration);
+        setTime(v.currentTime);
+    }
+
+    // A tap or click pauses or plays it here; a second one right after it likes instead.
     function onSurface(e: PointerEvent<HTMLDivElement>) {
         if (e.button > 0) return; // right or middle click
         const now = Date.now();
@@ -150,7 +203,8 @@ export default function FeedVideo({
         lastTap.current = double ? 0 : now;
         clearTimeout(tapTimer.current);
         if (double && onDoubleTap) return onDoubleTap();
-        tapTimer.current = setTimeout(() => onOpen(video.current?.currentTime ?? 0), onDoubleTap ? 260 : 0);
+        if (double && !onDoubleTap) return void toggleFull();
+        tapTimer.current = setTimeout(togglePlay, onDoubleTap ? 260 : 0);
     }
 
     const left = duration > 0 ? duration - time : 0;
@@ -160,7 +214,7 @@ export default function FeedVideo({
         <div
             ref={root}
             onContextMenu={stamp ? (e) => e.preventDefault() : undefined}
-            className={`group/fv relative isolate overflow-hidden bg-black select-none ${className}`}
+            className={`group/fv relative isolate overflow-hidden bg-black select-none ${full ? 'grid size-full place-items-center' : ''} ${className}`}
         >
             <video
                 ref={video}
@@ -182,7 +236,7 @@ export default function FeedVideo({
                 disablePictureInPicture
                 disableRemotePlayback={!!stamp}
                 controlsList="nodownload noremoteplayback"
-                className={`block bg-black object-contain ${videoClassName}`}
+                className={`block bg-black object-contain ${full ? 'size-full max-h-none' : videoClassName}`}
             />
             <StampOverlay text={stamp} />
 
@@ -191,17 +245,31 @@ export default function FeedVideo({
                 onPointerUp={onSurface}
                 role="button"
                 tabIndex={0}
-                aria-label={t('vp.play')}
+                aria-label={t(playing ? 'vp.pause' : 'vp.play')}
                 onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
+                    if (e.key === 'Enter' || e.key === ' ' || e.key === 'k' || e.key === 'K') {
                         e.preventDefault();
-                        onOpen(video.current?.currentTime ?? 0);
+                        togglePlay();
                     } else if (e.key === 'm' || e.key === 'M') setFeedSound(!sound);
+                    else if (e.key === 'f' || e.key === 'F') void toggleFull();
+                    else if (e.key === 'ArrowLeft') seekTo((video.current?.currentTime ?? 0) - 5);
+                    else if (e.key === 'ArrowRight') seekTo((video.current?.currentTime ?? 0) + 5);
                 }}
             />
 
-            {/* No autoplay (less motion / data saver), or not playing yet: a play button that opens the player. */}
-            {(!auto || error) && !playing && (
+            {/* Feedback for a tap: play or pause, in the middle. */}
+            {flash && (
+                <span
+                    key={flash.key}
+                    onAnimationEnd={() => setFlash(null)}
+                    className="animate-vp-flash pointer-events-none absolute top-1/2 left-1/2 z-[3] grid size-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-black/45 text-white backdrop-blur-sm"
+                >
+                    {flash.icon}
+                </span>
+            )}
+
+            {/* Not playing (no autoplay for less motion / data saver, paused by the viewer, or an error): a play button. */}
+            {(!auto || error || time > 0.5) && !playing && !flash && (
                 <span className="pointer-events-none absolute top-1/2 left-1/2 z-[3] grid size-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-black/55 text-white shadow-lg ring-1 ring-white/20 backdrop-blur-md">
                     {error ? <AlertTriangle className="size-7 text-amber-300" /> : <Play className="size-7 translate-x-0.5 fill-current" />}
                 </span>
@@ -210,34 +278,56 @@ export default function FeedVideo({
                 <LoaderCircle className="pointer-events-none absolute top-1/2 left-1/2 z-[3] size-10 -translate-x-1/2 -translate-y-1/2 animate-spin text-white/90 drop-shadow" />
             )}
 
-            {/* Time left, and the sound switch (for the whole feed). */}
-            {duration > 0 && (
-                <span className="pointer-events-none absolute bottom-3 left-3 z-[3] rounded-md bg-black/60 px-1.5 py-0.5 text-xs font-bold text-white tabular-nums backdrop-blur-sm">
-                    {formatDuration(playing || time > 0.5 ? left : duration)}
-                </span>
-            )}
-            {!error && (
-                <button
-                    type="button"
-                    onClick={() => setFeedSound(!sound)}
-                    className="absolute right-3 bottom-3 z-[3] grid size-8 place-items-center rounded-full bg-black/60 text-white backdrop-blur-sm transition hover:scale-105 hover:bg-black/80"
-                    aria-label={t(sound ? 'vp.mute' : 'vp.unmute')}
-                    aria-pressed={sound}
-                    title={t(sound ? 'vp.mute' : 'vp.unmute')}
-                >
-                    {sound ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
-                </button>
-            )}
-
-            {/* A thin line showing how far along it is. */}
-            {duration > 0 && (playing || time > 0.5) && (
-                <span className="pointer-events-none absolute inset-x-0 bottom-0 z-[3] h-[3px] bg-white/20">
-                    <span
-                        className="bg-primary block h-full transition-[width] duration-200 ease-linear"
-                        style={{ width: `${(time / duration) * 100}%` }}
+            {/* Time left, sound (for the whole feed) and full screen; under them, the progress to scrub. */}
+            <div
+                className="absolute inset-x-0 bottom-0 z-[3] bg-gradient-to-t from-black/60 to-transparent px-3 pt-8 pb-1.5"
+                onPointerUp={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center gap-2">
+                    {duration > 0 && (
+                        <span className="pointer-events-none rounded-md bg-black/60 px-1.5 py-0.5 text-xs font-bold text-white tabular-nums backdrop-blur-sm">
+                            {formatDuration(playing || time > 0.5 ? left : duration)}
+                        </span>
+                    )}
+                    <span className="flex-1" />
+                    {!error && (
+                        <>
+                            <BarButton label={t(sound ? 'vp.mute' : 'vp.unmute')} pressed={sound} onClick={() => setFeedSound(!sound)}>
+                                {sound ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
+                            </BarButton>
+                            <BarButton label={t(full ? 'vp.exitFullscreen' : 'vp.fullscreen')} onClick={() => void toggleFull()}>
+                                {full ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+                            </BarButton>
+                        </>
+                    )}
+                </div>
+                {duration > 0 && (playing || time > 0.5) && (
+                    <SeekBar
+                        time={time}
+                        duration={duration}
+                        buffered={buffered}
+                        thumbs={thumbs}
+                        onSeek={seekTo}
+                        onScrub={() => {}}
+                        label={t('vp.seek')}
                     />
-                </span>
-            )}
+                )}
+            </div>
         </div>
+    );
+}
+
+function BarButton({ label, pressed, onClick, children }: { label: string; pressed?: boolean; onClick: () => void; children: ReactNode }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className="grid size-8 place-items-center rounded-full bg-black/60 text-white backdrop-blur-sm transition hover:scale-105 hover:bg-black/80"
+            aria-label={label}
+            aria-pressed={pressed}
+            title={label}
+        >
+            {children}
+        </button>
     );
 }

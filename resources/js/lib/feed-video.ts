@@ -10,7 +10,11 @@ import { useSyncExternalStore } from 'react';
  * Autoplay also stops while a "real" player (full screen viewer, chat) is playing, or the tab is hidden.
  */
 
-type Entry = { ratio: number; enabled: boolean; done: boolean };
+/**
+ * held: paused by the viewer (autoplay leaves it alone until it has left the screen);
+ * pinned: started by the viewer (it wins over the automatic choice while it's on screen).
+ */
+type Entry = { ratio: number; enabled: boolean; done: boolean; held: boolean; pinned: boolean };
 
 const entries = new Map<HTMLVideoElement, Entry>();
 const blockers = new Set<unknown>();
@@ -35,7 +39,13 @@ function pick() {
     if (!document.hidden && blockers.size === 0 && canAutoplay()) {
         const middle = window.innerHeight / 2;
         for (const [el, e] of entries) {
-            if (!e.enabled || e.done || e.ratio < MIN_VISIBLE) continue;
+            if (e.pinned && e.enabled && e.ratio >= MIN_VISIBLE) {
+                best = el; // the one the viewer started
+                break;
+            }
+        }
+        for (const [el, e] of best ? [] : entries) {
+            if (!e.enabled || e.done || e.held || e.ratio < MIN_VISIBLE) continue;
             // Most visible wins; between equally visible ones, the one nearest the middle of the screen.
             const r = el.getBoundingClientRect();
             const score = e.ratio * 10 - Math.abs(r.top + r.height / 2 - middle) / window.innerHeight;
@@ -45,9 +55,9 @@ function pick() {
             }
         }
     }
-    for (const el of entries.keys()) {
+    for (const [el, e] of entries) {
         if (el === best) {
-            if (el.paused) start(el);
+            if (el.paused && !e.held) start(el);
         } else if (!el.paused) el.pause();
     }
 }
@@ -71,7 +81,7 @@ export function reconsider() {
 }
 
 export function register(el: HTMLVideoElement): () => void {
-    entries.set(el, { ratio: 0, enabled: true, done: false });
+    entries.set(el, { ratio: 0, enabled: true, done: false, held: false, pinned: false });
     if (entries.size === 1) {
         window.addEventListener('scroll', reconsider, { passive: true });
         document.addEventListener('visibilitychange', reconsider);
@@ -91,8 +101,39 @@ export function report(el: HTMLVideoElement, ratio: number) {
     const e = entries.get(el);
     if (!e) return;
     e.ratio = ratio;
-    if (ratio === 0) e.done = false;
+    if (ratio === 0) {
+        // Scrolled away: next time it's on screen, it's an ordinary feed video again.
+        e.done = false;
+        e.held = false;
+        e.pinned = false;
+    } else if (ratio < MIN_VISIBLE) {
+        e.pinned = false;
+    }
     reconsider();
+}
+
+/** The viewer paused it: it stays paused (until it has left the screen). */
+export function hold(el: HTMLVideoElement) {
+    const e = entries.get(el);
+    if (!e) return;
+    e.held = true;
+    e.pinned = false;
+    el.pause();
+    reconsider();
+}
+
+/** The viewer started it: it plays (and the others stop) while it's on screen. */
+export function playNow(el: HTMLVideoElement) {
+    const e = entries.get(el);
+    if (!e) {
+        void el.play().catch(() => {});
+        return;
+    }
+    e.held = false;
+    e.done = false;
+    e.pinned = true;
+    for (const other of entries.keys()) if (other !== el && !other.paused) other.pause();
+    start(el);
 }
 
 /** Take a video out of the running (e.g. while its post is open full screen). */

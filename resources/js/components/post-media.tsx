@@ -70,7 +70,6 @@ function Visual({ media, onDoubleLike, aside, className }: { media: Media[]; onD
     const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
     const [index, setIndex] = useState(0);
     const [open, setOpen] = useState<number | null>(null);
-    const [openAt, setOpenAt] = useState<number | undefined>(undefined);
     const [burst, setBurst] = useState(0);
     const many = media.length > 1;
 
@@ -115,13 +114,10 @@ function Visual({ media, onDoubleLike, aside, className }: { media: Media[]; onD
                                 stamp={m.stamp}
                                 poster={m.poster}
                                 hls={m.hls}
+                                thumbs={m.thumbs}
                                 watchId={m.id}
                                 duration={m.duration}
                                 active={open === null}
-                                onOpen={(at) => {
-                                    setOpenAt(at);
-                                    setOpen(i);
-                                }}
                                 onDoubleTap={onDoubleLike ? like : undefined}
                                 className={many ? 'size-full' : ''}
                                 videoClassName={many ? 'size-full' : 'max-h-[640px] w-full'}
@@ -180,7 +176,7 @@ function Visual({ media, onDoubleLike, aside, className }: { media: Media[]; onD
                 </>
             )}
 
-            <MediaLightbox media={media} start={open} startAt={openAt} onClose={() => setOpen(null)} aside={aside} />
+            <MediaLightbox media={media} start={open} onClose={() => setOpen(null)} aside={aside} />
         </div>
     );
 }

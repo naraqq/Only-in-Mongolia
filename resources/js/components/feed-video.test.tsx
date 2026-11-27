@@ -61,8 +61,8 @@ function onScreen(video: HTMLVideoElement, ratio: number) {
 function twoVideos() {
     const { container } = render(
         <>
-            <FeedVideo src="/media/1" onOpen={() => {}} />
-            <FeedVideo src="/media/2" onOpen={() => {}} />
+            <FeedVideo src="/media/1" />
+            <FeedVideo src="/media/2" />
         </>,
     );
     return Array.from(container.querySelectorAll('video')) as [HTMLVideoElement, HTMLVideoElement];
@@ -92,32 +92,38 @@ describe('FeedVideo', () => {
         expect(screen.getAllByRole('button', { name: 'Mute' })).toHaveLength(2);
     });
 
-    it('a tap opens the full player at the same moment; a double tap likes instead', () => {
-        vi.useFakeTimers();
-        const open = vi.fn();
+    it('a tap pauses and plays it where it is, and it stays paused; a double tap likes instead', () => {
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] }); // not requestAnimationFrame (autoplay uses it)
         const like = vi.fn();
-        const { container } = render(<FeedVideo src="/media/1" onOpen={open} onDoubleTap={like} />);
+        const { container } = render(<FeedVideo src="/media/1" onDoubleTap={like} />);
         const video = container.querySelector('video')!;
-        video.currentTime = 12;
-        const surface = screen.getByRole('button', { name: 'Play' });
+        onScreen(video, 1);
+        expect(video.paused).toBe(false); // autoplay
+        const surface = () => container.querySelector('[role="button"][tabindex="0"]')!;
 
-        fireEvent.pointerUp(surface, { button: 0 });
+        fireEvent.pointerUp(surface(), { button: 0 });
         act(() => vi.advanceTimersByTime(300));
-        expect(open).toHaveBeenCalledWith(12);
+        expect(video.paused).toBe(true);
+        onScreen(video, 0.9); // still on screen: autoplay leaves it paused
+        expect(video.paused).toBe(true);
 
-        open.mockClear();
         vi.advanceTimersByTime(1000);
-        fireEvent.pointerUp(surface, { button: 0 });
-        fireEvent.pointerUp(surface, { button: 0 });
+        fireEvent.pointerUp(surface(), { button: 0 });
+        act(() => vi.advanceTimersByTime(300));
+        expect(video.paused).toBe(false);
+
+        vi.advanceTimersByTime(1000);
+        fireEvent.pointerUp(surface(), { button: 0 });
+        fireEvent.pointerUp(surface(), { button: 0 });
         act(() => vi.advanceTimersByTime(300));
         expect(like).toHaveBeenCalledOnce();
-        expect(open).not.toHaveBeenCalled();
+        expect(video.paused).toBe(false); // a like doesn't pause it
     });
 
     it('waits while a full player is playing, and carries on after', () => {
         const { container } = render(
             <>
-                <FeedVideo src="/media/1" onOpen={() => {}} />
+                <FeedVideo src="/media/1" />
                 <VideoPlayer src="/media/9" />
             </>,
         );
@@ -132,21 +138,21 @@ describe('FeedVideo', () => {
     });
 
     it('stays still while its post is open full screen', () => {
-        const { container, rerender } = render(<FeedVideo src="/media/1" onOpen={() => {}} />);
+        const { container, rerender } = render(<FeedVideo src="/media/1" />);
         const video = container.querySelector('video')!;
         onScreen(video, 1);
-        rerender(<FeedVideo src="/media/1" onOpen={() => {}} active={false} />);
+        rerender(<FeedVideo src="/media/1" active={false} />);
         expect(video.paused).toBe(true);
     });
 
     it('lets go of its download while the full player has the same video, and comes back at the same moment', () => {
-        const { container, rerender } = render(<FeedVideo src="/media/1" onOpen={() => {}} />);
+        const { container, rerender } = render(<FeedVideo src="/media/1" />);
         const video = container.querySelector('video')!;
         video.currentTime = 12;
-        rerender(<FeedVideo src="/media/1" onOpen={() => {}} active={false} />);
+        rerender(<FeedVideo src="/media/1" active={false} />);
         expect(video.hasAttribute('src')).toBe(false); // the connection is free for the full player
 
-        rerender(<FeedVideo src="/media/1" onOpen={() => {}} active />);
+        rerender(<FeedVideo src="/media/1" active />);
         expect(video.getAttribute('src')).toBe('/media/1#t=12');
     });
 
@@ -165,7 +171,7 @@ describe('FeedVideo', () => {
 
     it('does not autoplay for people who asked for less motion', () => {
         reducedMotion = true;
-        const { container } = render(<FeedVideo src="/media/1" onOpen={() => {}} />);
+        const { container } = render(<FeedVideo src="/media/1" />);
         const video = container.querySelector('video')!;
         onScreen(video, 1);
         expect(video.paused).toBe(true);
