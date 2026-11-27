@@ -120,6 +120,10 @@ export default function VideoPlayer({
     const [controls, setControls] = useState(true);
     const [menu, setMenu] = useState(false);
     const stream = useStream(video, src, hls);
+    // While streaming drives the video, its own errors are handled there (a failure falls back to the file);
+    // the element's error while it's being taken down isn't the viewer's problem.
+    const streaming = useRef(false);
+    streaming.current = stream.mode !== 'file';
     useWatchReport(video, watchId);
     const [full, setFull] = useState(false);
     const [error, setError] = useState(false);
@@ -274,8 +278,12 @@ export default function VideoPlayer({
             if (posKey) store(posKey, null);
         };
         const onWaiting = () => setWaiting(true);
-        const onPlaying = () => setWaiting(false);
+        const onPlaying = () => {
+            setWaiting(false);
+            setError(false); // it plays after all (e.g. the file, after streaming gave up)
+        };
         const onError = () => {
+            if (streaming.current || !v.getAttribute('src')) return;
             setError(true);
             setWaiting(false);
         };

@@ -13,10 +13,29 @@ export type Quality = { index: number; height: number; width: number; bitrate: n
 
 type Mode = 'native' | 'hlsjs' | 'file';
 
+/** Streaming failed earlier in this visit (e.g. the bucket doesn't allow it yet): play files straight away. */
+const OFF_KEY = 'stream.off';
+function streamingOff(): boolean {
+    try {
+        return sessionStorage.getItem(OFF_KEY) === '1';
+    } catch {
+        return false;
+    }
+}
+function turnStreamingOff() {
+    try {
+        sessionStorage.setItem(OFF_KEY, '1');
+    } catch {
+        /* private mode: each video finds out by itself */
+    }
+}
+
 function pickMode(hls: string | null | undefined): Mode {
-    if (!hls || typeof document === 'undefined') return 'file';
-    if (document.createElement('video').canPlayType('application/vnd.apple.mpegurl')) return 'native';
-    return typeof window !== 'undefined' && 'MediaSource' in window ? 'hlsjs' : 'file';
+    if (!hls || typeof document === 'undefined' || streamingOff()) return 'file';
+    // hls.js wherever it can run (it knows our fallback); the browser's own player only where it can't (older iPhones).
+    // Newer Chrome also claims to play HLS itself, but not with pieces on another site, so it gets hls.js too.
+    if (typeof window !== 'undefined' && ('MediaSource' in window || 'ManagedMediaSource' in window)) return 'hlsjs';
+    return document.createElement('video').canPlayType('application/vnd.apple.mpegurl') ? 'native' : 'file';
 }
 
 /** "720p" for a quality, by its shorter side (phone videos are taller than wide). */
@@ -52,7 +71,18 @@ export function useStream(video: RefObject<HTMLVideoElement | null>, file: strin
         void import('hls.js').then(({ default: HlsJs }) => {
             if (cancelled) return;
             if (!HlsJs.isSupported()) return setFailed(true);
-            const player = new HlsJs({ autoStartLoad: false, capLevelToPlayerSize: true, maxBufferLength: 30, startLevel: -1 });
+            // A piece that won't load is tried once more, then it's the file: no long wait on a broken stream.
+            const quick = { maxNumRetry: 1, retryDelayMs: 500, maxRetryDelayMs: 1000 };
+            const policy = { default: { maxTimeToFirstByteMs: 8000, maxLoadTimeMs: 20000, timeoutRetry: quick, errorRetry: quick } };
+            const player = new HlsJs({
+                autoStartLoad: false,
+                capLevelToPlayerSize: true,
+                maxBufferLength: 30,
+                startLevel: -1,
+                fragLoadPolicy: policy,
+                playlistLoadPolicy: policy,
+                manifestLoadPolicy: policy,
+            });
             h = player;
             instance.current = player;
             player.on(HlsJs.Events.MANIFEST_PARSED, (_e, data) =>
@@ -67,7 +97,8 @@ export function useStream(video: RefObject<HTMLVideoElement | null>, file: strin
                     player.recoverMediaError();
                     return;
                 }
-                // Streaming isn't working here: the single file, from the same moment.
+                // Streaming isn't working here: the single file, from the same moment (and for the rest of the visit).
+                turnStreamingOff();
                 resumeAt.current = v.currentTime;
                 player.destroy();
                 instance.current = null;
@@ -88,6 +119,19 @@ export function useStream(video: RefObject<HTMLVideoElement | null>, file: strin
             setCurrent(-1);
         };
     }, [mode, failed, active, hls, video]);
+
+    // The browser's own player failing (it can't tell us why): the file instead.
+    useEffect(() => {
+        const v = video.current;
+        if (mode !== 'native' || failed || !v) return;
+        const onError = () => {
+            resumeAt.current = v.currentTime;
+            turnStreamingOff();
+            setFailed(true);
+        };
+        v.addEventListener('error', onError);
+        return () => v.removeEventListener('error', onError);
+    }, [mode, failed, video]);
 
     // After falling back to the file: carry on where streaming stopped, and keep playing if it was.
     useEffect(() => {

@@ -51,6 +51,7 @@ export default function FeedVideo({
     const { t } = useT();
     const root = useRef<HTMLDivElement>(null);
     const video = useRef<HTMLVideoElement>(null);
+    const streaming = useRef(false);
     const tapTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
     const lastTap = useRef(0);
     const sound = useFeedSound();
@@ -81,12 +82,14 @@ export default function FeedVideo({
             ['loadedmetadata', () => setDuration(v.duration)],
             ['durationchange', () => setDuration(v.duration)],
             ['waiting', () => setWaiting(true)],
-            ['playing', () => setWaiting(false)],
-            ['canplay', () => setWaiting(false)],
+            ['playing', () => (setWaiting(false), setError(false))],
+            ['canplay', () => (setWaiting(false), setError(false))],
             ['ended', () => finished(v)],
             [
                 'error',
                 () => {
+                    // Streaming handles its own failures (falling back to the file); and no source isn't an error.
+                    if (streaming.current || !v.getAttribute('src')) return;
                     setError(true);
                     setWaiting(false);
                 },
@@ -106,6 +109,7 @@ export default function FeedVideo({
     // it (on `php artisan serve` for up to a minute). It picks up again at the same moment when the player closes.
     const [released, setReleased] = useState(false);
     const stream = useStream(video, src, hls, !released);
+    streaming.current = stream.mode !== 'file';
     useWatchReport(video, watchId);
     const resumeAt = useRef(0);
     useEffect(() => {
