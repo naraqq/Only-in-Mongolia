@@ -3,6 +3,7 @@ import { canAutoplay, finished, register, report, setEnabled, setFeedSound, useF
 import { useT } from '@/lib/i18n';
 import { useStream } from '@/lib/stream';
 import { formatDuration } from '@/lib/use-uploads';
+import { useWatchReport } from '@/lib/watch';
 import { AlertTriangle, LoaderCircle, Play, Volume2, VolumeX } from 'lucide-react';
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 
@@ -20,6 +21,7 @@ export default function FeedVideo({
     stamp,
     poster,
     hls,
+    watchId,
     duration: knownDuration,
     onOpen,
     onDoubleTap,
@@ -34,6 +36,8 @@ export default function FeedVideo({
     poster?: string | null;
     /** Adaptive streaming (App\Media\Hls), when the video has it. */
     hls?: string | null;
+    /** A post's video: report how much is watched, for the creator's insights. */
+    watchId?: number;
     /** Its length, when known before loading. */
     duration?: number | null;
     /** Open the full player at this many seconds. */
@@ -102,6 +106,7 @@ export default function FeedVideo({
     // it (on `php artisan serve` for up to a minute). It picks up again at the same moment when the player closes.
     const [released, setReleased] = useState(false);
     const stream = useStream(video, src, hls, !released);
+    useWatchReport(video, watchId);
     const resumeAt = useRef(0);
     useEffect(() => {
         const v = video.current;

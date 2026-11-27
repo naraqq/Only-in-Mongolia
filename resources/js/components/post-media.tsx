@@ -115,6 +115,7 @@ function Visual({ media, onDoubleLike, aside, className }: { media: Media[]; onD
                                 stamp={m.stamp}
                                 poster={m.poster}
                                 hls={m.hls}
+                                watchId={m.id}
                                 duration={m.duration}
                                 active={open === null}
                                 onOpen={(at) => {

@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Media\Previews;
 use App\Models\CreatorProfile;
 use App\Models\Payment;
 use App\Models\Post;
+use App\Models\PostMedia;
 use App\Support\Attribution;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,6 +19,38 @@ use Inertia\Response;
 class InsightsController extends Controller
 {
     public const RANGES = [7, 30, 90];
+
+    /**
+     * The player reports how much of a post's video was watched: seconds actually played since its last report, and
+     * the furthest point reached (%). Kept per viewer per video per day; a "play" counts from 3 seconds watched.
+     */
+    public function watch(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'media_id' => ['required', 'integer'],
+            'seconds' => ['required', 'integer', 'min:0', 'max:600'], // one report covers at most a few minutes
+            'percent' => ['required', 'integer', 'min:0', 'max:100'],
+        ]);
+        $me = $request->user();
+        $media = PostMedia::with('post.creator')->where('type', 'video')->find($data['media_id']);
+        if (! $media || $media->post->creator->user_id === $me?->id || ! $media->post->isVisibleTo($me)) {
+            return response()->json(['ok' => true]); // own videos and ones they can't see aren't counted
+        }
+        $viewer = $me ? (string) $me->id : 's:'.substr(hash('sha256', $request->session()->getId()), 0, 40);
+        $key = ['post_media_id' => $media->id, 'viewer' => $viewer, 'day' => now()->toDateString()];
+        $row = DB::table('video_watches')->where($key)->first();
+        $seconds = (int) ($row->seconds ?? 0) + (int) $data['seconds'];
+        if (! $row && $seconds < 3) {
+            return response()->json(['ok' => true]); // a glance (a feed video scrolled past) isn't a play
+        }
+        DB::table('video_watches')->upsert(
+            [[...$key, 'seconds' => $seconds, 'max_percent' => max((int) ($row->max_percent ?? 0), (int) $data['percent'])]],
+            ['post_media_id', 'viewer', 'day'],
+            ['seconds', 'max_percent'],
+        );
+
+        return response()->json(['ok' => true]);
+    }
 
     /** The browser reports posts that were really seen (batched). Unique per viewer per post per day. */
     public function views(Request $request): JsonResponse
@@ -125,6 +159,10 @@ class InsightsController extends Controller
                     'views' => (int) ($postViews[$p->id] ?? 0),
                 ]),
             'shareLink' => route('creator.show', $creator->handle),
+            'previous' => $this->previous($creator, $postIds, $since, $days),
+            'health' => $this->health($creator, $since),
+            'activity' => $this->activity($postIds, $since),
+            'videos' => $this->videos($postIds, $since),
         ]);
     }
 
@@ -215,6 +253,85 @@ class InsightsController extends Controller
     }
 
     /** One value per day for the range, zero-filled. */
+    /** The same headline numbers for the period just before, to show the change. */
+    private function previous(CreatorProfile $creator, $postIds, Carbon $since, int $days): array
+    {
+        $from = $since->copy()->subDays($days);
+        $paid = fn () => $creator->payments()->where('status', Payment::PAID)->where('paid_at', '>=', $from)->where('paid_at', '<', $since);
+
+        return [
+            'views' => DB::table('post_views')->whereIn('post_id', $postIds)->where('day', '>=', $from->toDateString())->where('day', '<', $since->toDateString())->count(),
+            'earnings' => (int) $paid()->sum(DB::raw('amount - platform_fee')),
+            'newSubscriptions' => $paid()->where('purpose', Payment::SUBSCRIPTION)->where('renewal', false)->count(),
+            'newFollowers' => DB::table('follows')->where('creator_profile_id', $creator->id)->where('created_at', '>=', $from)->where('created_at', '<', $since)->count(),
+        ];
+    }
+
+    /**
+     * How the subscriber base is doing: what it brings in a month (active subscribers at the current price, after
+     * the fee — an estimate), who renewed and who let it lapse in this period, and how many renew by themselves.
+     */
+    private function health(CreatorProfile $creator, Carbon $since): array
+    {
+        $active = $creator->subscriptions()->active();
+        $activeCount = (clone $active)->count();
+        $renewed = $creator->payments()->where('status', Payment::PAID)->where('purpose', Payment::SUBSCRIPTION)
+            ->where('renewal', true)->where('paid_at', '>=', $since)->count();
+        $lapsed = $creator->subscriptions()->where('expires_at', '>=', $since)->where('expires_at', '<', now())->count();
+        $fee = (int) config('creators.platform_fee_percent');
+
+        return [
+            'active' => $activeCount,
+            'monthly' => intdiv($activeCount * (int) $creator->price_monthly * (100 - $fee), 100),
+            'autoRenew' => (clone $active)->where('auto_renew', true)->count(),
+            'renewed' => $renewed,
+            'lapsed' => $lapsed,
+            'endingSoon' => (clone $active)->where('expires_at', '<', now()->addDays(7))->where('auto_renew', false)->count(),
+        ];
+    }
+
+    /**
+     * When fans respond: likes and comments on the creator's posts by weekday and hour, in Mongolian time.
+     *
+     * @return list<list<int>> 7 rows (Monday first) × 24 hours
+     */
+    private function activity($postIds, Carbon $since): array
+    {
+        $grid = array_fill(0, 7, array_fill(0, 24, 0));
+        $times = DB::table('post_likes')->whereIn('post_id', $postIds)->where('created_at', '>=', $since)->pluck('created_at')
+            ->merge(DB::table('post_comments')->whereIn('post_id', $postIds)->where('created_at', '>=', $since)->pluck('created_at'));
+        foreach ($times as $at) {
+            $local = Carbon::parse($at, config('app.timezone'))->setTimezone('Asia/Ulaanbaatar');
+            $grid[$local->dayOfWeekIso - 1][$local->hour]++;
+        }
+
+        return $grid;
+    }
+
+    /** Per video in this period: plays (3 s or more), average share watched, how many watched to the end, total time. */
+    private function videos($postIds, Carbon $since): array
+    {
+        $stats = DB::table('video_watches')->join('post_media', 'post_media.id', '=', 'video_watches.post_media_id')
+            ->whereIn('post_media.post_id', $postIds)->where('video_watches.day', '>=', $since->toDateString())
+            ->groupBy('video_watches.post_media_id')
+            ->selectRaw('video_watches.post_media_id as id, count(*) as plays, avg(max_percent) as avg_percent, sum(case when max_percent >= 90 then 1 else 0 end) as finished, sum(seconds) as seconds')
+            ->orderByDesc('plays')->take(20)->get();
+        $media = PostMedia::with('post:id,body')->whereIn('id', $stats->pluck('id'))->get()->keyBy('id');
+        $previews = Previews::forPaths($media->pluck('path'));
+
+        return $stats->map(fn ($s) => [
+            'id' => (int) $s->id,
+            'post_id' => $media[$s->id]?->post_id,
+            'body' => ($b = $media[$s->id]?->post?->body) ? mb_strimwidth($b, 0, 80, '…') : null,
+            'poster' => isset($media[$s->id], $previews[$media[$s->id]->path]) && $previews[$media[$s->id]->path]->poster_path ? route('media.preview', [$s->id, 'poster']) : null,
+            'duration' => isset($media[$s->id], $previews[$media[$s->id]->path]) ? $previews[$media[$s->id]->path]->duration : null,
+            'plays' => (int) $s->plays,
+            'avgPercent' => (int) round((float) $s->avg_percent),
+            'finished' => (int) $s->finished,
+            'seconds' => (int) $s->seconds,
+        ])->all();
+    }
+
     private function daily($byDate, Carbon $since, int $days): array
     {
         return collect(range(0, $days - 1))->map(function ($i) use ($byDate, $since) {

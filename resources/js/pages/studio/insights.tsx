@@ -1,4 +1,5 @@
 import BarChart from '@/components/bar-chart';
+import { ActivityHeatmap, Delta, SubscriberHealth, VideoTable, type Health, type VideoRow } from '@/components/insights-extra';
 import StudioLayout from '@/layouts/studio-layout';
 import { mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
@@ -57,7 +58,15 @@ export default function Insights({
     conversions,
     shareLink,
     qas,
+    previous,
+    health,
+    activity,
+    videos,
 }: {
+    previous: { views: number; earnings: number; newSubscriptions: number; newFollowers: number };
+    health: Health;
+    activity: number[][];
+    videos: VideoRow[];
     qas: QaRow[];
     days: number;
     ranges: number[];
@@ -94,18 +103,36 @@ export default function Insights({
         >
             <div className="flex flex-col gap-5">
                 <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                    <Tile icon={Eye} label={t('ins.views')} value={num(totals.views)} />
-                    <Tile icon={Wallet} label={t('ins.earned')} value={mnt(totals.earnings)} />
+                    <Tile icon={Eye} label={t('ins.views')} value={num(totals.views)} delta={<Delta now={totals.views} before={previous.views} />} />
+                    <Tile
+                        icon={Wallet}
+                        label={t('ins.earned')}
+                        value={mnt(totals.earnings)}
+                        delta={<Delta now={totals.earnings} before={previous.earnings} />}
+                    />
                     <Tile
                         icon={Users}
                         label={t('ins.newSubs')}
                         value={num(totals.newSubscriptions)}
+                        delta={<Delta now={totals.newSubscriptions} before={previous.newSubscriptions} />}
                         sub={
                             t('ins.activeNow', { n: totals.activeSubscribers }) + (totals.trials ? ` · ${t('ins.trials', { n: totals.trials })}` : '')
                         }
                     />
-                    <Tile icon={UserPlus} label={t('ins.newFollowers')} value={num(totals.newFollowers)} />
+                    <Tile
+                        icon={UserPlus}
+                        label={t('ins.newFollowers')}
+                        value={num(totals.newFollowers)}
+                        delta={<Delta now={totals.newFollowers} before={previous.newFollowers} />}
+                    />
                 </section>
+
+                <section className="grid items-start gap-5 lg:grid-cols-2">
+                    <SubscriberHealth h={health} />
+                    <ActivityHeatmap grid={activity} />
+                </section>
+
+                <VideoTable videos={videos} />
 
                 <section className="grid items-start gap-5 lg:grid-cols-2">
                     <BarChart title={t('ins.viewsDaily')} data={series.views} format={num} />
@@ -501,7 +528,7 @@ function QaDemand({ qas }: { qas: QaRow[] }) {
     );
 }
 
-function Tile({ icon: Icon, label, value, sub }: { icon: LucideIcon; label: string; value: string; sub?: string }) {
+function Tile({ icon: Icon, label, value, sub, delta }: { icon: LucideIcon; label: string; value: string; sub?: string; delta?: React.ReactNode }) {
     return (
         <div className="bg-card rounded-2xl p-4 shadow-xs">
             <div className="flex items-center justify-between gap-2">
@@ -510,7 +537,9 @@ function Tile({ icon: Icon, label, value, sub }: { icon: LucideIcon; label: stri
                     <Icon className="size-[18px]" />
                 </span>
             </div>
-            <p className="mt-2 text-2xl font-extrabold tracking-tight tabular-nums sm:text-[28px]">{value}</p>
+            <p className="mt-2 flex items-baseline gap-2 text-2xl font-extrabold tracking-tight tabular-nums sm:text-[28px]">
+                {value} {delta}
+            </p>
             {sub && <p className="text-muted-foreground mt-0.5 text-xs">{sub}</p>}
         </div>
     );

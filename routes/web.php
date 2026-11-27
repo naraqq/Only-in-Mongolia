@@ -54,6 +54,7 @@ Route::get('creators', [FanController::class, 'discover'])->name('creators');
 Route::get('search', SearchController::class)->middleware('throttle:60,1')->name('search');
 Route::get('search/suggest', [SearchController::class, 'suggest'])->middleware('throttle:120,1')->name('search.suggest');
 Route::post('posts/views', [InsightsController::class, 'views'])->middleware('throttle:60,1')->name('posts.views');
+Route::post('posts/watch', [InsightsController::class, 'watch'])->middleware('throttle:120,1')->name('posts.watch');
 Route::post('visits', [InsightsController::class, 'visit'])->middleware('throttle:60,1')->name('visits');
 // Live Q&A: anyone who can see the post can read it (the page refreshes it while live).
 Route::get('posts/{post}/qa', [QaController::class, 'show'])->middleware('throttle:120,1')->name('posts.qa');

@@ -5,6 +5,7 @@ import { toggle as toggleAudio } from '@/lib/player';
 import { qualityLabel, useStream } from '@/lib/stream';
 import { formatDuration } from '@/lib/use-uploads';
 import { tileAt, type Thumbs } from '@/lib/video-preview';
+import { useWatchReport } from '@/lib/watch';
 import {
     AlertTriangle,
     Check,
@@ -67,6 +68,7 @@ export default function VideoPlayer({
     poster,
     thumbs,
     hls,
+    watchId,
     duration: knownDuration,
     autoPlay = false,
     startAt,
@@ -83,6 +85,8 @@ export default function VideoPlayer({
     poster?: string | null;
     /** Adaptive streaming (App\Media\Hls): used instead of `src` where it can be, `src` stays the fallback. */
     hls?: string | null;
+    /** A post's video: report how much is watched, for the creator's insights. */
+    watchId?: number;
     /** Frames shown above the seek bar while scrubbing. */
     thumbs?: Thumbs | null;
     /** Its length, when known before loading (shown on the still). */
@@ -116,6 +120,7 @@ export default function VideoPlayer({
     const [controls, setControls] = useState(true);
     const [menu, setMenu] = useState(false);
     const stream = useStream(video, src, hls);
+    useWatchReport(video, watchId);
     const [full, setFull] = useState(false);
     const [error, setError] = useState(false);
     const [flash, setFlash] = useState<Flash | null>(null);

@@ -75,6 +75,7 @@ export default function MediaLightbox({
                                     stamp={m.stamp}
                                     poster={m.poster}
                                     hls={m.hls}
+                                    watchId={m.id}
                                     thumbs={m.thumbs}
                                     duration={m.duration}
                                     autoPlay
