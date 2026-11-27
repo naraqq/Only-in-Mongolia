@@ -119,6 +119,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('messages/{conversation}', [MessageController::class, 'index'])->name('messages.show');
     Route::post('messages/{conversation}', [MessageController::class, 'send'])->middleware('throttle:60,1')->name('messages.send');
     Route::get('message-media/{media}', [MessageController::class, 'media'])->name('messages.media');
+    Route::get('message-media/{media}/{which}', [MessageController::class, 'mediaPreview'])->whereIn('which', ['poster', 'thumbs'])->name('messages.media.preview');
     Route::post('@{handle}/message', [MessageController::class, 'start'])->middleware('throttle:30,1')->name('creator.message');
     Route::post('studio/mass-message', [MessageController::class, 'mass'])->middleware('throttle:5,60')->name('studio.mass');
 
@@ -163,6 +164,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('studio/library/{item}', [LibraryController::class, 'destroy'])->name('studio.library.destroy');
     Route::get('studio/library/{item}/usage', [LibraryController::class, 'usage'])->name('studio.library.usage');
     Route::get('studio/library/{item}/file', [LibraryController::class, 'file'])->name('studio.library.file');
+    Route::get('studio/library/{item}/{which}', [LibraryController::class, 'preview'])->whereIn('which', ['poster', 'thumbs'])->name('studio.library.preview');
     Route::get('studio/earnings', [EarningsController::class, 'index'])->name('studio.earnings');
     Route::post('studio/earnings/payout', [EarningsController::class, 'requestPayout'])->middleware('throttle:10,60')->name('studio.payout');
     Route::get('studio/earnings/statement.csv', [EarningsController::class, 'statement'])->name('studio.statement');

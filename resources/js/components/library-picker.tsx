@@ -1,11 +1,22 @@
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useT } from '@/lib/i18n';
+import type { Thumbs } from '@/lib/video-preview';
 import { AudioLines, Check, Images, LoaderCircle, Play, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-export type LibraryItem = { id: number; type: 'image' | 'video' | 'audio'; url: string; uses: number; created_at: string };
+export type LibraryItem = {
+    id: number;
+    type: 'image' | 'video' | 'audio';
+    url: string;
+    uses: number;
+    created_at: string;
+    /** Videos: a still and seek-bar frames, when there are some (App\Media\Previews). */
+    poster?: string | null;
+    thumbs?: Thumbs | null;
+    duration?: number | null;
+};
 
-export type Picked = Pick<LibraryItem, 'id' | 'type' | 'url'>;
+export type Picked = Pick<LibraryItem, 'id' | 'type' | 'url' | 'poster'>;
 
 /**
  * "From library": a creator picks photos and videos they already uploaded. The composer sends the ids as `vault[]`;
@@ -149,14 +160,19 @@ export function PickedThumbs({ picked, onRemove, className = '' }: { picked: Pic
 }
 
 /** A library photo, or a video's first frame with a play mark. */
-export function Thumb({ item, className = '' }: { item: Pick<LibraryItem, 'type' | 'url'>; className?: string }) {
+export function Thumb({ item, className = '' }: { item: Pick<LibraryItem, 'type' | 'url' | 'poster'>; className?: string }) {
     return (
         <div className={`relative bg-zinc-200 dark:bg-zinc-800 ${className}`}>
             {item.type === 'audio' ? (
                 <AudioTile />
             ) : item.type === 'video' ? (
                 <>
-                    <video src={`${item.url}#t=0.1`} muted playsInline preload="metadata" className="size-full object-cover" />
+                    {item.poster ? (
+                        // The still: no need to load the video just to show a frame.
+                        <img src={item.poster} alt="" loading="lazy" className="size-full object-cover" />
+                    ) : (
+                        <video src={`${item.url}#t=0.1`} muted playsInline preload="metadata" className="size-full object-cover" />
+                    )}
                     <span className="absolute inset-0 grid place-items-center">
                         <span className="grid size-8 place-items-center rounded-full bg-black/55 text-white">
                             <Play className="size-4 fill-current" />

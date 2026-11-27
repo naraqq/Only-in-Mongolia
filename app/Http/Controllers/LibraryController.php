@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Media\Files;
 use App\Media\Library;
 use App\Media\Paths;
+use App\Media\Previews;
 use App\Media\Transcoding;
 use App\Media\Uploads;
 use App\Models\CreatorProfile;
@@ -120,11 +121,22 @@ class LibraryController extends Controller
         return Files::response($item->path, $item->mime, ['Cache-Control' => 'private, max-age=86400']);
     }
 
+    /** A library video's still or seek-bar frames (App\Media\Previews). */
+    public function preview(Request $request, VaultItem $item, string $which): BinaryFileResponse|RedirectResponse
+    {
+        abort_unless($item->creator_profile_id === $this->creator($request)->id && $item->type === 'video', 404);
+        $path = Previews::file($item->path, $which);
+        abort_unless($path && Files::exists($path), 404);
+
+        return Files::response($path, 'image/jpeg', ['Cache-Control' => 'private, max-age=86400']);
+    }
+
     private function items(CreatorProfile $creator, ?string $type, int $limit): array
     {
         $items = $creator->vaultItems()->when($type, fn ($q) => $q->where('type', $type))->latest('id')->take($limit)->get();
         $uses = Library::uses($items->pluck('path')->all());
         $stats = Library::stats($creator, $items->pluck('path')->all());
+        $previews = Previews::forPaths($items->where('type', 'video')->pluck('path'));
 
         return $items->map(fn (VaultItem $v) => [
             'id' => $v->id,
@@ -134,6 +146,7 @@ class LibraryController extends Controller
             'views' => $stats[$v->path]['views'] ?? 0,
             'earned' => $stats[$v->path]['earned'] ?? 0,
             'created_at' => $v->created_at->toIso8601String(),
+            ...($v->type === 'video' ? Previews::present($previews[$v->path] ?? null, fn (string $which) => route('studio.library.preview', [$v, $which])) : []),
         ])->all();
     }
 }

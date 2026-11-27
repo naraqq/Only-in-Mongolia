@@ -12,6 +12,7 @@ import StudioLayout from '@/layouts/studio-layout';
 import { mnt, priceOk, timeAgo } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
 import { useLive, useLiveConnected } from '@/lib/live';
+import type { Thumbs } from '@/lib/video-preview';
 import { type SharedData } from '@/types';
 import { Link, router, useForm, usePage, usePoll } from '@inertiajs/react';
 import {
@@ -41,7 +42,15 @@ type Msg = {
     locked: boolean;
     counts: { image: number; video: number; audio?: number };
     created_at: string;
-    media: { id: number; type: 'image' | 'video' | 'audio'; url: string; stamp?: string | null }[];
+    media: {
+        id: number;
+        type: 'image' | 'video' | 'audio';
+        url: string;
+        stamp?: string | null;
+        poster?: string | null;
+        thumbs?: Thumbs | null;
+        duration?: number | null;
+    }[];
 };
 type Thread = { id: number; other: Person; messages: Msg[]; cannotSend: string | null; iBlocked: boolean };
 
@@ -328,6 +337,9 @@ function Conversation({ thread, me, area }: { thread: Thread; me: number; area: 
                                                             src={x.url}
                                                             id={`mm${x.id}`}
                                                             stamp={x.stamp}
+                                                            poster={x.poster}
+                                                            thumbs={x.thumbs}
+                                                            duration={x.duration}
                                                             videoClassName="max-h-80 w-full"
                                                         />
                                                     ) : (

@@ -6,6 +6,7 @@ use App\Fans\Audience;
 use App\Media\Files;
 use App\Media\Library;
 use App\Media\Paths;
+use App\Media\Previews;
 use App\Media\Stamp;
 use App\Media\Transcoding;
 use App\Media\Uploads;
@@ -142,11 +143,7 @@ class MessageController extends Controller
     /** A message photo or video, only for the two people in the conversation. */
     public function media(Request $request, MessageMedia $media, Stamp $stamp): BinaryFileResponse|RedirectResponse
     {
-        $conversation = $media->message->conversation;
-        abort_unless($conversation->includes($request->user()), 404);
-        abort_unless($media->message->isUnlockedFor($request->user()), 403);
-        // Flagged by the automatic scan (copies of a mass message share files): not served while it waits for review.
-        abort_if(! $request->user()->is_admin && MessageMedia::where('path', $media->path)->where('scan_status', 'flagged')->exists(), 404);
+        $this->mayOpen($request, $media);
         abort_unless(Files::exists($media->path), 404);
         if ($media->type === 'image' && ($text = Stamp::forMessage($media->message, $request->user()))) {
             return response()->file($stamp->image($media->path, $text), ['Content-Type' => 'image/jpeg', ...[
@@ -156,6 +153,26 @@ class MessageController extends Controller
         }
 
         return Files::response($media->path, $media->mime, ['Cache-Control' => 'private, max-age=3600']);
+    }
+
+    /** A video's still or seek-bar frames (App\Media\Previews): for exactly whoever may watch the video. */
+    public function mediaPreview(Request $request, MessageMedia $media, string $which): BinaryFileResponse|RedirectResponse
+    {
+        abort_unless($media->type === 'video', 404);
+        $this->mayOpen($request, $media);
+        $path = Previews::file($media->path, $which);
+        abort_unless($path && Files::exists($path), 404);
+
+        return Files::response($path, 'image/jpeg', ['Cache-Control' => 'private, max-age=86400']);
+    }
+
+    /** Someone in the conversation, with the message unlocked, and the file not held by the automatic scan. */
+    private function mayOpen(Request $request, MessageMedia $media): void
+    {
+        abort_unless($media->message->conversation->includes($request->user()), 404);
+        abort_unless($media->message->isUnlockedFor($request->user()), 403);
+        // Flagged by the automatic scan (copies of a mass message share files): not served while it waits for review.
+        abort_if(! $request->user()->is_admin && MessageMedia::where('path', $media->path)->where('scan_status', 'flagged')->exists(), 404);
     }
 
     private function validateMessage(Request $request): array

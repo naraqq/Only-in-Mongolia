@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Media\Previews;
 use App\Media\Stamp;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -50,7 +51,21 @@ class Message extends Model
             'locked' => $locked,
             'created_at' => $this->created_at->toIso8601String(),
             'counts' => ['image' => $this->media->where('type', 'image')->count(), 'video' => $this->media->where('type', 'video')->count(), 'audio' => $this->media->where('type', 'audio')->count()],
-            'media' => $locked ? [] : $this->media->map(fn (MessageMedia $m) => ['id' => $m->id, 'type' => $m->type, 'url' => route('messages.media', [$m, ...$tag]), 'stamp' => $stamp])->all(),
+            'media' => $locked ? [] : $this->presentMedia($tag, $stamp),
         ];
+    }
+
+    /** The files, videos with their still and seek-bar frames when they have them (App\Media\Previews). */
+    private function presentMedia(array $tag, ?string $stamp): array
+    {
+        $previews = Previews::forPaths($this->media->where('type', 'video')->pluck('path'));
+
+        return $this->media->map(fn (MessageMedia $m) => [
+            'id' => $m->id,
+            'type' => $m->type,
+            'url' => route('messages.media', [$m, ...$tag]),
+            'stamp' => $stamp,
+            ...($m->type === 'video' ? Previews::present($previews[$m->path] ?? null, fn (string $which) => route('messages.media.preview', [$m, $which])) : []),
+        ])->all();
     }
 }

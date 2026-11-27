@@ -29,11 +29,17 @@ class Paths
     private const PURPOSES = [self::POSTS, self::MESSAGES, self::LIBRARY];
 
     /** A new path for an upload by $userId, for $purpose (posts, messages, library). */
-    public static function media(int $userId, string $purpose, UploadedFile|string $fileOrExt): string
+    public static function media(int $userId, string $purpose, UploadedFile|string $fileOrExt, ?\DateTimeInterface $at = null): string
     {
         abort_unless(in_array($purpose, self::PURPOSES, true), 500, "Unknown media purpose: {$purpose}");
 
-        return sprintf('users/%d/%s/%s/%s.%s', $userId, $purpose, now()->format('Y/m'), Str::lower((string) Str::ulid()), self::ext($fileOrExt));
+        return sprintf('users/%d/%s/%s/%s.%s', $userId, $purpose, ($at ?? now())->format('Y/m'), Str::lower((string) Str::ulid()), self::ext($fileOrExt));
+    }
+
+    /** True for a path already in this layout. */
+    public static function current(string $path): bool
+    {
+        return str_starts_with($path, 'users/') || str_starts_with($path, 'kyc/');
     }
 
     /** A new path for an ID document ($label: front, back, selfie). */

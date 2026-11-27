@@ -450,7 +450,16 @@ function Details({ item, onClose, onRemove }: { item: Item | null; onClose: () =
                                     </div>
                                 </div>
                             ) : item.type === 'video' ? (
-                                <VideoPlayer key={item.id} src={item.url} autoPlay className="w-full" videoClassName="max-h-[90svh] w-full" />
+                                <VideoPlayer
+                                    key={item.id}
+                                    src={item.url}
+                                    poster={item.poster}
+                                    thumbs={item.thumbs}
+                                    duration={item.duration}
+                                    autoPlay
+                                    className="w-full"
+                                    videoClassName="max-h-[90svh] w-full"
+                                />
                             ) : (
                                 <img src={item.url} alt="" className="max-h-[90svh] w-full object-contain" />
                             )}
