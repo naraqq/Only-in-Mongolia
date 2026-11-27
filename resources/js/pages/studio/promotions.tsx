@@ -1,3 +1,4 @@
+import DateTimePicker from '@/components/date-time-picker';
 import InputError from '@/components/input-error';
 import WelcomeEditor, { type WelcomeSettings } from '@/components/welcome-editor';
 import StudioLayout from '@/layouts/studio-layout';
@@ -152,7 +153,14 @@ function NewCode({ price }: { price: number }) {
             </label>
             <label className="block">
                 <span className="mb-1 block text-xs font-semibold">{t('pro.until')}</span>
-                <input type="date" className={field} value={form.data.expires_at} onChange={(e) => form.setData('expires_at', e.target.value)} />
+                <DateTimePicker
+                    mode="date"
+                    clearable
+                    value={form.data.expires_at}
+                    onChange={(v) => form.setData('expires_at', v)}
+                    placeholder={t('dtp.noEnd')}
+                    className="block [&>button]:h-11 [&>button]:rounded-xl"
+                />
             </label>
             <button
                 type="submit"

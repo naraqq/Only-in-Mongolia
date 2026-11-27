@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Media\Files;
 use App\Models\CreatorProfile;
 use App\Support\RegisterNumber;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -98,16 +98,16 @@ class CreatorApplicationController extends Controller
         // ID documents go to the private disk; admins view them through a protected route.
         $dir = "creator-ids/{$user->id}";
         if ($existing) {
-            Storage::delete([$existing->id_front_path, $existing->id_back_path, $existing->selfie_path]);
+            Files::delete([$existing->id_front_path, $existing->id_back_path, $existing->selfie_path]);
         }
 
         $user->creatorProfile()->updateOrCreate(['user_id' => $user->id], [
             ...collect($data)->only('handle', 'display_name', 'bio', 'price_monthly', 'legal_name', 'register_number', 'bank_name', 'bank_account', 'account_holder')->all(),
             'adult_content' => (bool) ($data['adult_content'] ?? false),
             'bank_account' => strtoupper($data['bank_account']),
-            'id_front_path' => $request->file('id_front')->store($dir),
-            'id_back_path' => $request->file('id_back')->store($dir),
-            'selfie_path' => $request->file('selfie')->store($dir),
+            'id_front_path' => Files::store($request->file('id_front'), $dir),
+            'id_back_path' => Files::store($request->file('id_back'), $dir),
+            'selfie_path' => Files::store($request->file('selfie'), $dir),
             'consented_at' => now(),
             'consent_ip' => $request->ip(),
             'status' => CreatorProfile::PENDING,

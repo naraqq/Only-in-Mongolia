@@ -6,12 +6,14 @@ use App\Models\CreatorProfile;
 use App\Models\Message;
 use App\Models\Payment;
 use App\Models\Post;
+use App\Models\PromoCode;
 use App\Models\Purchase;
 use App\Payments\FakeGateway;
 use App\Payments\InsufficientBalance;
 use App\Payments\PaymentException;
 use App\Payments\Payments;
 use App\Payments\Wallet;
+use App\Support\Attribution;
 use App\Support\Blocking;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -35,6 +37,7 @@ class PaymentController extends Controller
         abort_if($creator->user_id === $request->user()->id, 422, 'You can’t subscribe to yourself.');
         abort_if(Blocking::between($creator->user, $request->user()), 404);
 
+        Attribution::startCheckout($request, $creator);
         $options = $creator->subscriptionOptions();
         $months = (int) $request->query('months', 1);
 
@@ -59,14 +62,14 @@ class PaymentController extends Controller
 
         // A discount code, if one was given: it must belong to this creator and be usable by this fan.
         $promo = null;
-        if ($given = \App\Models\PromoCode::normalize((string) $request->input('code'))) {
+        if ($given = PromoCode::normalize((string) $request->input('code'))) {
             $promo = $creator->promoCodes()->where('code', $given)->first();
             if (! $promo || $promo->whyNot($request->user())) {
                 return back()->withErrors(['code' => __('This code can’t be used.')]);
             }
         }
 
-        return $this->checkout(fn () => $this->payments->startSubscription($request->user(), $creator, $months, $request->boolean('wallet'), $promo));
+        return $this->checkout(fn () => $this->payments->startSubscription($request->user(), $creator, $months, $request->boolean('wallet'), $promo, Attribution::forSubscription($request, $creator)));
     }
 
     /** Tip a creator any amount within limits, optionally for one of their posts and with a short note. */

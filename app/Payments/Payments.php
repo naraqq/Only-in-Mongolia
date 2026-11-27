@@ -34,7 +34,7 @@ class Payments
     }
 
     /** $months subscription periods to $creator (1, or a bundle the creator offers). */
-    public function startSubscription(User $fan, CreatorProfile $creator, int $months = 1, bool $fromWallet = false, ?PromoCode $promo = null): Payment
+    public function startSubscription(User $fan, CreatorProfile $creator, int $months = 1, bool $fromWallet = false, ?PromoCode $promo = null, array $attribution = []): Payment
     {
         $price = $creator->priceFor($months);
         abort_if($price === null, 422, 'This bundle is not offered.');
@@ -42,7 +42,7 @@ class Payments
 
         return $this->start($fan, $creator, Payment::SUBSCRIPTION, $paid,
             "Only in Mongolia: @{$creator->handle}, ".(config('creators.subscription_days') * $months).' хоног',
-            ['months' => $months, 'promo_code_id' => $promo?->id, 'discount' => $price - $paid], $fromWallet);
+            ['months' => $months, 'promo_code_id' => $promo?->id, 'discount' => $price - $paid, ...$attribution], $fromWallet);
     }
 
     /** A tip, optionally for one of the creator's posts and with a short note. */
@@ -163,6 +163,7 @@ class Payments
         $from = $renewed ? $sub->expires_at : now(); // renewals add on to the current period
         $sub->expires_at = $from->copy()->addDays((int) config('creators.subscription_days') * max(1, $payment->months));
         $sub->save();
+        $payment->forceFill(['renewal' => $renewed])->saveQuietly(); // insights count new subscribers, not renewals
         Notify::paid($payment, $renewed);
         if (! $renewed) {
             Welcome::send($payment->creator, $payment->user); // once per fan, ever

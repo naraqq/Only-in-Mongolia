@@ -1,5 +1,6 @@
 import PostCard, { type PostItem } from '@/components/post-card';
 import SocialLayout from '@/layouts/social-layout';
+import { useCreatorVisit } from '@/lib/attribution';
 import { mnt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { Link } from '@inertiajs/react';
@@ -10,11 +11,12 @@ export default function CreatorSeries({
     creator,
     posts,
 }: {
-    series: { title: string; description: string | null; featured: boolean };
+    series: { id: number; title: string; description: string | null; featured: boolean };
     creator: { handle: string; name: string; avatar_url: string | null; price_monthly: number };
     posts: PostItem[];
 }) {
     const { t } = useT();
+    useCreatorVisit(creator.handle, 'series', series.id);
     return (
         <SocialLayout title={series.title}>
             <section className="border-border space-y-3 border-b px-4 py-6 sm:px-6">

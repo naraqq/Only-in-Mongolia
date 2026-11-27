@@ -57,7 +57,34 @@ return [
             'throw' => false,
         ],
 
+        // Cloudflare R2 (S3-compatible, no charge for downloads). Keep the bucket private: no public r2.dev
+        // access or public domain; the app hands out short-lived signed links after its permission check.
+        'r2' => [
+            'driver' => 's3',
+            'key' => env('R2_ACCESS_KEY_ID'),
+            'secret' => env('R2_SECRET_ACCESS_KEY'),
+            'region' => 'auto',
+            'bucket' => env('R2_BUCKET'),
+            // https://<account id>.r2.cloudflarestorage.com
+            'endpoint' => env('R2_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'visibility' => 'private',
+            'throw' => true,
+        ],
+
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Media Disk
+    |--------------------------------------------------------------------------
+    |
+    | Where creators' photos, videos and ID documents are kept (App\Media\Files): "local" (this server's
+    | private disk) or "r2". Profile photos and covers stay on the "public" disk.
+    |
+    */
+
+    'media_disk' => env('MEDIA_DISK', 'local'),
 
     /*
     |--------------------------------------------------------------------------

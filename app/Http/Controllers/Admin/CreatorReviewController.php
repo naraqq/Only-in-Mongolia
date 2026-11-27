@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Media\Files;
 use App\Models\CreatorProfile;
 use App\Support\RegisterNumber;
 use Illuminate\Http\RedirectResponse;
@@ -48,9 +49,10 @@ class CreatorReviewController extends Controller
             'selfie' => $creator->selfie_path,
             default => abort(404),
         };
-        abort_unless(Storage::exists($path), 404);
+        abort_unless(Files::exists($path), 404);
 
-        return Storage::response($path, headers: ['Cache-Control' => 'private, no-store']);
+        // Streamed through the app even on R2: ID documents never get a link that could be passed on.
+        return Files::disk()->response($path, headers: ['Cache-Control' => 'private, no-store']);
     }
 
     public function decide(Request $request, CreatorProfile $creator): RedirectResponse

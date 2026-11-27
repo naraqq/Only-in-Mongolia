@@ -2,16 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Media\Files;
 use App\Media\Library;
-use App\Moderation\Moderation;
+use App\Media\Uploads;
 use App\Models\CreatorProfile;
 use App\Models\Payment;
 use App\Models\Post;
+use App\Moderation\Moderation;
 use App\Support\Notify;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -33,7 +35,14 @@ class StudioController extends Controller
 
         $paidThisMonth = $creator->payments()->where('status', Payment::PAID)->where('paid_at', '>=', now()->startOfMonth());
 
+        $use = collect(explode(',', (string) $request->query('use')))->map(fn ($id) => (int) $id)->filter()->take(10);
+        $prefill = $use->isEmpty() ? [] : $creator->vaultItems()->whereIn('id', $use)->get()
+            ->sortBy(fn ($v) => $use->search($v->id))->values()
+            ->map(fn ($v) => ['id' => $v->id, 'type' => $v->type, 'url' => route('studio.library.file', $v)])->all();
+
         return Inertia::render('studio/index', [
+            'prefill' => $prefill,
+            'prefillFor' => $request->query('to') === 'fans' ? 'fans' : 'post',
             'stats' => [
                 'subscribers' => $creator->subscriptions()->active()->count(),
                 'followers' => $creator->followers()->count(),
@@ -62,9 +71,12 @@ class StudioController extends Controller
             'poll_options' => ['nullable', 'array', 'list', 'min:2', 'max:4'],
             'poll_options.*' => ['required', 'string', 'max:80', 'distinct:ignore_case'],
             'publish_at' => ['nullable', 'date', 'after:now', 'before:+1 year'],
+            // A live Q&A: when it starts and how long it runs (the post text is the topic).
+            'qa_starts_at' => ['nullable', 'date', 'after:now', 'before:+3 months', Rule::prohibitedIf((bool) $request->input('poll_options') || (bool) $request->input('price'))],
+            'qa_minutes' => ['nullable', 'required_with:qa_starts_at', 'integer', Rule::in(QaController::MINUTES)],
             'media' => ['nullable', 'array', 'max:10'],
-            // Photos up to 20 MB, videos up to 40 MB (raise upload_max_filesize/post_max_size in production).
-            'media.*' => ['file', 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm', 'max:40960'],
+            // Photos up to 20 MB, videos 40 MB, audio (music, podcasts) 100 MB; see App\Media\Uploads.
+            'media.*' => Uploads::rule(),
             // Photos and videos picked from the media library.
             'vault' => ['nullable', 'array', 'max:'.Library::MAX_PER_ITEM],
             'vault.*' => ['integer'],
@@ -74,13 +86,16 @@ class StudioController extends Controller
         if (count($request->file('media', [])) + count($data['vault'] ?? []) > Library::MAX_PER_ITEM) {
             return back()->withErrors(['media' => __('A post can have at most 10 photos and videos.')]);
         }
+        $qaStarts = isset($data['qa_starts_at']) ? Carbon::parse($data['qa_starts_at']) : null;
+        if ($qaStarts && ! trim((string) ($data['body'] ?? ''))) {
+            return back()->withErrors(['body' => __('Say what the Q&A is about.')]);
+        }
+        if ($qaStarts && isset($data['publish_at']) && Carbon::parse($data['publish_at'])->gte($qaStarts)) {
+            return back()->withErrors(['qa_starts_at' => __('The Q&A has to start after the post goes out.')]);
+        }
         $picked = Library::pick($creator, $data['vault'] ?? []);
 
-        foreach ($request->file('media', []) as $i => $file) {
-            if (str_starts_with($file->getMimeType(), 'image/') && $file->getSize() > 20 * 1024 * 1024) {
-                return back()->withErrors(["media.$i" => __('Photos can be at most 20 MB.')]);
-            }
-        }
+        Uploads::checkSizes($request->file('media', []));
 
         // 18+ posts only from creators who said their page has 18+ content.
         $adult = (bool) ($data['is_adult'] ?? false);
@@ -90,7 +105,7 @@ class StudioController extends Controller
 
         $hashes = Moderation::screen($request->file('media', []));
 
-        $post = DB::transaction(function () use ($creator, $data, $adult, $request, $hashes, $picked) {
+        $post = DB::transaction(function () use ($creator, $data, $adult, $request, $hashes, $picked, $qaStarts) {
             $post = $creator->posts()->create([
                 'body' => trim((string) ($data['body'] ?? '')) ?: null,
                 'visibility' => $data['visibility'],
@@ -98,6 +113,8 @@ class StudioController extends Controller
                 'price' => $data['price'] ?? null,
                 'publish_at' => $data['publish_at'] ?? null,
                 'poll_options' => $data['poll_options'] ?? null,
+                'qa_starts_at' => $qaStarts,
+                'qa_ends_at' => $qaStarts?->copy()->addMinutes((int) $data['qa_minutes']),
             ]);
             // Library picks first, in the order chosen, then new uploads (which join the library).
             $position = 0;
@@ -106,9 +123,8 @@ class StudioController extends Controller
             }
             foreach ($request->file('media', []) as $i => $file) {
                 $stored = [
-                    'type' => str_starts_with($file->getMimeType(), 'video/') ? 'video' : 'image',
-                    'path' => $file->store("posts/{$creator->id}"), // private disk
-                    'mime' => $file->getMimeType(),
+                    ...Uploads::describe($file),
+                    'path' => Files::store($file, "posts/{$creator->id}"), // the media disk (private)
                     'sha256' => $hashes[$i],
                 ];
                 $post->media()->create([...$stored, 'position' => $position++]);

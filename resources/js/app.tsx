@@ -1,14 +1,38 @@
 import '../css/app.css';
 
 import { createInertiaApp } from '@inertiajs/react';
+import { configureEcho } from '@laravel/echo-react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { type ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
 import { route as routeFn } from 'ziggy-js';
 import ConfirmHost from './components/confirm-host';
+import LayoutSplash from './components/layout-splash';
 import Toaster from './components/toaster';
 import { initializeTheme } from './hooks/use-appearance';
 import { registerServiceWorker } from './lib/push';
+
+type ReverbSettings = { key: string; host: string | null; port: number | null; scheme: 'http' | 'https' | null } | null;
+
+/**
+ * Real-time updates (lib/live.ts), with settings from the server at runtime (not baked in at build time, so one
+ * Docker image works anywhere). By default the browser connects to the page's own address, where the proxy
+ * passes it on to Reverb. No settings = Reverb isn't set up here, and pages keep checking now and then instead.
+ */
+function startRealtime(reverb: ReverbSettings) {
+    if (!reverb?.key) return;
+    const tls = (reverb.scheme ?? window.location.protocol.replace(':', '')) === 'https';
+    const port = reverb.port ?? (window.location.port ? Number(window.location.port) : tls ? 443 : 80);
+    configureEcho({
+        broadcaster: 'reverb',
+        key: reverb.key,
+        wsHost: reverb.host ?? window.location.hostname,
+        wsPort: port,
+        wssPort: port,
+        forceTLS: tls,
+        enabledTransports: ['ws', 'wss'],
+    });
+}
 
 declare global {
     const route: typeof routeFn;
@@ -50,6 +74,7 @@ createInertiaApp({
     title: (title) => `${title} - ${appName}`,
     resolve: resolvePage,
     setup({ el, App, props }) {
+        startRealtime(props.initialPage.props.reverb as ReverbSettings);
         const root = createRoot(el);
 
         root.render(
@@ -57,6 +82,7 @@ createInertiaApp({
                 <App {...props} />
                 <Toaster />
                 <ConfirmHost />
+                <LayoutSplash name={(props.initialPage.props.name as string | undefined) ?? appName} />
             </>,
         );
         warmPages();

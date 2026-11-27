@@ -1,31 +1,51 @@
+import DateTimePicker from '@/components/date-time-picker';
 import InputError from '@/components/input-error';
 import { LibraryButton, PickedThumbs, type Picked } from '@/components/library-picker';
 import MediaThumbs from '@/components/media-thumbs';
 import PriceField from '@/components/price-field';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import UserAvatar from '@/components/user-avatar';
-import { priceOk, toLocalInput } from '@/lib/format';
+import { priceOk } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
 import { type SharedData } from '@/types';
 import { useForm, usePage } from '@inertiajs/react';
-import { BarChart3, CalendarClock, Globe, ImagePlus, LoaderCircle, Lock, LockOpen, X } from 'lucide-react';
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type FormEvent } from 'react';
+import {
+    BarChart3,
+    CalendarClock,
+    Check,
+    ChevronDown,
+    Globe,
+    ImagePlus,
+    LoaderCircle,
+    Lock,
+    LockOpen,
+    MessageCircleQuestion,
+    Plus,
+    ShieldCheck,
+    Trash2,
+    X,
+    type LucideIcon,
+} from 'lucide-react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type DragEvent, type ReactNode } from 'react';
 
 type Audience = 'subscribers' | 'public' | 'ppv';
-// `short` is what fits on a phone.
-const AUDIENCES: { value: Audience; label: TKey; short: TKey; icon: typeof Globe }[] = [
-    { value: 'subscribers', label: 'po.subscribers', short: 'st.subscribers', icon: Lock },
-    { value: 'public', label: 'po.public', short: 'po.public', icon: Globe },
-    { value: 'ppv', label: 'ppv.option', short: 'ppv.option', icon: LockOpen },
+const AUDIENCES: { value: Audience; label: TKey; short: TKey; hint: TKey; icon: LucideIcon }[] = [
+    { value: 'subscribers', label: 'po.subscribers', short: 'st.subscribers', hint: 'cmp.subsHint', icon: Lock },
+    { value: 'public', label: 'po.public', short: 'po.public', hint: 'cmp.publicHint', icon: Globe },
+    { value: 'ppv', label: 'ppv.option', short: 'ppv.option', hint: 'cmp.ppvHint', icon: LockOpen },
 ];
+const ACCEPT = 'image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm,audio/*,.mp3,.m4a,.aac,.wav,.ogg,.opus,.flac';
+const QA_MINUTES = [15, 30, 45, 60, 90, 120];
 
 export type ComposerHandle = { focus: () => void };
 
 /**
- * Write a post: text, photos/videos (with previews), who sees it (subscribers, everyone, or pay to unlock),
- * an optional publish time, and (for 18+ pages) the 18+ flag. Used in the studio and on the home feed.
+ * Write a post. Closed it's one calm line ("What's new?" and a few tools); once you start, it opens into the
+ * full editor: text, photos/videos (pick, drop or from the library), a poll or a live Q&A, a publish time,
+ * who sees it (one chip with a menu), and Publish. Used in the studio and on the home feed.
  */
-const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; className?: string }>(function PostComposer(
-    { adultAllowed, className = '' },
+const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; className?: string; initialPicked?: Picked[] }>(function PostComposer(
+    { adultAllowed, className = '', initialPicked },
     ref,
 ) {
     const { t } = useT();
@@ -38,260 +58,525 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
         price: 5000,
         publish_at: '',
         poll_options: null as string[] | null,
+        qa_starts_at: '',
+        qa_minutes: 60,
     });
+    const [qa, setQa] = useState(false);
     const [audience, setAudience] = useState<Audience>('subscribers');
     const [schedule, setSchedule] = useState(false);
-    const [picked, setPicked] = useState<Picked[]>([]);
+    // Files handed over from the library ("Post" there) start attached.
+    const [picked, setPicked] = useState<Picked[]>(initialPicked ?? []);
+    const [active, setActive] = useState(!!initialPicked?.length);
+    const [dragging, setDragging] = useState(false);
     const box = useRef<HTMLTextAreaElement>(null);
     const files = useRef<HTMLInputElement>(null);
-    const mediaErrors = Object.entries(form.errors).filter(([k]) => k.startsWith('media'));
+
     const ppv = audience === 'ppv';
     const poll = form.data.poll_options;
+    const mediaErrors = Object.entries(form.errors).filter(([k]) => k.startsWith('media'));
     const pollErrors = Object.entries(form.errors).filter(([key]) => key.startsWith('poll_options'));
     const pollIncomplete = poll !== null && (!form.data.body.trim() || poll.some((option) => !option.trim()));
     const empty = !form.data.body.trim() && form.data.media.length === 0 && picked.length === 0;
-    const room = 10 - picked.length;
+    const qaIncomplete = qa && (!form.data.body.trim() || !form.data.qa_starts_at);
+    const room = 10 - picked.length - form.data.media.length;
+    const open = active || !empty || !!poll || qa || schedule || Object.keys(form.errors).length > 0;
+    const blocked =
+        form.processing ||
+        empty ||
+        pollIncomplete ||
+        qaIncomplete ||
+        (ppv && !priceOk(form.data.price, ppvLimits)) ||
+        (schedule && !form.data.publish_at);
+    const current = AUDIENCES.find((a) => a.value === audience)!;
 
-    useImperativeHandle(ref, () => ({ focus: () => box.current?.focus() }));
+    useImperativeHandle(ref, () => ({
+        focus: () => {
+            setActive(true);
+            requestAnimationFrame(() => box.current?.focus());
+        },
+    }));
 
     // The box grows with the text.
     useEffect(() => {
         const el = box.current;
         if (!el) return;
         el.style.height = 'auto';
-        el.style.height = `${Math.min(Math.max(el.scrollHeight, 72), 320)}px`;
-    }, [form.data.body]);
+        el.style.height = `${Math.min(Math.max(el.scrollHeight, open ? 56 : 24), 360)}px`;
+    }, [form.data.body, open]);
 
     function pick(a: Audience) {
         setAudience(a);
         if (a !== 'ppv') form.setData('visibility', a);
     }
 
-    function submit(e: FormEvent) {
+    function addFiles(list: FileList | File[]) {
+        const ok = Array.from(list).filter((f) => f.type.startsWith('audio/') || ACCEPT.split(',').includes(f.type));
+        if (ok.length) form.setData('media', [...form.data.media, ...ok].slice(0, 10 - picked.length));
+        setActive(true);
+    }
+
+    function startPoll() {
+        if (ppv) pick('subscribers');
+        form.setData('poll_options', ['', '']);
+        setActive(true);
+        requestAnimationFrame(() => box.current?.focus());
+    }
+
+    function startQa() {
+        if (ppv) pick('subscribers');
+        setQa(true);
+        setActive(true);
+        requestAnimationFrame(() => box.current?.focus());
+    }
+
+    function reset() {
+        form.reset();
+        form.clearErrors();
+        setPicked([]);
+        setAudience('subscribers');
+        setSchedule(false);
+        setQa(false);
+        setActive(false);
+    }
+
+    function submit(e: { preventDefault: () => void }) {
         e.preventDefault();
+        if (blocked) return;
         form.transform((d) => ({
             ...d,
             vault: picked.map((p) => p.id),
             price: ppv ? d.price : null,
             publish_at: schedule && d.publish_at ? new Date(d.publish_at).toISOString() : null,
+            qa_starts_at: qa && d.qa_starts_at ? new Date(d.qa_starts_at).toISOString() : null,
+            qa_minutes: qa ? d.qa_minutes : null,
         }));
-        form.post(route('studio.posts.store'), {
-            forceFormData: true,
-            preserveScroll: true,
-            onSuccess: () => {
-                form.reset();
-                setPicked([]);
-                setAudience('subscribers');
-                setSchedule(false);
-            },
-        });
+        form.post(route('studio.posts.store'), { forceFormData: true, preserveScroll: true, onSuccess: reset });
     }
 
-    const tool = 'hover:bg-muted inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold transition';
+    const onDrag = (e: DragEvent, over: boolean) => {
+        if (!e.dataTransfer.types.includes('Files')) return;
+        e.preventDefault();
+        setDragging(over);
+    };
 
     return (
-        <form onSubmit={submit} className={className}>
-            <div className="flex gap-3">
-                {auth.user && (
-                    <UserAvatar name={auth.user.name} src={auth.user.avatar_url} seed={auth.creator?.handle} className="size-10 shrink-0" />
-                )}
-                <textarea
-                    ref={box}
-                    value={form.data.body}
-                    onChange={(e) => form.setData('body', e.target.value)}
-                    placeholder={t(poll ? 'poll.question' : 'st.placeholder')}
-                    maxLength={5000}
-                    className="placeholder:text-muted-foreground min-h-[72px] w-full resize-none bg-transparent pt-2 text-[17px] leading-snug outline-none"
-                />
-            </div>
-            <InputError message={form.errors.body} />
+        <form
+            onSubmit={submit}
+            onDragOver={(e) => onDrag(e, true)}
+            onDragLeave={(e) => onDrag(e, false)}
+            onDrop={(e) => {
+                onDrag(e, false);
+                addFiles(e.dataTransfer.files);
+            }}
+            className={`bg-card relative rounded-2xl shadow-xs ring-1 transition ${
+                open ? 'ring-primary/25' : 'ring-border/60 hover:ring-border'
+            } ${dragging ? 'ring-primary ring-2' : ''} ${className}`}
+        >
+            {dragging && (
+                <div className="bg-primary/10 text-primary pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-2xl text-sm font-bold">
+                    <span className="flex items-center gap-2">
+                        <ImagePlus className="size-5" /> {t('cmp.drop')}
+                    </span>
+                </div>
+            )}
 
-            {poll && (
-                <fieldset className="border-border mt-3 space-y-2 rounded-xl border p-3">
-                    <legend className="px-1 text-sm font-bold">{t('poll.options')}</legend>
-                    {poll.map((option, index) => (
-                        <div key={index} className="flex min-w-0 items-center gap-2">
-                            <input
-                                aria-label={t('poll.option', { number: index + 1 })}
-                                placeholder={t('poll.option', { number: index + 1 })}
-                                value={option}
-                                maxLength={80}
-                                onChange={(event) =>
+            {/* Writing */}
+            <div className={`flex gap-3 ${open ? 'p-4' : 'items-center px-4 py-3'}`}>
+                {auth.user && (
+                    <UserAvatar
+                        name={auth.user.name}
+                        src={auth.user.avatar_url}
+                        seed={auth.creator?.handle}
+                        className={`shrink-0 transition-all ${open ? 'size-10 max-sm:hidden' : 'size-9'}`}
+                    />
+                )}
+                {/* Everything lines up in one column beside the avatar. */}
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                        <textarea
+                            ref={box}
+                            rows={1}
+                            value={form.data.body}
+                            onFocus={() => setActive(true)}
+                            onChange={(e) => form.setData('body', e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Escape' && empty && !poll && !qa) {
+                                    setActive(false);
+                                    box.current?.blur();
+                                }
+                                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit(e);
+                            }}
+                            placeholder={t(poll ? 'poll.question' : qa ? 'qa.topic' : 'st.placeholder')}
+                            maxLength={5000}
+                            className={`placeholder:text-muted-foreground w-full resize-none bg-transparent leading-snug outline-none ${open ? 'pt-2 text-[17px]' : 'text-base'}`}
+                        />
+                        {/* Closed: a few tools on the line itself. */}
+                        {!open && (
+                            <div className="hidden shrink-0 items-center gap-0.5 sm:flex">
+                                <Tool icon={ImagePlus} label={t('st.addMedia')} onClick={() => files.current?.click()} />
+                                <Tool icon={BarChart3} label={t('poll.add')} onClick={startPoll} />
+                                <Tool icon={MessageCircleQuestion} label={t('qa.add')} onClick={startQa} />
+                            </div>
+                        )}
+                    </div>
+                    <input
+                        ref={files}
+                        type="file"
+                        multiple
+                        accept={ACCEPT}
+                        className="hidden"
+                        onChange={(e) => {
+                            addFiles(e.target.files ?? []);
+                            e.target.value = '';
+                        }}
+                    />
+
+                    {open && (
+                        <div className="animate-toast-in">
+                            <InputError message={form.errors.body} className="mt-1" />
+
+                            {poll && (
+                                <Panel
+                                    icon={BarChart3}
+                                    title={t('poll.options')}
+                                    onRemove={() => form.setData('poll_options', null)}
+                                    removeLabel={t('poll.remove')}
+                                >
+                                    <div className="flex flex-col gap-2">
+                                        {poll.map((option, index) => (
+                                            <div key={index} className="flex min-w-0 items-center gap-2">
+                                                <input
+                                                    aria-label={t('poll.option', { number: index + 1 })}
+                                                    placeholder={t('poll.option', { number: index + 1 })}
+                                                    value={option}
+                                                    maxLength={80}
+                                                    onChange={(event) =>
+                                                        form.setData(
+                                                            'poll_options',
+                                                            poll.map((value, i) => (i === index ? event.target.value : value)),
+                                                        )
+                                                    }
+                                                    className="bg-card focus-visible:ring-primary/40 h-10 min-w-0 flex-1 rounded-lg px-3 text-sm outline-none focus-visible:ring-2"
+                                                />
+                                                {poll.length > 2 && (
+                                                    <button
+                                                        type="button"
+                                                        aria-label={t('poll.removeOption', { number: index + 1 })}
+                                                        className="text-muted-foreground hover:bg-card hover:text-foreground grid size-9 shrink-0 place-items-center rounded-lg"
+                                                        onClick={() =>
+                                                            form.setData(
+                                                                'poll_options',
+                                                                poll.filter((_, i) => i !== index),
+                                                            )
+                                                        }
+                                                    >
+                                                        <X className="size-4" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                        {poll.length < 4 && (
+                                            <button
+                                                type="button"
+                                                className="text-primary inline-flex h-9 items-center gap-1.5 self-start rounded-lg px-1 text-sm font-semibold hover:underline"
+                                                onClick={() => form.setData('poll_options', [...poll, ''])}
+                                            >
+                                                <Plus className="size-4" /> {t('poll.addOption')}
+                                            </button>
+                                        )}
+                                        {pollErrors.map(([key, error]) => (
+                                            <InputError key={key} message={error} />
+                                        ))}
+                                    </div>
+                                </Panel>
+                            )}
+
+                            {qa && (
+                                <Panel
+                                    icon={MessageCircleQuestion}
+                                    title={t('qa.title')}
+                                    onRemove={() => setQa(false)}
+                                    removeLabel={t('qa.remove')}
+                                    hint={t('qa.composerHint')}
+                                    live
+                                >
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <DateTimePicker
+                                            value={form.data.qa_starts_at}
+                                            onChange={(v) => form.setData('qa_starts_at', v)}
+                                            min={schedule && form.data.publish_at ? new Date(form.data.publish_at) : undefined}
+                                            placeholder={t('qa.startsAt')}
+                                            className="[&>button]:bg-card"
+                                        />
+                                        <div className="bg-card inline-flex rounded-xl p-1" role="group" aria-label={t('qa.length')}>
+                                            {QA_MINUTES.map((m) => (
+                                                <button
+                                                    key={m}
+                                                    type="button"
+                                                    onClick={() => form.setData('qa_minutes', m)}
+                                                    aria-pressed={form.data.qa_minutes === m}
+                                                    className={`h-7 rounded-lg px-2 text-xs font-semibold tabular-nums transition ${
+                                                        form.data.qa_minutes === m
+                                                            ? 'bg-primary text-primary-foreground'
+                                                            : 'text-muted-foreground hover:text-foreground'
+                                                    }`}
+                                                >
+                                                    {t('qa.minutes', { n: m })}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <InputError message={form.errors.qa_starts_at ?? form.errors.qa_minutes} />
+                                </Panel>
+                            )}
+
+                            <PickedThumbs picked={picked} onRemove={(id) => setPicked((p) => p.filter((x) => x.id !== id))} className="mt-3" />
+                            <MediaThumbs
+                                files={form.data.media}
+                                onRemove={(i) =>
                                     form.setData(
-                                        'poll_options',
-                                        poll.map((value, i) => (i === index ? event.target.value : value)),
+                                        'media',
+                                        form.data.media.filter((_, j) => j !== i),
                                     )
                                 }
-                                className="border-border bg-card focus-visible:border-ring min-h-10 min-w-0 flex-1 rounded-lg border px-3 text-sm outline-none"
+                                className="mt-3"
                             />
-                            {poll.length > 2 && (
-                                <button
-                                    type="button"
-                                    aria-label={t('poll.removeOption', { number: index + 1 })}
-                                    className="hover:bg-muted grid size-9 shrink-0 place-items-center rounded-lg"
-                                    onClick={() =>
-                                        form.setData(
-                                            'poll_options',
-                                            poll.filter((_, i) => i !== index),
-                                        )
-                                    }
-                                >
-                                    <X className="size-4" />
-                                </button>
+                            {mediaErrors.map(([k, v]) => (
+                                <InputError key={k} message={v} />
+                            ))}
+                            <InputError message={form.errors.is_adult} />
+
+                            {/* What's set: publish time, price, 18+. */}
+                            {(schedule || ppv || form.data.is_adult) && (
+                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                    {schedule && (
+                                        <span className="inline-flex items-center rounded-xl bg-sky-500/10 pr-1 text-sky-700 dark:text-sky-300">
+                                            <DateTimePicker
+                                                value={form.data.publish_at}
+                                                onChange={(v) => form.setData('publish_at', v)}
+                                                placeholder={t('cmp.pickTime')}
+                                                autoOpen={!form.data.publish_at}
+                                                className="[&_svg]:text-inherit [&>button]:bg-transparent [&>button]:text-inherit"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSchedule(false);
+                                                    form.setData('publish_at', '');
+                                                }}
+                                                className="grid size-7 place-items-center rounded-lg hover:bg-sky-500/15"
+                                                aria-label={t('cmp.noSchedule')}
+                                            >
+                                                <X className="size-3.5" />
+                                            </button>
+                                        </span>
+                                    )}
+                                    {ppv && <PriceField value={form.data.price} onChange={(v) => form.setData('price', v)} />}
+                                    {form.data.is_adult && (
+                                        <span className="inline-flex h-9 items-center gap-1 rounded-xl bg-rose-500/10 pr-1 pl-3 text-sm font-bold text-rose-600 dark:text-rose-300">
+                                            18+
+                                            <button
+                                                type="button"
+                                                onClick={() => form.setData('is_adult', false)}
+                                                className="grid size-7 place-items-center rounded-lg hover:bg-rose-500/15"
+                                                aria-label={t('pe.cancel')}
+                                            >
+                                                <X className="size-3.5" />
+                                            </button>
+                                        </span>
+                                    )}
+                                </div>
                             )}
                         </div>
-                    ))}
-                    {pollErrors.map(([key, error]) => (
-                        <InputError key={key} message={error} />
-                    ))}
-                    <div className="flex flex-wrap justify-between gap-2 text-sm font-semibold">
-                        {poll.length < 4 && (
-                            <button
-                                type="button"
-                                className="text-primary min-h-9 hover:underline"
-                                onClick={() => form.setData('poll_options', [...poll, ''])}
-                            >
-                                {t('poll.addOption')}
-                            </button>
-                        )}
-                        <button
-                            type="button"
-                            className="text-muted-foreground ml-auto min-h-9 hover:underline"
-                            onClick={() => form.setData('poll_options', null)}
-                        >
-                            {t('poll.remove')}
-                        </button>
-                    </div>
-                </fieldset>
-            )}
+                    )}
 
-            <PickedThumbs picked={picked} onRemove={(id) => setPicked((p) => p.filter((x) => x.id !== id))} className="mt-3" />
-            <MediaThumbs
-                files={form.data.media}
-                onRemove={(i) =>
-                    form.setData(
-                        'media',
-                        form.data.media.filter((_, j) => j !== i),
-                    )
-                }
-                className="mt-3"
-            />
-            {mediaErrors.map(([k, v]) => (
-                <InputError key={k} message={v} />
-            ))}
-            <InputError message={form.errors.is_adult} />
+                    {open && (
+                        <>
+                            {/* Tools, who sees it, publish. */}
+                            <div className="border-border mt-3 flex flex-wrap items-center gap-x-2 gap-y-2 border-t pt-2.5">
+                                <div className="-ml-2 flex items-center gap-0.5">
+                                    <Tool icon={ImagePlus} label={t('st.addMedia')} onClick={() => files.current?.click()} disabled={room <= 0} />
+                                    <LibraryButton
+                                        picked={picked}
+                                        iconOnly
+                                        onChange={(p) => {
+                                            setPicked(p);
+                                            form.setData('media', form.data.media.slice(0, 10 - p.length));
+                                        }}
+                                        max={10 - form.data.media.length + picked.length}
+                                        className="text-muted-foreground hover:bg-muted hover:text-foreground grid size-9 place-items-center rounded-full transition [&_svg]:size-[19px]"
+                                    />
+                                    <Tool icon={BarChart3} label={t('poll.add')} onClick={startPoll} active={!!poll} disabled={qa || !!poll} />
+                                    <Tool icon={MessageCircleQuestion} label={t('qa.add')} onClick={startQa} active={qa} disabled={!!poll || qa} />
+                                    <Tool
+                                        icon={CalendarClock}
+                                        label={t('sch.later')}
+                                        onClick={() => setSchedule(true)}
+                                        active={schedule}
+                                        disabled={schedule}
+                                    />
+                                    {adultAllowed && (
+                                        <button
+                                            type="button"
+                                            onClick={() => form.setData('is_adult', !form.data.is_adult)}
+                                            aria-pressed={form.data.is_adult}
+                                            title={t('cmp.adult')}
+                                            className={`grid h-9 min-w-9 place-items-center rounded-full px-1.5 text-xs font-extrabold transition ${
+                                                form.data.is_adult
+                                                    ? 'bg-rose-500/15 text-rose-600 dark:text-rose-300'
+                                                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                                            }`}
+                                        >
+                                            18+
+                                        </button>
+                                    )}
+                                </div>
 
-            {/* Who sees it */}
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-                <div className={`bg-muted grid w-full rounded-full p-1 sm:inline-flex sm:w-auto ${poll ? 'grid-cols-2' : 'grid-cols-3'}`}>
-                    {AUDIENCES.filter((a) => !poll || a.value !== 'ppv').map((a) => (
-                        <button
-                            key={a.value}
-                            type="button"
-                            onClick={() => pick(a.value)}
-                            className={`inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-full px-2 text-[13px] font-semibold whitespace-nowrap transition sm:px-3 sm:text-sm ${
-                                audience === a.value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                            }`}
-                            aria-pressed={audience === a.value}
-                        >
-                            <a.icon className="hidden size-3.5 shrink-0 sm:block" />
-                            <span className="truncate sm:hidden">{t(a.short)}</span>
-                            <span className="hidden truncate sm:inline">{t(a.label)}</span>
-                        </button>
-                    ))}
+                                <div className="ml-auto flex items-center gap-1.5 max-sm:w-full max-sm:justify-end">
+                                    {(!empty || !!poll || qa) && (
+                                        <button
+                                            type="button"
+                                            onClick={reset}
+                                            className="text-muted-foreground hover:text-foreground hover:bg-muted grid h-9 min-w-9 place-items-center rounded-full px-2 text-sm font-semibold transition sm:px-2.5 sm:hover:bg-transparent"
+                                        >
+                                            <span className="max-sm:hidden">{t('cmp.discard')}</span>
+                                            <Trash2 className="size-4 sm:hidden" aria-label={t('cmp.discard')} />
+                                        </button>
+                                    )}
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger
+                                            className="hover:bg-muted border-border inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-sm font-semibold transition"
+                                            aria-label={t('cmp.who')}
+                                        >
+                                            <current.icon className="text-primary size-4" />
+                                            <span className="max-w-32 truncate">{t(current.short)}</span>
+                                            <ChevronDown className="text-muted-foreground size-3.5" />
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-64">
+                                            <p className="text-muted-foreground px-2 pt-1.5 pb-1 text-xs font-semibold">{t('cmp.who')}</p>
+                                            {AUDIENCES.map((a) => {
+                                                const off = a.value === 'ppv' && (!!poll || qa);
+                                                return (
+                                                    <DropdownMenuItem
+                                                        key={a.value}
+                                                        disabled={off}
+                                                        onSelect={() => pick(a.value)}
+                                                        className="items-start gap-3 py-2"
+                                                    >
+                                                        <a.icon className="mt-0.5 size-4 shrink-0" />
+                                                        <span className="min-w-0 flex-1">
+                                                            <span className="block text-sm font-semibold">{t(a.label)}</span>
+                                                            <span className="text-muted-foreground block text-xs">
+                                                                {t(off ? 'cmp.ppvNotWith' : a.hint)}
+                                                            </span>
+                                                        </span>
+                                                        {audience === a.value && <Check className="text-primary mt-0.5 size-4 shrink-0" />}
+                                                    </DropdownMenuItem>
+                                                );
+                                            })}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+
+                                    <button
+                                        type="submit"
+                                        disabled={blocked}
+                                        className="bg-primary text-primary-foreground disabled:bg-muted disabled:text-muted-foreground inline-flex h-9 items-center gap-2 rounded-full px-5 text-sm font-bold whitespace-nowrap transition hover:brightness-110 disabled:cursor-not-allowed disabled:hover:brightness-100"
+                                    >
+                                        {form.processing && <LoaderCircle className="size-4 animate-spin" />}
+                                        {schedule ? t('stu.schedule') : t('st.publish')}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {form.progress && (
+                                <div className="bg-muted mt-2 h-1 overflow-hidden rounded-full">
+                                    <div className="bg-primary h-full transition-[width]" style={{ width: `${form.progress.percentage ?? 0}%` }} />
+                                </div>
+                            )}
+
+                            <p className="text-muted-foreground/80 mt-2 flex items-start gap-1.5 text-[11px] leading-snug">
+                                <ShieldCheck className="mt-px size-3 shrink-0" /> {t('st.rules')}
+                            </p>
+                        </>
+                    )}
                 </div>
-                {ppv && <PriceField value={form.data.price} onChange={(v) => form.setData('price', v)} />}
             </div>
-
-            {schedule && (
-                <div className="mt-3 flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-sky-600">
-                        <CalendarClock className="size-4" /> {t('sch.later')}
-                    </span>
-                    <input
-                        type="datetime-local"
-                        value={form.data.publish_at}
-                        min={toLocalInput(new Date().toISOString())}
-                        onChange={(e) => form.setData('publish_at', e.target.value)}
-                        className="bg-muted h-9 rounded-xl px-3 text-sm outline-none"
-                    />
-                    <button
-                        type="button"
-                        onClick={() => setSchedule(false)}
-                        className="text-muted-foreground hover:bg-muted grid size-8 place-items-center rounded-full"
-                        aria-label={t('pe.cancel')}
-                    >
-                        <X className="size-4" />
-                    </button>
-                </div>
-            )}
-
-            <div className="mt-3 flex flex-wrap items-center gap-1 pt-1">
-                <button type="button" onClick={() => files.current?.click()} className={`${tool} text-emerald-600 dark:text-emerald-400`}>
-                    <ImagePlus className="size-[18px]" /> {t('st.addMedia')}
-                </button>
-                <input
-                    ref={files}
-                    type="file"
-                    multiple
-                    accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
-                    className="hidden"
-                    onChange={(e) => {
-                        form.setData('media', [...form.data.media, ...Array.from(e.target.files ?? [])].slice(0, room));
-                        e.target.value = '';
-                    }}
-                />
-                <LibraryButton
-                    picked={picked}
-                    onChange={(p) => {
-                        setPicked(p);
-                        form.setData('media', form.data.media.slice(0, 10 - p.length));
-                    }}
-                    max={10 - form.data.media.length + picked.length}
-                    className={`${tool} text-violet-600 dark:text-violet-400`}
-                />
-                {!poll && !ppv && (
-                    <button type="button" onClick={() => form.setData('poll_options', ['', ''])} className={`${tool} text-primary`}>
-                        <BarChart3 className="size-[18px]" /> {t('poll.add')}
-                    </button>
-                )}
-                {!schedule && (
-                    <button type="button" onClick={() => setSchedule(true)} className={`${tool} text-sky-600 dark:text-sky-400`}>
-                        <CalendarClock className="size-[18px]" /> {t('sch.later')}
-                    </button>
-                )}
-                {adultAllowed && (
-                    <button
-                        type="button"
-                        onClick={() => form.setData('is_adult', !form.data.is_adult)}
-                        className={`${tool} ${form.data.is_adult ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300' : 'text-muted-foreground'}`}
-                        aria-pressed={form.data.is_adult}
-                    >
-                        18+
-                    </button>
-                )}
-                <button
-                    type="submit"
-                    disabled={
-                        form.processing ||
-                        empty ||
-                        pollIncomplete ||
-                        (ppv && !priceOk(form.data.price, ppvLimits)) ||
-                        (schedule && !form.data.publish_at)
-                    }
-                    className="bg-primary text-primary-foreground ml-auto inline-flex h-10 items-center gap-2 rounded-lg px-6 text-sm font-bold transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
-                >
-                    {form.processing && <LoaderCircle className="size-4 animate-spin" />}
-                    {schedule ? t('stu.schedule') : t('st.publish')}
-                </button>
-            </div>
-            {form.progress && (
-                <div className="bg-muted mt-3 h-1 overflow-hidden rounded-full">
-                    <div className="bg-primary h-full transition-[width]" style={{ width: `${form.progress.percentage ?? 0}%` }} />
-                </div>
-            )}
         </form>
     );
 });
+
+/** A round, single-colour tool button; turns brand-coloured while its feature is on. */
+function Tool({
+    icon: Icon,
+    label,
+    onClick,
+    active = false,
+    disabled = false,
+}: {
+    icon: LucideIcon;
+    label: string;
+    onClick: () => void;
+    active?: boolean;
+    disabled?: boolean;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            disabled={disabled && !active}
+            aria-label={label}
+            aria-pressed={active}
+            title={label}
+            className={`grid size-9 place-items-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-35 ${
+                active ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            }`}
+        >
+            <Icon className="size-[19px]" />
+        </button>
+    );
+}
+
+/** A box for a poll or Q&A inside the composer, with its own remove button. */
+function Panel({
+    icon: Icon,
+    title,
+    hint,
+    onRemove,
+    removeLabel,
+    live = false,
+    children,
+}: {
+    icon: LucideIcon;
+    title: string;
+    hint?: string;
+    onRemove: () => void;
+    removeLabel: string;
+    live?: boolean;
+    children: ReactNode;
+}) {
+    return (
+        <fieldset aria-label={title} className="bg-muted/60 mt-3 rounded-xl p-3">
+            <div className="mb-2 flex items-center gap-2">
+                <span
+                    className={`grid size-6 place-items-center rounded-md ${live ? 'bg-red-500/15 text-red-600 dark:text-red-400' : 'bg-primary/15 text-primary'}`}
+                >
+                    <Icon className="size-3.5" />
+                </span>
+                <span className="text-sm font-bold">{title}</span>
+                <button
+                    type="button"
+                    onClick={onRemove}
+                    className="text-muted-foreground hover:bg-card hover:text-foreground ml-auto grid size-7 place-items-center rounded-lg"
+                    aria-label={removeLabel}
+                    title={removeLabel}
+                >
+                    <X className="size-4" />
+                </button>
+            </div>
+            {hint && <p className="text-muted-foreground mb-2.5 text-xs">{hint}</p>}
+            {children}
+        </fieldset>
+    );
+}
 
 export default PostComposer;

@@ -64,7 +64,7 @@ export default function TipButton({
             <DialogContent className="gap-0 rounded-3xl p-0 sm:max-w-sm">
                 <form onSubmit={submit} className="flex flex-col gap-4 p-6">
                     <div className="text-center">
-                        <span className="mx-auto grid size-14 place-items-center rounded-full bg-primary/12 text-primary">
+                        <span className="bg-primary/12 text-primary mx-auto grid size-14 place-items-center rounded-full">
                             <HandCoins className="size-7" />
                         </span>
                         <DialogTitle className="mt-3 text-xl font-extrabold">{t('tip.title', { name })}</DialogTitle>
@@ -116,7 +116,7 @@ export default function TipButton({
                     <button
                         type="submit"
                         disabled={!valid || form.processing}
-                        className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
+                        className="bg-primary text-primary-foreground shadow-primary/20 flex h-12 items-center justify-center gap-2 rounded-2xl font-bold shadow-lg transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
                     >
                         {form.processing && <LoaderCircle className="size-5 animate-spin" />}
                         {t('tip.send', { amount: mnt(form.data.amount || 0) })}

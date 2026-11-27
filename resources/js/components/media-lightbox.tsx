@@ -4,7 +4,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 
-type Media = { id: number; type: 'image' | 'video'; url: string; stamp?: string | null };
+type Media = { id: number; type: 'image' | 'video' | 'audio'; url: string; stamp?: string | null };
 
 /**
  * Full-screen viewer for a post's photos and videos. Arrow keys and buttons move between them; Esc closes.

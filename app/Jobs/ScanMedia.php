@@ -2,13 +2,14 @@
 
 namespace App\Jobs;
 
+use App\Media\Files;
 use App\Models\MessageMedia;
+use App\Models\Post;
 use App\Models\PostMedia;
 use App\Models\Report;
 use App\Moderation\Scanner;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Run the automatic scan on one saved photo or video. If it's flagged: the file is no longer served, a post
@@ -27,13 +28,20 @@ class ScanMedia implements ShouldQueue
     {
         /** @var PostMedia|MessageMedia|null $media */
         $media = $this->model::find($this->id);
-        if (! $media || $media->scan_status !== 'pending' || ! Storage::exists($media->path)) {
+        if (! $media || $media->scan_status !== 'pending' || ! Files::exists($media->path)) {
+            return;
+        }
+
+        // The image/video scanner can't judge sound: audio relies on the blocklist and on reports.
+        if ($media->type === 'audio') {
+            $media->forceFill(['scan_status' => 'ok', 'scan_labels' => null])->save();
+
             return;
         }
 
         $owner = $media instanceof PostMedia ? $media->post : $media->message;
         $adult = $media instanceof PostMedia ? (bool) $owner?->is_adult : false;
-        $result = $scanner->scan(Storage::path($media->path), (string) $media->mime, $adult);
+        $result = $scanner->scan(Files::localPath($media->path), (string) $media->mime, $adult);
 
         $media->forceFill([
             'scan_status' => match ($result['verdict']) {
@@ -47,7 +55,7 @@ class ScanMedia implements ShouldQueue
         if ($result['verdict'] !== 'flag' || ! $owner) {
             return;
         }
-        if ($owner instanceof \App\Models\Post) {
+        if ($owner instanceof Post) {
             $owner->forceFill(['held_at' => now()])->saveQuietly();
         }
         $already = Report::where('status', 'open')->whereNull('reporter_id')->where('reportable_type', $owner::class)->where('reportable_id', $owner->id)->exists();

@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\CreatorProfile;
 use App\Models\Post;
 use App\Models\User;
+use App\Support\Attribution;
 use App\Support\Blocking;
 use App\Support\Notify;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -47,9 +49,15 @@ class FanController extends Controller
         $creator = CreatorProfile::listableFor($request->user())->where('handle', $handle)->firstOrFail();
         abort_if($creator->user_id === $request->user()->id, 422, 'You can’t follow yourself.');
         abort_if(Blocking::between($creator->user, $request->user()), 404);
-        $changes = $request->user()->following()->syncWithoutDetaching([$creator->id]);
-        if ($changes['attached']) {
-            Notify::followed($creator, $request->user());
+        $fan = $request->user();
+        if (! $fan->following()->whereKey($creator->id)->exists()) {
+            try {
+                // Remember where the follow came from, for the creator's conversion insights.
+                $fan->following()->attach($creator->id, Attribution::forFollow($request, $fan, $creator));
+                Notify::followed($creator, $fan);
+            } catch (UniqueConstraintViolationException) {
+                // a double click: the first one already followed
+            }
         }
 
         return $request->query('view') === 'starter' ? to_route('home', ['view' => 'starter']) : back();

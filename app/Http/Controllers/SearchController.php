@@ -20,7 +20,7 @@ class SearchController extends Controller
             'q' => ['nullable', 'string', 'max:100'],
             'tab' => ['nullable', 'in:all,creators,posts'],
             'sort' => ['nullable', 'in:relevance,latest,popular'],
-            'media' => ['nullable', 'in:any,image,video'],
+            'media' => ['nullable', 'in:any,image,video,audio'],
             'date' => ['nullable', 'in:any,week,month,year'],
             'page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);

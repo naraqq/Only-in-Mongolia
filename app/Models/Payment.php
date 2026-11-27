@@ -29,9 +29,9 @@ class Payment extends Model
     /** What fans pay creators for: everything except wallet top-ups. */
     public const SALES = [self::SUBSCRIPTION, self::TIP, self::PPV];
 
-    protected $fillable = ['user_id', 'creator_profile_id', 'purpose', 'post_id', 'message_id', 'note', 'amount', 'platform_fee', 'status', 'provider', 'invoice_id', 'qr_text', 'qr_image', 'bank_links', 'paid_at', 'refunded_at', 'refunded_by', 'refund_reason', 'months', 'promo_code_id', 'discount'];
+    protected $fillable = ['user_id', 'creator_profile_id', 'purpose', 'post_id', 'message_id', 'note', 'amount', 'platform_fee', 'status', 'provider', 'invoice_id', 'qr_text', 'qr_image', 'bank_links', 'paid_at', 'refunded_at', 'refunded_by', 'refund_reason', 'months', 'promo_code_id', 'discount', 'source', 'source_id', 'referrer'];
 
-    protected $casts = ['bank_links' => 'array', 'paid_at' => 'datetime', 'refunded_at' => 'datetime', 'months' => 'integer'];
+    protected $casts = ['bank_links' => 'array', 'paid_at' => 'datetime', 'refunded_at' => 'datetime', 'months' => 'integer', 'renewal' => 'boolean'];
 
     protected $hidden = ['qr_image', 'qr_text'];
 

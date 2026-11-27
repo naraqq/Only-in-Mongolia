@@ -1,26 +1,31 @@
 import AppLogo from '@/components/app-logo';
 import AppLogoIcon from '@/components/app-logo-icon';
+import AreaSwitch, { type AreaTarget } from '@/components/area-switch';
 import { type CreatorCardData } from '@/components/creator-card';
 import LangSwitch from '@/components/lang-switch';
+import NowPlayingBar from '@/components/now-playing-bar';
 import SearchBox from '@/components/search-box';
+import Sponsored from '@/components/sponsored';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import UserAvatar from '@/components/user-avatar';
 import { mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
+import { useLayoutArea } from '@/lib/layout-area';
+import { useLive } from '@/lib/live';
 import { type SharedData } from '@/types';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     BadgeCheck,
     Bell,
     Bookmark,
+    Clapperboard,
     Compass,
     House,
     LogIn,
     LogOut,
     MessageCircle,
     MoreHorizontal,
-    PenSquare,
     Plus,
     Search,
     Settings,
@@ -51,6 +56,7 @@ export default function SocialLayout({
     wide?: boolean;
 }) {
     const { t } = useT();
+    useLayoutArea('client');
     const page = usePage<
         SharedData & {
             unreadMessages: number;
@@ -60,6 +66,10 @@ export default function SocialLayout({
     >();
     const { auth, unreadMessages, unreadNotifications, adminCounts } = page.props;
     const user = auth.user;
+    // Bell and message badges update the moment something arrives.
+    useLive(user ? `user.${user.id}` : null, ['notification', 'inbox'], () =>
+        router.reload({ only: ['unreadNotifications', 'unreadMessages', 'adminCounts'] }),
+    );
     const creator = auth.creator?.status === 'approved' ? auth.creator : null;
     const path = page.url.split('?')[0];
 
@@ -87,7 +97,6 @@ export default function SocialLayout({
                   { label: 'wal.title', href: route('wallet'), icon: Wallet, match: (u: string) => u === '/wallet' } as NavLink,
                   ...(creator
                       ? [
-                            { label: 'nav.studio', href: route('studio'), icon: PenSquare, match: (u: string) => u === '/studio' } as NavLink,
                             {
                                 label: 'nav.myProfile',
                                 href: route('creator.show', creator.handle),
@@ -103,17 +112,25 @@ export default function SocialLayout({
                                 match: (u: string) => u.startsWith('/profile'),
                             } as NavLink,
                         ]),
-                  ...(user.is_admin
-                      ? [
-                            {
-                                label: 'nav.adminHome',
-                                href: route('admin.dashboard'),
-                                icon: ShieldCheck,
-                                match: (u: string) => u.startsWith('/admin'),
-                                badge: adminCounts ? adminCounts.applications + adminCounts.payouts + adminCounts.reports : 0,
-                            } as NavLink,
-                        ]
-                      : []),
+              ]
+            : []),
+    ];
+
+    // Other parts of the app (they have their own layout): shown apart from the menu, as switches.
+    const areas: AreaTarget[] = [
+        ...(creator
+            ? [{ label: t('nav.studio'), sub: t('nav.studioSub'), href: route('studio'), icon: Clapperboard, tone: 'studio' } as AreaTarget]
+            : []),
+        ...(user?.is_admin
+            ? [
+                  {
+                      label: t('nav.adminHome'),
+                      sub: t('nav.adminSub'),
+                      href: route('admin.dashboard'),
+                      icon: ShieldCheck,
+                      tone: 'admin',
+                      badge: adminCounts ? adminCounts.applications + adminCounts.payouts + adminCounts.reports : 0,
+                  } as AreaTarget,
               ]
             : []),
     ];
@@ -153,7 +170,7 @@ export default function SocialLayout({
             {/* Desktop navigation, workspace, and contextual discovery. */}
             <div className="mx-auto flex w-full max-w-[1500px]">
                 {/* Left: navigation */}
-                <aside className="sticky top-0 hidden h-svh w-20 shrink-0 flex-col overflow-y-auto px-3 py-5 md:flex xl:w-60">
+                <aside className="sticky top-0 hidden h-[calc(100svh-var(--player-h,0px))] w-20 shrink-0 flex-col overflow-y-auto px-3 py-5 md:flex xl:w-60">
                     <Link href={route('home')} className="mb-6 flex items-center px-3 py-2" aria-label={t('nav.home')}>
                         <AppLogoIcon className="size-9 xl:hidden" />
                         <AppLogo className="hidden xl:flex" />
@@ -190,6 +207,17 @@ export default function SocialLayout({
                         })}
                     </nav>
 
+                    {areas.length > 0 && (
+                        <div className="border-border mt-4 flex flex-col gap-1.5 border-t pt-4">
+                            <span className="text-muted-foreground hidden px-3 pb-0.5 text-[11px] font-bold tracking-wider uppercase xl:block">
+                                {t('nav.switchTo')}
+                            </span>
+                            {areas.map((a) => (
+                                <AreaSwitch key={a.href} area={a} compact />
+                            ))}
+                        </div>
+                    )}
+
                     {newPost && (
                         <Button asChild size="lg" className="mt-6 h-11 rounded-lg text-sm font-bold xl:w-full">
                             <Link href={newPost} aria-label={t(creator ? 'nav.newPost' : 'nav.login')}>
@@ -207,7 +235,7 @@ export default function SocialLayout({
                 </aside>
 
                 {/* Main workspace */}
-                <main className="min-h-svh min-w-0 flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] md:px-6 md:pb-0">
+                <main className="min-h-svh min-w-0 flex-1 pb-[calc(5rem+env(safe-area-inset-bottom)+var(--player-h,0px))] md:px-6 md:pb-[var(--player-h,0px)]">
                     <div className={`animate-page-in mx-auto w-full ${wide ? 'max-w-[1100px]' : 'max-w-[680px]'}`}>
                         {header !== undefined && (
                             <div className="bg-background sticky top-14 z-20 flex h-14 items-center gap-3 px-5 md:top-0">{header}</div>
@@ -218,11 +246,14 @@ export default function SocialLayout({
 
                 {/* Right: search and suggestions */}
                 {!wide && (
-                    <aside className="sticky top-0 hidden h-svh w-80 shrink-0 overflow-y-auto px-4 py-4 lg:block xl:w-[340px] 2xl:w-[360px]">
+                    <aside className="sticky top-0 hidden h-[calc(100svh-var(--player-h,0px))] w-80 shrink-0 overflow-y-auto px-4 py-4 lg:block xl:w-[340px] 2xl:w-[360px]">
                         <RightRail />
                     </aside>
                 )}
             </div>
+
+            {/* Whatever is playing (music, podcasts) keeps playing from page to page. */}
+            <NowPlayingBar aboveTabs />
 
             {/* Phone bottom tabs */}
             <nav className="border-border bg-background/95 fixed inset-x-0 bottom-0 z-30 flex min-h-16 items-center justify-around gap-1 border-t px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
@@ -359,11 +390,17 @@ function AccountMenu({ compact = false }: { compact?: boolean }) {
 
 export function RightRail() {
     const { t } = useT();
-    const { suggestions } = usePage<SharedData & { suggestions: CreatorCardData[] }>().props;
+    const page = usePage<SharedData & { suggestions: CreatorCardData[]; creator?: { adult_content?: boolean } }>();
+    const { suggestions } = page.props;
+    // Only a creator's own page (or series) counts as "next to 18+ content".
+    const adultPage = page.component.startsWith('creator/') && !!page.props.creator?.adult_content;
 
     return (
         <div className="flex flex-col gap-6">
             <SearchBox />
+
+            {/* Sponsored banners (on an 18+ creator's page, only campaigns that opted in). */}
+            <Sponsored adult={adultPage} />
 
             {suggestions.length > 0 && (
                 <section>

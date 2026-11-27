@@ -3,6 +3,7 @@ import PostComments from '@/components/post-comments';
 import PostMedia from '@/components/post-media';
 import PostPanel from '@/components/post-panel';
 import PostPoll, { type FollowUpChoice, type PollData } from '@/components/post-poll';
+import PostQa, { type QaSummary } from '@/components/post-qa';
 import RichText from '@/components/rich-text';
 import TipButton from '@/components/tip-button';
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -16,6 +17,7 @@ import { useSeen } from '@/lib/views';
 import { type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import {
+    AudioLines,
     BadgeCheck,
     Bookmark,
     CalendarClock,
@@ -42,8 +44,8 @@ export type PostItem = {
     locked: 'login' | 'subscribe' | 'buy' | null;
     price: number | null;
     body: string | null;
-    media: { id: number; type: 'image' | 'video'; url: string; stamp?: string | null }[];
-    counts: { image: number; video: number };
+    media: { id: number; type: 'image' | 'video' | 'audio'; url: string; stamp?: string | null }[];
+    counts: { image: number; video: number; audio?: number };
     likes_count: number;
     comments_count: number;
     liked: boolean;
@@ -51,6 +53,7 @@ export type PostItem = {
     publish_at: string | null; // set while scheduled
     pinned?: boolean;
     poll?: PollData | null;
+    qa?: QaSummary | null;
 };
 
 const when = (iso: string) => new Date(iso).toLocaleString('sv-SE', { dateStyle: 'short', timeStyle: 'short' }).replaceAll('-', '.');
@@ -105,6 +108,7 @@ export default function PostCard({
             {post.poll && !post.locked && (
                 <PostPoll id={post.id} handle={author.handle} poll={post.poll} choices={mine ? pollFollowUps : undefined} />
             )}
+            {post.qa && !post.locked && !post.publish_at && <PostQa id={post.id} qa={post.qa} />}
             <Actions post={post} author={author} mine={mine} state={state} onComment={comment} />
             {talk > 0 && (
                 <CommentsModal
@@ -323,6 +327,12 @@ function Body({
             {post.media.length > 0 ? (
                 <PostMedia
                     media={post.media}
+                    title={post.body?.split('\n')[0].slice(0, 90)}
+                    track={{
+                        artist: author.name,
+                        artwork: author.avatar_url,
+                        href: `${route('creator.show', { handle: author.handle, focus: post.id })}#post-${post.id}`,
+                    }}
                     onDoubleLike={state.likeOnce}
                     className={
                         compact
@@ -423,6 +433,11 @@ function Locked({ post, price, handle }: { post: PostItem; price?: string; handl
                         <ImageIcon className="size-4" /> {post.counts.image}
                     </span>
                 )}
+                {!!post.counts.audio && (
+                    <span className="inline-flex items-center gap-1">
+                        <AudioLines className="size-4" /> {post.counts.audio}
+                    </span>
+                )}
                 {post.counts.video > 0 && (
                     <span className="inline-flex items-center gap-1">
                         <Video className="size-4" /> {post.counts.video}
@@ -449,7 +464,7 @@ function Locked({ post, price, handle }: { post: PostItem; price?: string; handl
                 </Link>
             ) : (
                 <Link
-                    href={route('creator.checkout', handle)}
+                    href={route('creator.checkout', { handle, post: post.id })}
                     className="bg-primary text-primary-foreground relative rounded-full px-5 py-2 text-sm font-bold transition hover:brightness-110"
                 >
                     {price ? t('po.subscribeToView', { price }) : t('po.subscribersOnly')}

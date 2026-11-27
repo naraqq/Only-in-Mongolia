@@ -59,8 +59,35 @@ class Notify
                     'updated_at' => $now,
                 ])->all());
                 // And a push to the phones of those who allowed it (one job per 500 people).
+                Live::user($subs->pluck('user_id')->all(), 'notification');
                 if (Push::enabled()) {
                     SendPush::dispatch($subs->pluck('user_id')->all(), 'new_post', ['name' => $creator->display_name], route('creator.show', $creator->handle), 'post-'.$creator->id);
+                }
+            });
+    }
+
+    /** A live Q&A just started: tell everyone who asked to be reminded (in bulk, like new posts). */
+    public static function qaLive(Post $post): void
+    {
+        $creator = $post->creator;
+        $now = now();
+        $data = json_encode(['actor_id' => $creator->user_id, 'post_id' => $post->id, 'handle' => $creator->handle]);
+
+        DB::table('qa_rsvps')->where('post_id', $post->id)->where('user_id', '!=', $creator->user_id)->orderBy('user_id')
+            ->chunk(500, function ($rsvps) use ($data, $now, $creator, $post) {
+                DB::table('notifications')->insert($rsvps->map(fn ($r) => [
+                    'id' => (string) Str::uuid(),
+                    'type' => 'qa_live',
+                    'notifiable_type' => User::class,
+                    'notifiable_id' => $r->user_id,
+                    'data' => $data,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ])->all());
+                Live::user($rsvps->pluck('user_id')->all(), 'notification');
+                if (Push::enabled()) {
+                    SendPush::dispatch($rsvps->pluck('user_id')->all(), 'qa_live', ['name' => $creator->display_name],
+                        route('creator.show', ['handle' => $creator->handle, 'focus' => $post->id]), 'qa-'.$post->id);
                 }
             });
     }

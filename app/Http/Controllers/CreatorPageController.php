@@ -104,12 +104,13 @@ class CreatorPageController extends Controller
             'locked' => $lock,
             'body' => $lock ? null : $post->body,
             'poll' => $lock ? null : PollController::present($post, $viewer),
+            'qa' => $lock ? null : QaController::summary($post, $viewer),
             'media' => $lock ? [] : $post->media->map(fn ($m) => ['id' => $m->id, 'type' => $m->type, 'url' => route('media.show', [$m, ...$tag]), 'stamp' => $stamp])->all(),
             'likes_count' => (int) ($post->likes_count ?? $post->likes()->count()),
             'comments_count' => (int) ($post->comments_count ?? $post->comments()->count()),
             'liked' => (bool) ($post->liked ?? false),
             'bookmarked' => (bool) ($post->bookmarked ?? false),
-            'counts' => ['image' => $post->media->where('type', 'image')->count(), 'video' => $post->media->where('type', 'video')->count()],
+            'counts' => ['image' => $post->media->where('type', 'image')->count(), 'video' => $post->media->where('type', 'video')->count(), 'audio' => $post->media->where('type', 'audio')->count()],
         ];
     }
 }

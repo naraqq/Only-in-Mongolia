@@ -23,9 +23,11 @@ jobs:
           test "$(docker compose --env-file .env.docker ps --status running -q app | wc -l)" -eq 3
           curl --fail --show-error --retry 5 http://localhost:8080/up
           curl --fail --show-error http://localhost:8080/ -o /dev/null
+      - name: Real-time server answers through the proxy, and its API stays private
+        run: bash .github/scripts/check-reverb.sh
       - name: Show service logs on failure
         if: failure()
-        run: docker compose --env-file .env.docker logs --no-color app migrate worker scheduler proxy
+        run: docker compose --env-file .env.docker logs --no-color app migrate worker scheduler reverb proxy
 
   # The production overlay (Redis, private data network, per-service health checks) with production settings.
   production-overlay:
@@ -44,6 +46,9 @@ jobs:
             -e 's/^LOG_LEVEL=.*/LOG_LEVEL=warning/' \
             -e "s/^REDIS_PASSWORD=.*/REDIS_PASSWORD=$(openssl rand -hex 32)/" \
             -e "s/^MYSQL_ROOT_PASSWORD=.*/MYSQL_ROOT_PASSWORD=$(openssl rand -hex 32)/" \
+            -e "s/^REVERB_APP_KEY=.*/REVERB_APP_KEY=$(openssl rand -hex 16)/" \
+            -e "s/^REVERB_APP_SECRET=.*/REVERB_APP_SECRET=$(openssl rand -hex 32)/" \
+            -e "s/^REVERB_ALLOWED_ORIGINS=.*/REVERB_ALLOWED_ORIGINS=localhost/" \
             .env.docker
       - name: Build and start
         run: |
@@ -54,7 +59,7 @@ jobs:
       - name: Every service is running and healthy
         run: |
           $COMPOSE ps
-          for service in proxy app worker scheduler db redis; do
+          for service in proxy app worker scheduler reverb db redis; do
             healthy="$($COMPOSE ps --status running --format '{{.Health}}' "$service" | grep -c '^healthy$' || true)"
             echo "$service: $healthy healthy"
             test "$healthy" -ge 1
@@ -69,6 +74,8 @@ jobs:
           echo "$headers" | grep -qi '^strict-transport-security:'
           echo "$headers" | grep -qi '^x-content-type-options: nosniff'
           ! echo "$headers" | grep -qi '^x-powered-by:'
+      - name: Real-time server answers through the proxy, and its API stays private
+        run: bash .github/scripts/check-reverb.sh
       - name: Show service logs on failure
         if: failure()
-        run: $COMPOSE logs --no-color app migrate worker scheduler proxy redis
+        run: $COMPOSE logs --no-color app migrate worker scheduler reverb proxy redis

@@ -59,7 +59,7 @@ export default function Feed({
                 </>
             }
         >
-            {creator && <PostComposer adultAllowed={!!creator.adult_content} className="bg-card m-4 rounded-2xl p-4 shadow-xs" />}
+            {creator && <PostComposer adultAllowed={!!creator.adult_content} className="m-4" />}
 
             {starterPosts?.length ? (
                 <StarterFeed posts={starterPosts} />

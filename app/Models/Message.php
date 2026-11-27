@@ -49,7 +49,7 @@ class Message extends Model
             'price' => $this->price,
             'locked' => $locked,
             'created_at' => $this->created_at->toIso8601String(),
-            'counts' => ['image' => $this->media->where('type', 'image')->count(), 'video' => $this->media->where('type', 'video')->count()],
+            'counts' => ['image' => $this->media->where('type', 'image')->count(), 'video' => $this->media->where('type', 'video')->count(), 'audio' => $this->media->where('type', 'audio')->count()],
             'media' => $locked ? [] : $this->media->map(fn (MessageMedia $m) => ['id' => $m->id, 'type' => $m->type, 'url' => route('messages.media', [$m, ...$tag]), 'stamp' => $stamp])->all(),
         ];
     }

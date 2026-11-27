@@ -1,10 +1,13 @@
 import AppLogo from '@/components/app-logo';
+import AreaSwitch, { type AreaTarget } from '@/components/area-switch';
 import LangSwitch from '@/components/lang-switch';
+import NowPlayingBar from '@/components/now-playing-bar';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import UserAvatar from '@/components/user-avatar';
 import { useT } from '@/lib/i18n';
+import { useLive } from '@/lib/live';
 import { type SharedData } from '@/types';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ArrowLeft, Menu, type LucideIcon } from 'lucide-react';
 import { type ReactNode } from 'react';
 
@@ -17,6 +20,8 @@ export type Area = {
     groups: NavGroup[];
     /** Who you are in this area, under your name at the bottom of the sidebar. */
     role: string;
+    /** Other parts of the app to switch to (your public page, studio, admin), shown apart from the menu. */
+    switches?: AreaTarget[];
 };
 
 export type PageProps = {
@@ -42,7 +47,7 @@ export default function DashboardLayout({ area, title, heading, subtitle, back, 
         <div className="bg-background min-h-svh lg:pl-64">
             <Head title={`${title} · ${area.badge}`} />
 
-            <aside className="border-border bg-background fixed inset-y-0 left-0 z-30 hidden w-64 border-r lg:flex">
+            <aside className="border-border bg-background fixed top-0 bottom-[var(--player-h,0px)] left-0 z-30 hidden w-64 border-r lg:flex">
                 <Sidebar area={area} />
             </aside>
 
@@ -80,7 +85,8 @@ export default function DashboardLayout({ area, title, heading, subtitle, back, 
                 </div>
             </header>
 
-            <main className="animate-page-in mx-auto max-w-[1400px] px-4 pt-2 pb-12 lg:px-8">{children}</main>
+            <main className="animate-page-in mx-auto max-w-[1400px] px-4 pt-2 pb-[calc(3rem+var(--player-h,0px))] lg:px-8">{children}</main>
+            <NowPlayingBar />
         </div>
     );
 }
@@ -88,6 +94,10 @@ export default function DashboardLayout({ area, title, heading, subtitle, back, 
 function Sidebar({ area }: { area: Area }) {
     const { t } = useT();
     const { auth } = usePage<SharedData>().props;
+    // Message and queue counts update the moment something arrives.
+    useLive(auth.user ? `user.${auth.user.id}` : null, ['notification', 'inbox'], () =>
+        router.reload({ only: ['unreadNotifications', 'unreadMessages', 'adminCounts'] }),
+    );
 
     return (
         <div className="flex h-full w-full flex-col">
@@ -128,6 +138,15 @@ function Sidebar({ area }: { area: Area }) {
                     </div>
                 ))}
             </nav>
+
+            {!!area.switches?.length && (
+                <div className="border-border mx-3 flex flex-col gap-1.5 border-t pt-3">
+                    <span className="text-muted-foreground px-1 pb-0.5 text-[11px] font-bold tracking-wider uppercase">{t('nav.switchTo')}</span>
+                    {area.switches.map((s) => (
+                        <AreaSwitch key={s.href} area={s} />
+                    ))}
+                </div>
+            )}
 
             <div className="flex flex-col gap-3 p-3">
                 <Link

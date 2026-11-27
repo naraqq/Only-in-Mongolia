@@ -3,11 +3,11 @@
 namespace App\Moderation;
 
 use App\Jobs\ScanMedia;
+use App\Media\Files;
 use App\Models\MessageMedia;
 use App\Models\PostMedia;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -18,7 +18,7 @@ class Moderation
 {
     public static function fingerprint(UploadedFile|string $file): string
     {
-        return hash_file('sha256', $file instanceof UploadedFile ? $file->getRealPath() : Storage::path($file));
+        return hash_file('sha256', $file instanceof UploadedFile ? $file->getRealPath() : Files::localPath($file));
     }
 
     /**
@@ -53,7 +53,7 @@ class Moderation
     /** Never allow these files again. */
     public static function block(iterable $media, string $reason, ?string $source = null, ?int $by = null): void
     {
-        $rows = collect($media)->map(fn ($m) => $m->sha256 ?? (Storage::exists($m->path) ? self::fingerprint($m->path) : null))
+        $rows = collect($media)->map(fn ($m) => $m->sha256 ?? (Files::exists($m->path) ? self::fingerprint($m->path) : null))
             ->filter()->unique()
             ->map(fn ($h) => ['sha256' => $h, 'reason' => $reason, 'source' => $source, 'added_by' => $by, 'created_at' => now(), 'updated_at' => now()])
             ->values()->all();

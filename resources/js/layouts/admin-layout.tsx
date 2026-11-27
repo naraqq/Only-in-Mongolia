@@ -1,7 +1,9 @@
+import { useWorkAreaSwitches } from '@/components/area-switch';
 import DashboardLayout, { type PageProps } from '@/layouts/dashboard-layout';
 import { useT } from '@/lib/i18n';
+import { useLayoutArea } from '@/lib/layout-area';
 import { usePage } from '@inertiajs/react';
-import { Banknote, Flag, LayoutDashboard, ScrollText, Sparkles, Users } from 'lucide-react';
+import { Banknote, Flag, LayoutDashboard, Megaphone, ScrollText, Sparkles, Users } from 'lucide-react';
 
 type Counts = { applications: number; payouts: number; reports: number } | null;
 
@@ -9,6 +11,8 @@ type Counts = { applications: number; payouts: number; reports: number } | null;
 export default function AdminLayout(props: PageProps) {
     const { t } = useT();
     const counts = usePage<{ adminCounts: Counts }>().props.adminCounts;
+    useLayoutArea('admin', t('nav.adminHome'));
+    const switches = useWorkAreaSwitches('admin');
     const item = (label: Parameters<typeof t>[0], name: string, icon: typeof Users, count?: number) => ({
         label: t(label),
         href: route(name),
@@ -24,6 +28,7 @@ export default function AdminLayout(props: PageProps) {
                 badge: t('nav.adminHome'),
                 role: t('nav.adminHome'),
                 home: route('admin.dashboard'),
+                switches,
                 groups: [
                     { title: t('adm.overview'), items: [item('ad.tabDashboard', 'admin.dashboard', LayoutDashboard)] },
                     {
@@ -34,7 +39,14 @@ export default function AdminLayout(props: PageProps) {
                             item('nav.reports', 'admin.reports', Flag, counts?.reports),
                         ],
                     },
-                    { title: t('adm.manage'), items: [item('au.title', 'admin.users', Users), item('aud.title', 'admin.audit', ScrollText)] },
+                    {
+                        title: t('adm.manage'),
+                        items: [
+                            item('au.title', 'admin.users', Users),
+                            item('ads.title', 'admin.ads', Megaphone),
+                            item('aud.title', 'admin.audit', ScrollText),
+                        ],
+                    },
                 ],
             }}
         />

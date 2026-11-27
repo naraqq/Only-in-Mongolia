@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\AdController;
+use App\Http\Controllers\Admin\AdController as AdminAdController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\CreatorReviewController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -12,7 +14,9 @@ use App\Http\Controllers\CreatorPageController;
 use App\Http\Controllers\EarningsController;
 use App\Http\Controllers\EngagementController;
 use App\Http\Controllers\FanController;
+use App\Http\Controllers\FansController;
 use App\Http\Controllers\InsightsController;
+use App\Http\Controllers\LibraryController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
@@ -22,6 +26,7 @@ use App\Http\Controllers\PreferencesController;
 use App\Http\Controllers\ProfileEditController;
 use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\PushController;
+use App\Http\Controllers\QaController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SeriesController;
@@ -47,6 +52,13 @@ Route::get('creators', [FanController::class, 'discover'])->name('creators');
 Route::get('search', SearchController::class)->middleware('throttle:60,1')->name('search');
 Route::get('search/suggest', [SearchController::class, 'suggest'])->middleware('throttle:120,1')->name('search.suggest');
 Route::post('posts/views', [InsightsController::class, 'views'])->middleware('throttle:60,1')->name('posts.views');
+Route::post('visits', [InsightsController::class, 'visit'])->middleware('throttle:60,1')->name('visits');
+// Live Q&A: anyone who can see the post can read it (the page refreshes it while live).
+Route::get('posts/{post}/qa', [QaController::class, 'show'])->middleware('throttle:120,1')->name('posts.qa');
+// Sponsored banners (right-hand column): which to show, views on screen, clicks through to the advertiser.
+Route::get('ads/slot', [AdController::class, 'slot'])->middleware('throttle:120,1')->name('ads.slot');
+Route::post('ads/views', [AdController::class, 'views'])->middleware('throttle:120,1')->name('ads.views');
+Route::get('ads/{ad}/go', [AdController::class, 'go'])->middleware('throttle:60,1')->name('ads.go');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', [FanController::class, 'dashboard'])->name('dashboard');
@@ -76,6 +88,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('posts/{post}/like', [EngagementController::class, 'like'])->middleware('throttle:120,1')->name('posts.like');
     Route::post('posts/{post}/poll/vote', [PollController::class, 'vote'])->middleware('throttle:30,1')->name('posts.poll.vote');
     Route::post('posts/{post}/poll/follow-up', [PollController::class, 'followUp'])->middleware('throttle:20,1')->name('posts.poll.follow-up');
+    Route::post('posts/{post}/qa/rsvp', [QaController::class, 'rsvp'])->middleware('throttle:30,1')->name('posts.qa.rsvp');
+    Route::post('posts/{post}/qa/questions', [QaController::class, 'ask'])->middleware('throttle:10,1')->name('posts.qa.ask');
+    Route::post('qa-questions/{question}/vote', [QaController::class, 'vote'])->middleware('throttle:120,1')->name('qa.vote');
+    Route::post('qa-questions/{question}/answer', [QaController::class, 'answer'])->middleware('throttle:60,1')->name('qa.answer');
+    Route::post('qa-questions/{question}/hide', [QaController::class, 'hide'])->middleware('throttle:60,1')->name('qa.hide');
     Route::post('posts/{post}/bookmark', [EngagementController::class, 'bookmark'])->middleware('throttle:120,1')->name('posts.bookmark');
     Route::get('posts/{post}/comments', [EngagementController::class, 'comments'])->name('posts.comments');
     Route::post('posts/{post}/comments', [EngagementController::class, 'comment'])->middleware('throttle:20,1')->name('posts.comment');
@@ -125,21 +142,25 @@ Route::middleware(['auth'])->group(function () {
     Route::put('studio/promotions/welcome', [PromotionController::class, 'updateWelcome'])->name('studio.welcome');
     Route::post('studio/promotions/codes', [PromotionController::class, 'storeCode'])->name('studio.codes.store');
     Route::post('studio/promotions/codes/{code}/toggle', [PromotionController::class, 'toggleCode'])->name('studio.codes.toggle');
-    Route::get('studio/fans', [\App\Http\Controllers\FansController::class, 'index'])->name('studio.fans');
-    Route::get('studio/fans/audiences', [\App\Http\Controllers\FansController::class, 'audiences'])->name('studio.fans.audiences');
-    Route::post('studio/fans/lists', [\App\Http\Controllers\FansController::class, 'storeList'])->name('studio.lists.store');
-    Route::patch('studio/fans/lists/{list}', [\App\Http\Controllers\FansController::class, 'updateList'])->name('studio.lists.update');
-    Route::delete('studio/fans/lists/{list}', [\App\Http\Controllers\FansController::class, 'destroyList'])->name('studio.lists.destroy');
-    Route::post('studio/fans/lists/{list}/members/{user}', [\App\Http\Controllers\FansController::class, 'toggle'])->name('studio.lists.toggle');
-    Route::get('studio/library', [\App\Http\Controllers\LibraryController::class, 'index'])->name('studio.library');
+    Route::get('studio/fans', [FansController::class, 'index'])->name('studio.fans');
+    Route::get('studio/fans/audiences', [FansController::class, 'audiences'])->name('studio.fans.audiences');
+    Route::post('studio/fans/lists', [FansController::class, 'storeList'])->name('studio.lists.store');
+    Route::patch('studio/fans/lists/{list}', [FansController::class, 'updateList'])->name('studio.lists.update');
+    Route::delete('studio/fans/lists/{list}', [FansController::class, 'destroyList'])->name('studio.lists.destroy');
+    Route::post('studio/fans/{user}/message', [FansController::class, 'message'])->middleware('throttle:30,1')->name('studio.fans.message');
+    Route::delete('studio/fans/{user}/follow', [FansController::class, 'removeFollower'])->middleware('throttle:60,1')->name('studio.fans.unfollow');
+    Route::post('studio/fans/lists/{list}/members/{user}', [FansController::class, 'toggle'])->name('studio.lists.toggle');
+    Route::get('studio/library', [LibraryController::class, 'index'])->name('studio.library');
     Route::get('studio/series', [SeriesController::class, 'index'])->name('studio.series');
     Route::post('studio/series', [SeriesController::class, 'store'])->middleware('throttle:20,1')->name('studio.series.store');
     Route::patch('studio/series/{series}', [SeriesController::class, 'update'])->whereNumber('series')->name('studio.series.update');
     Route::delete('studio/series/{series}', [SeriesController::class, 'destroy'])->whereNumber('series')->name('studio.series.destroy');
-    Route::get('studio/library/items', [\App\Http\Controllers\LibraryController::class, 'list'])->name('studio.library.items');
-    Route::post('studio/library', [\App\Http\Controllers\LibraryController::class, 'store'])->middleware('throttle:30,60')->name('studio.library.store');
-    Route::delete('studio/library/{item}', [\App\Http\Controllers\LibraryController::class, 'destroy'])->name('studio.library.destroy');
-    Route::get('studio/library/{item}/file', [\App\Http\Controllers\LibraryController::class, 'file'])->name('studio.library.file');
+    Route::get('studio/library/items', [LibraryController::class, 'list'])->name('studio.library.items');
+    Route::post('studio/library', [LibraryController::class, 'store'])->middleware('throttle:30,60')->name('studio.library.store');
+    Route::delete('studio/library', [LibraryController::class, 'destroyMany'])->name('studio.library.destroy-many');
+    Route::delete('studio/library/{item}', [LibraryController::class, 'destroy'])->name('studio.library.destroy');
+    Route::get('studio/library/{item}/usage', [LibraryController::class, 'usage'])->name('studio.library.usage');
+    Route::get('studio/library/{item}/file', [LibraryController::class, 'file'])->name('studio.library.file');
     Route::get('studio/earnings', [EarningsController::class, 'index'])->name('studio.earnings');
     Route::post('studio/earnings/payout', [EarningsController::class, 'requestPayout'])->middleware('throttle:10,60')->name('studio.payout');
     Route::get('studio/earnings/statement.csv', [EarningsController::class, 'statement'])->name('studio.statement');
@@ -167,6 +188,12 @@ Route::middleware(['auth', EnsureAdmin::class, RecordAdminAction::class])->prefi
     Route::post('payouts/{payout}/decide', [PayoutController::class, 'decide'])->name('payouts.decide');
     Route::get('users', [AdminUserController::class, 'index'])->name('users');
     Route::get('audit', [AuditController::class, 'index'])->name('audit');
+    Route::get('ads', [AdminAdController::class, 'index'])->name('ads');
+    Route::post('ads', [AdminAdController::class, 'store'])->name('ads.store');
+    Route::post('ads/{ad}', [AdminAdController::class, 'update'])->name('ads.update');
+    Route::post('ads/{ad}/toggle', [AdminAdController::class, 'toggle'])->name('ads.toggle');
+    Route::delete('ads/{ad}', [AdminAdController::class, 'destroy'])->name('ads.destroy');
+    Route::get('ads/{ad}/report.csv', [AdminAdController::class, 'report'])->name('ads.report');
     Route::get('users/{user}', [AdminUserController::class, 'show'])->name('users.show');
     Route::post('users/{user}/ban', [AdminUserController::class, 'ban'])->name('users.ban');
     Route::post('users/{user}/unban', [AdminUserController::class, 'unban'])->name('users.unban');

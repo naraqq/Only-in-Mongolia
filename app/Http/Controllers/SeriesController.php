@@ -63,7 +63,7 @@ class SeriesController extends Controller
         abort_if($posts->isEmpty(), 404);
 
         return Inertia::render('creator/series', [
-            'series' => $collection->only('title', 'description', 'featured'),
+            'series' => $collection->only('id', 'title', 'description', 'featured'),
             'creator' => ['handle' => $creator->handle, 'name' => $creator->display_name, 'avatar_url' => $creator->avatarUrl(), 'price_monthly' => $creator->price_monthly],
             'posts' => $posts->map(fn (Post $post) => CreatorPageController::present($post->setRelation('creator', $creator), $viewer)),
         ]);

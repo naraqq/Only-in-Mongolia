@@ -23,6 +23,10 @@ class BlockController extends Controller
         if ($blocked && ($creator = $user->creatorProfile)) {
             $me->following()->detach($creator->id);
         }
+        // A creator blocking a fan also takes them off the page's followers.
+        if ($blocked && ($mine = $me->creatorProfile)) {
+            DB::table('follows')->where('creator_profile_id', $mine->id)->where('user_id', $user->id)->delete();
+        }
 
         return response()->json(['blocked' => $blocked]);
     }
