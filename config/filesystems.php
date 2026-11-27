@@ -72,8 +72,8 @@ return [
             'throw' => true,
         ],
 
-        // Backups (App\Console\Commands\MediaBackup, backup:store): a second private bucket, ideally in another account
-        // or provider, holding a copy of every media file and the database backups. Same R2 keys unless set.
+        // Off-site database backups (backup:store, from deployment/scheduled-backup.sh): a second private bucket, ideally
+        // in another account or provider. Same R2 keys unless set. Media files aren't copied (that would double storage).
         'backup' => [
             'driver' => 's3',
             'key' => env('BACKUP_ACCESS_KEY_ID', env('R2_ACCESS_KEY_ID')),

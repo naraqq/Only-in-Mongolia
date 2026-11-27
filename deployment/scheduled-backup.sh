@@ -29,7 +29,7 @@ fi
 find "$BACKUPS" -mindepth 1 -maxdepth 1 -type f -name '*.sql.gz' -mtime +"$keep_days" -delete
 find "$BACKUPS" -mindepth 1 -maxdepth 1 -type d ! -name '.snapshot.*' -mtime +"$keep_full_days" -exec rm -rf -- {} +
 
-# Off-site copy to the backup bucket (BACKUP_BUCKET, the same one media:backup copies media files to): the newest
+# Off-site copy to the backup bucket (BACKUP_BUCKET): the newest
 # database dump, through the app container (which has the bucket's keys). Old ones there go after the same days.
 bucket=$(setting BACKUP_BUCKET)
 if [[ -n "$bucket" ]]; then
