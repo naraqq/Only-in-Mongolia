@@ -27,6 +27,59 @@ class Uploads
     /** Largest file per kind, in KB: photos 20 MB, videos 40 MB, audio 100 MB (about an hour of podcast). */
     public const MAX_KB = ['image' => 20 * 1024, 'video' => 40 * 1024, 'audio' => 100 * 1024];
 
+    /**
+     * Largest file per kind when sent in pieces (App\Media\ChunkedUploads), in KB: there's no request-size limit
+     * then, so videos can be long. Photos 20 MB, videos 2 GB, audio 500 MB.
+     */
+    public const CHUNKED_MAX_KB = ['image' => 20 * 1024, 'video' => 2 * 1024 * 1024, 'audio' => 500 * 1024];
+
+    private const EXTENSIONS = [
+        'image' => ['jpg', 'jpeg', 'png', 'webp'],
+        'video' => ['mp4', 'm4v', 'mov', 'webm'],
+        'audio' => self::AUDIO_EXTENSIONS,
+    ];
+
+    /** What a file will be, judged from what the browser says (before any bytes arrive); null when not allowed. */
+    public static function kindFor(?string $mime, string $name): ?string
+    {
+        $mime = strtolower((string) $mime);
+        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        if (in_array($mime, self::AUDIO, true) || in_array($ext, self::AUDIO_EXTENSIONS, true)) {
+            return 'audio';
+        }
+        if (in_array($mime, self::VIDEO, true) || ($mime === '' || $mime === 'application/octet-stream') && in_array($ext, self::EXTENSIONS['video'], true)) {
+            return 'video';
+        }
+        if (in_array($mime, self::IMAGE, true) || ($mime === '' || $mime === 'application/octet-stream') && in_array($ext, self::EXTENSIONS['image'], true)) {
+            return 'image';
+        }
+
+        return null;
+    }
+
+    /** True when the file's actual contents are an allowed photo, video or audio type. */
+    public static function allowed(UploadedFile $file): bool
+    {
+        return in_array((string) $file->getMimeType(), [...self::IMAGE, ...self::VIDEO, ...self::AUDIO], true);
+    }
+
+    public static function tooLargeMessage(string $type, bool $chunked = false): string
+    {
+        if ($chunked) {
+            return match ($type) {
+                'image' => __('Photos can be at most 20 MB.'),
+                'video' => __('Videos can be at most 2 GB.'),
+                default => __('Audio files can be at most 500 MB.'),
+            };
+        }
+
+        return match ($type) {
+            'image' => __('Photos can be at most 20 MB.'),
+            'video' => __('Videos can be at most 40 MB.'),
+            default => __('Audio files can be at most 100 MB.'),
+        };
+    }
+
     /** Validation rule for one uploaded file (the size per kind is checked by checkSizes()). */
     public static function rule(): array
     {
@@ -68,11 +121,7 @@ class Uploads
         foreach ($files as $i => $file) {
             $type = self::type($file);
             if ($file->getSize() > self::MAX_KB[$type] * 1024) {
-                throw ValidationException::withMessages(["{$field}.{$i}" => match ($type) {
-                    'image' => __('Photos can be at most 20 MB.'),
-                    'video' => __('Videos can be at most 40 MB.'),
-                    default => __('Audio files can be at most 100 MB.'),
-                }]);
+                throw ValidationException::withMessages(["{$field}.{$i}" => self::tooLargeMessage($type)]);
             }
         }
     }

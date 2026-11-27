@@ -1,12 +1,14 @@
 import DateTimePicker from '@/components/date-time-picker';
 import InputError from '@/components/input-error';
 import { LibraryButton, PickedThumbs, type Picked } from '@/components/library-picker';
-import MediaThumbs from '@/components/media-thumbs';
 import PriceField from '@/components/price-field';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import UploadTray from '@/components/upload-tray';
 import UserAvatar from '@/components/user-avatar';
 import { priceOk } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
+import { toast } from '@/lib/toast';
+import { formatBytes, formatDuration, MAX_BYTES, useUploads } from '@/lib/use-uploads';
 import { type SharedData } from '@/types';
 import { useForm, usePage } from '@inertiajs/react';
 import {
@@ -23,6 +25,7 @@ import {
     Plus,
     ShieldCheck,
     Trash2,
+    UploadCloud,
     X,
     type LucideIcon,
 } from 'lucide-react';
@@ -54,7 +57,6 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
         body: '',
         visibility: 'subscribers' as 'public' | 'subscribers',
         is_adult: false as boolean,
-        media: [] as File[],
         price: 5000,
         publish_at: '',
         poll_options: null as string[] | null,
@@ -68,20 +70,26 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
     const [picked, setPicked] = useState<Picked[]>(initialPicked ?? []);
     const [active, setActive] = useState(!!initialPicked?.length);
     const [dragging, setDragging] = useState(false);
+    // Files upload the moment they're picked; Publish only sends their ids.
+    const uploads = useUploads(10 - picked.length, t('up.leave'));
+    // "Publish" pressed while files were still going up: publish as soon as they're done.
+    const [autoPublish, setAutoPublish] = useState(false);
     const box = useRef<HTMLTextAreaElement>(null);
     const files = useRef<HTMLInputElement>(null);
 
     const ppv = audience === 'ppv';
     const poll = form.data.poll_options;
-    const mediaErrors = Object.entries(form.errors).filter(([k]) => k.startsWith('media'));
+    const mediaErrors = Object.entries(form.errors).filter(([k]) => k.startsWith('media') || k.startsWith('uploads'));
     const pollErrors = Object.entries(form.errors).filter(([key]) => key.startsWith('poll_options'));
     const pollIncomplete = poll !== null && (!form.data.body.trim() || poll.some((option) => !option.trim()));
-    const empty = !form.data.body.trim() && form.data.media.length === 0 && picked.length === 0;
+    const empty = !form.data.body.trim() && uploads.items.length === 0 && picked.length === 0;
     const qaIncomplete = qa && (!form.data.body.trim() || !form.data.qa_starts_at);
-    const room = 10 - picked.length - form.data.media.length;
+    const room = 10 - picked.length - uploads.items.length;
     const open = active || !empty || !!poll || qa || schedule || Object.keys(form.errors).length > 0;
     const blocked =
         form.processing ||
+        autoPublish ||
+        uploads.failed > 0 ||
         empty ||
         pollIncomplete ||
         qaIncomplete ||
@@ -110,9 +118,21 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
     }
 
     function addFiles(list: FileList | File[]) {
-        const ok = Array.from(list).filter((f) => f.type.startsWith('audio/') || ACCEPT.split(',').includes(f.type));
-        if (ok.length) form.setData('media', [...form.data.media, ...ok].slice(0, 10 - picked.length));
+        const refused = uploads.add(list);
         setActive(true);
+        if (refused.some((r) => r.reason === 'count')) toast(t('up.tooMany'), { tone: 'error', icon: 'alert' });
+        refused
+            .filter((r) => r.reason !== 'count')
+            .slice(0, 3)
+            .forEach((r) =>
+                toast(
+                    r.reason === 'type' ? t('up.badType', { name: r.name }) : t('up.tooBig', { name: r.name, max: formatBytes(MAX_BYTES[r.kind!]) }),
+                    {
+                        tone: 'error',
+                        icon: 'alert',
+                    },
+                ),
+            );
     }
 
     function startPoll() {
@@ -129,7 +149,9 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
         requestAnimationFrame(() => box.current?.focus());
     }
 
-    function reset() {
+    function reset(discardUploads = true) {
+        uploads.clear(discardUploads);
+        setAutoPublish(false);
         form.reset();
         form.clearErrors();
         setPicked([]);
@@ -139,19 +161,42 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
         setActive(false);
     }
 
-    function submit(e: { preventDefault: () => void }) {
-        e.preventDefault();
+    function submit(e?: { preventDefault: () => void }) {
+        e?.preventDefault();
+        if (uploads.failed > 0) {
+            toast(t('up.fixFirst'), { tone: 'error', icon: 'alert' });
+            return;
+        }
         if (blocked) return;
+        if (!uploads.allDone) {
+            uploads.items.filter((i) => i.status === 'paused').forEach((i) => uploads.resume(i.key));
+            setAutoPublish(true);
+            return;
+        }
         form.transform((d) => ({
             ...d,
             vault: picked.map((p) => p.id),
+            uploads: uploads.ids,
             price: ppv ? d.price : null,
             publish_at: schedule && d.publish_at ? new Date(d.publish_at).toISOString() : null,
             qa_starts_at: qa && d.qa_starts_at ? new Date(d.qa_starts_at).toISOString() : null,
             qa_minutes: qa ? d.qa_minutes : null,
         }));
-        form.post(route('studio.posts.store'), { forceFormData: true, preserveScroll: true, onSuccess: reset });
+        form.post(route('studio.posts.store'), { preserveScroll: true, onSuccess: () => reset(false) });
     }
+
+    // Publish once the last file is up; stop waiting if one fails.
+    useEffect(() => {
+        if (!autoPublish) return;
+        if (uploads.failed > 0) {
+            setAutoPublish(false);
+            toast(t('up.fixFirst'), { tone: 'error', icon: 'alert' });
+        } else if (uploads.allDone) {
+            setAutoPublish(false);
+            submit();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [autoPublish, uploads.allDone, uploads.failed]);
 
     const onDrag = (e: DragEvent, over: boolean) => {
         if (!e.dataTransfer.types.includes('Files')) return;
@@ -331,16 +376,25 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
                             )}
 
                             <PickedThumbs picked={picked} onRemove={(id) => setPicked((p) => p.filter((x) => x.id !== id))} className="mt-3" />
-                            <MediaThumbs
-                                files={form.data.media}
-                                onRemove={(i) =>
-                                    form.setData(
-                                        'media',
-                                        form.data.media.filter((_, j) => j !== i),
-                                    )
-                                }
+                            <UploadTray
+                                items={uploads.items}
+                                onRemove={uploads.remove}
+                                onPause={uploads.pause}
+                                onResume={uploads.resume}
+                                onMove={uploads.move}
+                                onAddMore={room > 0 ? () => files.current?.click() : undefined}
                                 className="mt-3"
                             />
+                            {uploads.items.length > 0 && !uploads.allDone && (
+                                <UploadSummary
+                                    done={uploads.items.length - uploads.pending}
+                                    total={uploads.items.length}
+                                    percent={uploads.percent}
+                                    speed={uploads.speed}
+                                    secondsLeft={uploads.secondsLeft}
+                                    failed={uploads.failed}
+                                />
+                            )}
                             {mediaErrors.map(([k, v]) => (
                                 <InputError key={k} message={v} />
                             ))}
@@ -399,11 +453,8 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
                                     <LibraryButton
                                         picked={picked}
                                         iconOnly
-                                        onChange={(p) => {
-                                            setPicked(p);
-                                            form.setData('media', form.data.media.slice(0, 10 - p.length));
-                                        }}
-                                        max={10 - form.data.media.length + picked.length}
+                                        onChange={setPicked}
+                                        max={10 - uploads.items.length}
                                         className="text-muted-foreground hover:bg-muted hover:text-foreground grid size-9 place-items-center rounded-full transition [&_svg]:size-[19px]"
                                     />
                                     <Tool icon={BarChart3} label={t('poll.add')} onClick={startPoll} active={!!poll} disabled={qa || !!poll} />
@@ -436,7 +487,7 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
                                     {(!empty || !!poll || qa) && (
                                         <button
                                             type="button"
-                                            onClick={reset}
+                                            onClick={() => reset()}
                                             className="text-muted-foreground hover:text-foreground hover:bg-muted grid h-9 min-w-9 place-items-center rounded-full px-2 text-sm font-semibold transition sm:px-2.5 sm:hover:bg-transparent"
                                         >
                                             <span className="max-sm:hidden">{t('cmp.discard')}</span>
@@ -482,17 +533,28 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
                                         disabled={blocked}
                                         className="bg-primary text-primary-foreground disabled:bg-muted disabled:text-muted-foreground inline-flex h-9 items-center gap-2 rounded-full px-5 text-sm font-bold whitespace-nowrap transition hover:brightness-110 disabled:cursor-not-allowed disabled:hover:brightness-100"
                                     >
-                                        {form.processing && <LoaderCircle className="size-4 animate-spin" />}
-                                        {schedule ? t('stu.schedule') : t('st.publish')}
+                                        {(form.processing || autoPublish) && <LoaderCircle className="size-4 animate-spin" />}
+                                        {autoPublish
+                                            ? t('up.willPublish', { percent: uploads.percent })
+                                            : uploads.busy
+                                              ? t('up.publishWhenReady')
+                                              : schedule
+                                                ? t('stu.schedule')
+                                                : t('st.publish')}
                                     </button>
+                                    {autoPublish && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setAutoPublish(false)}
+                                            className="text-muted-foreground hover:text-foreground hover:bg-muted grid size-9 place-items-center rounded-full transition"
+                                            aria-label={t('pe.cancel')}
+                                            title={t('pe.cancel')}
+                                        >
+                                            <X className="size-4" />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
-
-                            {form.progress && (
-                                <div className="bg-muted mt-2 h-1 overflow-hidden rounded-full">
-                                    <div className="bg-primary h-full transition-[width]" style={{ width: `${form.progress.percentage ?? 0}%` }} />
-                                </div>
-                            )}
 
                             <p className="text-muted-foreground/80 mt-2 flex items-start gap-1.5 text-[11px] leading-snug">
                                 <ShieldCheck className="mt-px size-3 shrink-0" /> {t('st.rules')}
@@ -504,6 +566,51 @@ const PostComposer = forwardRef<ComposerHandle, { adultAllowed: boolean; classNa
         </form>
     );
 });
+
+/** All files together: how many are ready, overall progress, speed and time left. */
+function UploadSummary({
+    done,
+    total,
+    percent,
+    speed,
+    secondsLeft,
+    failed,
+}: {
+    done: number;
+    total: number;
+    percent: number;
+    speed: number;
+    secondsLeft: number | null;
+    failed: number;
+}) {
+    const { t } = useT();
+    return (
+        <div className="bg-muted/60 mt-2 rounded-xl px-3 py-2" role="status" aria-live="polite">
+            <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="flex items-center gap-1.5 font-semibold">
+                    {failed > 0 ? (
+                        <span className="text-destructive">{t('up.failedCount', { n: failed })}</span>
+                    ) : (
+                        <>
+                            <UploadCloud className="text-primary size-4" />
+                            {t('up.progress', { done, total })}
+                        </>
+                    )}
+                </span>
+                <span className="text-muted-foreground tabular-nums">
+                    {percent}%{speed > 0 && ` · ${formatBytes(speed)}/s`}
+                    {secondsLeft !== null && ` · ${t('up.left', { time: formatDuration(secondsLeft) })}`}
+                </span>
+            </div>
+            <div className="bg-border mt-1.5 h-1.5 overflow-hidden rounded-full">
+                <div
+                    className={`h-full rounded-full transition-[width] duration-300 ${failed > 0 ? 'bg-destructive' : 'bg-primary'}`}
+                    style={{ width: `${percent}%` }}
+                />
+            </div>
+        </div>
+    );
+}
 
 /** A round, single-colour tool button; turns brand-coloured while its feature is on. */
 function Tool({

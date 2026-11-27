@@ -1,5 +1,6 @@
 <?php
 
+use App\Media\ChunkedUploads;
 use App\Media\Files;
 use App\Models\Post;
 use App\Models\Subscription;
@@ -102,6 +103,14 @@ Artisan::command('media:prune-stamps {--days=7}', function () {
 })->purpose('Delete stamped photo copies and cached media downloads nobody has used recently');
 
 Schedule::command('media:prune-stamps')->dailyAt('04:30');
+
+// Files sent in pieces (App\Media\ChunkedUploads) that never made it into a post: the pieces, and finished files nobody used.
+Artisan::command('media:prune-uploads {--hours=24}', function () {
+    $gone = ChunkedUploads::prune((int) $this->option('hours'));
+    $this->info("Removed {$gone} unused uploads.");
+})->purpose('Delete unfinished or unused uploads older than a day');
+
+Schedule::command('media:prune-uploads')->hourly()->withoutOverlapping();
 
 // Web Push keys (VAPID): run once per site and put the two lines in .env. Changing them later signs everyone out of push.
 Artisan::command('push:keys', function () {

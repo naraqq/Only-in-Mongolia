@@ -31,6 +31,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SeriesController;
 use App\Http\Controllers\StudioController;
+use App\Http\Controllers\UploadController;
 use App\Http\Controllers\WalletController;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\RecordAdminAction;
@@ -164,6 +165,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('studio/earnings', [EarningsController::class, 'index'])->name('studio.earnings');
     Route::post('studio/earnings/payout', [EarningsController::class, 'requestPayout'])->middleware('throttle:10,60')->name('studio.payout');
     Route::get('studio/earnings/statement.csv', [EarningsController::class, 'statement'])->name('studio.statement');
+    // Big files go up in pieces before the post is published (App\Media\ChunkedUploads).
+    Route::post('uploads', [UploadController::class, 'start'])->middleware('throttle:120,1')->name('uploads.start');
+    Route::get('uploads/{upload}', [UploadController::class, 'show'])->name('uploads.show');
+    Route::post('uploads/{upload}/chunks/{index}', [UploadController::class, 'chunk'])->whereNumber('index')->middleware('throttle:1200,1')->name('uploads.chunk');
+    Route::post('uploads/{upload}/complete', [UploadController::class, 'complete'])->middleware('throttle:120,1')->name('uploads.complete');
+    Route::delete('uploads/{upload}', [UploadController::class, 'destroy'])->name('uploads.destroy');
     Route::post('studio/posts', [StudioController::class, 'store'])->middleware('throttle:30,60')->name('studio.posts.store');
     Route::patch('studio/posts/{post}', [StudioController::class, 'update'])->name('studio.posts.update');
     Route::post('studio/posts/{post}/pin', [StudioController::class, 'pin'])->name('studio.posts.pin');

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Media\ChunkedUploads;
 use App\Media\Files;
 use App\Media\Library;
 use App\Media\Uploads;
@@ -15,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -64,7 +66,7 @@ class StudioController extends Controller
         $creator = $this->creator($request);
 
         $data = $request->validate([
-            'body' => ['nullable', 'string', 'max:5000', 'required_without_all:media,vault', 'required_with:poll_options'],
+            'body' => ['nullable', 'string', 'max:5000', 'required_without_all:media,vault,uploads', 'required_with:poll_options'],
             'visibility' => ['required', Rule::in([Post::PUBLIC, Post::SUBSCRIBERS])],
             'is_adult' => ['boolean'],
             'price' => [Rule::prohibitedIf((bool) $request->input('poll_options')), 'nullable', 'integer', 'min:'.config('creators.min_ppv'), 'max:'.config('creators.max_ppv')],
@@ -80,10 +82,13 @@ class StudioController extends Controller
             // Photos and videos picked from the media library.
             'vault' => ['nullable', 'array', 'max:'.Library::MAX_PER_ITEM],
             'vault.*' => ['integer'],
+            // Files already sent in pieces (App\Media\ChunkedUploads), by upload id, in the order chosen.
+            'uploads' => ['nullable', 'array', 'max:'.Library::MAX_PER_ITEM],
+            'uploads.*' => ['string', 'max:40'],
         ], [
             'body.required_without_all' => __('Write something or add a photo or video.'),
         ]);
-        if (count($request->file('media', [])) + count($data['vault'] ?? []) > Library::MAX_PER_ITEM) {
+        if (count($request->file('media', [])) + count($data['vault'] ?? []) + count($data['uploads'] ?? []) > Library::MAX_PER_ITEM) {
             return back()->withErrors(['media' => __('A post can have at most 10 photos and videos.')]);
         }
         $qaStarts = isset($data['qa_starts_at']) ? Carbon::parse($data['qa_starts_at']) : null;
@@ -94,6 +99,7 @@ class StudioController extends Controller
             return back()->withErrors(['qa_starts_at' => __('The Q&A has to start after the post goes out.')]);
         }
         $picked = Library::pick($creator, $data['vault'] ?? []);
+        $uploads = ChunkedUploads::attachable($request->user(), $data['uploads'] ?? []);
 
         Uploads::checkSizes($request->file('media', []));
 
@@ -105,7 +111,7 @@ class StudioController extends Controller
 
         $hashes = Moderation::screen($request->file('media', []));
 
-        $post = DB::transaction(function () use ($creator, $data, $adult, $request, $hashes, $picked, $qaStarts) {
+        $post = DB::transaction(function () use ($creator, $data, $adult, $request, $hashes, $picked, $uploads, $qaStarts) {
             $post = $creator->posts()->create([
                 'body' => trim((string) ($data['body'] ?? '')) ?: null,
                 'visibility' => $data['visibility'],
@@ -120,6 +126,14 @@ class StudioController extends Controller
             $position = 0;
             foreach ($picked as $file) {
                 $post->media()->create([...$file, 'scan_status' => $file['scan_status'] ?? 'pending', 'position' => $position++]);
+            }
+            foreach ($uploads as $upload) {
+                if (! ChunkedUploads::markAttached($upload)) {
+                    throw ValidationException::withMessages(['uploads' => __('A file is still uploading or has expired. Remove it and add it again.')]);
+                }
+                $stored = $upload->only(['type', 'mime', 'path', 'sha256']);
+                $post->media()->create([...$stored, 'position' => $position++]);
+                Library::record($creator, $stored);
             }
             foreach ($request->file('media', []) as $i => $file) {
                 $stored = [
