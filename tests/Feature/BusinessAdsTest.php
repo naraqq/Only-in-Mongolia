@@ -174,6 +174,35 @@ class BusinessAdsTest extends TestCase
         $this->submit($user, 'qpay', 3, $video())->assertSessionHasErrors('media');
     }
 
+    public function test_admins_add_video_banners_too_and_a_new_picture_replaces_the_video(): void
+    {
+        Queue::fake();
+        $this->app->instance(Ffmpeg::class, new class extends Ffmpeg
+        {
+            public function available(): bool
+            {
+                return false; // the length can't be checked here: the video is kept as uploaded
+            }
+        });
+        $admin = User::factory()->create(['is_admin' => true]);
+        $fields = ['advertiser' => 'Талын Салхи', 'title' => 'Говьд аялал', 'url' => 'https://example.com', 'starts_on' => now()->toDateString(), 'weight' => 1];
+        $video = UploadedFile::fake()->createWithContent('ad.mp4', "\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom".str_repeat("\x00", 2000))->mimeType('video/mp4');
+
+        $this->actingAs($admin)->post('/admin/ads', [...$fields, 'media' => $video])->assertSessionHasNoErrors();
+        $ad = Ad::sole();
+        $this->assertSame(Ad::APPROVED, $ad->review_status);
+        Storage::disk('public')->assertExists($ad->video_path);
+        Queue::assertPushed(ProcessAdVideo::class, fn ($job) => $job->adId === $ad->id);
+        $this->assertSame([$ad->id], $this->liveIds());
+
+        $oldVideo = $ad->video_path;
+        $this->post("/admin/ads/{$ad->id}", [...$fields, 'media' => UploadedFile::fake()->image('b.jpg', 1200, 1000)])->assertSessionHasNoErrors();
+        $ad->refresh();
+        $this->assertNull($ad->video_path);
+        Storage::disk('public')->assertExists($ad->image_path);
+        Storage::disk('public')->assertMissing($oldVideo);
+    }
+
     public function test_the_business_pages_open(): void
     {
         $user = $this->owner();

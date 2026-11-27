@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Ads\BannerMedia;
 use App\Billing\Receipts;
-use App\Jobs\ProcessAdVideo;
 use App\Media\Ffmpeg;
 use App\Models\Ad;
 use App\Models\Company;
@@ -16,10 +16,8 @@ use App\Payments\Wallet;
 use App\Support\Images;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -32,13 +30,6 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class BusinessController extends Controller
 {
-    /** Banners are stored at twice the 600×500 shown, so they stay sharp. */
-    private const W = 1200;
-
-    private const H = 1000;
-
-    private const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
-
     public function __construct(private readonly Payments $payments) {}
 
     /** The company's campaigns, or the form to add the company first. */
@@ -123,14 +114,14 @@ class BusinessController extends Controller
             'url' => ['required', 'url:https,http', 'max:500'],
             'starts_on' => ['required', 'date', 'after_or_equal:today', 'before:+1 year'],
             'ends_on' => ['required', 'date', 'after_or_equal:starts_on'],
-            'media' => ['required', 'file', 'mimetypes:image/jpeg,image/png,image/webp,'.implode(',', self::VIDEO_TYPES), 'max:'.((int) config('ads.video_max_mb') * 1024)],
+            'media' => BannerMedia::rule(true),
             'pay' => ['required', 'in:qpay,wallet'],
         ]);
         $days = Ad::days($data['starts_on'], $data['ends_on']);
         if ($days > $maxDays) {
             throw ValidationException::withMessages(['ends_on' => __('A campaign can run at most :days days.', ['days' => $maxDays])]);
         }
-        $media = $this->storeMedia($request->file('media'), $ffmpeg);
+        $media = BannerMedia::store($request->file('media'), $ffmpeg);
 
         $ad = $company->ads()->create([
             ...collect($data)->only('title', 'body', 'url', 'starts_on', 'ends_on')->all(),
@@ -143,9 +134,7 @@ class BusinessController extends Controller
             'price' => Ad::priceFor($days),
             'created_by' => $request->user()->id,
         ]);
-        if ($ad->video_path) {
-            ProcessAdVideo::dispatch($ad->id);
-        }
+        BannerMedia::process($ad);
 
         return $this->checkout($request, $ad, $data['pay'] === 'wallet');
     }
@@ -208,38 +197,6 @@ class BusinessController extends Controller
 
             return to_route('business')->withErrors(['payment' => __('Payment is unavailable right now. Please try again in a moment.')]);
         }
-    }
-
-    /**
-     * A picture (cropped to the banner's shape) or a video (kept as uploaded until App\Jobs\ProcessAdVideo has
-     * made the web version and its still). Videos longer than allowed are refused when ffmpeg can tell.
-     *
-     * @return array{image_path?: string, video_path?: string}
-     */
-    private function storeMedia(UploadedFile $file, Ffmpeg $ffmpeg): array
-    {
-        if (! in_array($file->getMimeType(), self::VIDEO_TYPES, true)) {
-            if ($file->getSize() > 5 * 1024 * 1024) {
-                throw ValidationException::withMessages(['media' => __('Pictures can be at most 5 MB.')]);
-            }
-
-            return ['image_path' => Images::storeCropped($file, 'ads', self::W, self::H)];
-        }
-        $max = (int) config('ads.video_max_seconds');
-        if ($ffmpeg->available()) {
-            try {
-                $seconds = $ffmpeg->probe($file->getRealPath())['duration'];
-            } catch (\Throwable) {
-                throw ValidationException::withMessages(['media' => __('This video can’t be played. Try an MP4 file.')]);
-            }
-            if ($seconds > $max + 0.5) {
-                throw ValidationException::withMessages(['media' => __('Videos can be at most :seconds seconds.', ['seconds' => $max])]);
-            }
-        }
-        $ext = strtolower($file->guessExtension() ?: $file->getClientOriginalExtension() ?: 'mp4');
-        $ext = $ext === 'qt' ? 'mov' : $ext;
-
-        return ['video_path' => $file->storeAs('ads/videos', Str::lower((string) Str::ulid()).'.'.$ext, 'public')];
     }
 
     private function own(Request $request, Ad $ad): void

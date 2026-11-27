@@ -2,20 +2,20 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Ads\BannerMedia;
 use App\Billing\Receipts;
 use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\Controller;
+use App\Media\Ffmpeg;
 use App\Models\Ad;
 use App\Models\Payment;
 use App\Models\Receipt;
 use App\Notifications\Activity;
 use App\Payments\Payments;
-use App\Support\Images;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -25,11 +25,6 @@ use Inertia\Response;
  */
 class AdController extends Controller
 {
-    /** Banners are stored at twice the 600×500 shown, so they stay sharp. */
-    private const W = 1200;
-
-    private const H = 1000;
-
     public function index(Request $request): Response
     {
         $days = in_array((int) $request->query('days'), [7, 30, 90], true) ? (int) $request->query('days') : 30;
@@ -68,26 +63,32 @@ class AdController extends Controller
                 'total_clicks' => (int) ($total[$ad->id]->clicks ?? 0),
             ]),
             'contact' => config('services.ads.contact'),
+            'videoMaxSeconds' => (int) config('ads.video_max_seconds'),
+            'videoMaxMb' => (int) config('ads.video_max_mb'),
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, Ffmpeg $ffmpeg): RedirectResponse
     {
         $data = $this->validated($request, true);
-        Ad::create([...$data, 'image_path' => Images::storeCropped($request->file('image'), 'ads', self::W, self::H), 'created_by' => $request->user()->id]);
+        $ad = Ad::create([...$data, ...BannerMedia::store($request->file('media'), $ffmpeg), 'created_by' => $request->user()->id]);
+        BannerMedia::process($ad);
 
         return back()->with('status', 'ad-saved');
     }
 
-    public function update(Request $request, Ad $ad): RedirectResponse
+    /** Change the details; a new picture or video replaces the old one (either kind for either). */
+    public function update(Request $request, Ad $ad, Ffmpeg $ffmpeg): RedirectResponse
     {
         $data = $this->validated($request, false);
-        if ($request->hasFile('image')) {
-            $old = $ad->image_path;
-            $data['image_path'] = Images::storeCropped($request->file('image'), 'ads', self::W, self::H);
-            $old && Storage::disk('public')->delete($old);
+        if ($request->hasFile('media')) {
+            $old = (clone $ad);
+            $ad->update([...$data, ...BannerMedia::store($request->file('media'), $ffmpeg)]);
+            $old->deleteFiles();
+            BannerMedia::process($ad);
+        } else {
+            $ad->update($data);
         }
-        $ad->update($data);
 
         return back()->with('status', 'ad-saved');
     }
@@ -179,9 +180,9 @@ class AdController extends Controller
             'weight' => ['required', 'integer', 'min:1', 'max:10'],
             'allow_adult' => ['boolean'],
             'active' => ['boolean'],
-            'image' => [$creating ? 'required' : 'nullable', 'image', 'mimes:jpeg,png,webp', 'max:5120'],
+            'media' => BannerMedia::rule($creating),
         ]);
-        unset($data['image']);
+        unset($data['media']);
 
         return $data;
     }

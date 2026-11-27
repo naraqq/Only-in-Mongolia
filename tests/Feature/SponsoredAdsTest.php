@@ -62,7 +62,7 @@ class SponsoredAdsTest extends TestCase
 
         $this->actingAs($admin)->post('/admin/ads', [
             'advertiser' => 'Unitel', 'title' => '5G now', 'url' => 'https://unitel.mn', 'starts_on' => now()->toDateString(),
-            'weight' => 2, 'allow_adult' => false, 'active' => true, 'image' => UploadedFile::fake()->image('banner.png', 1200, 1000),
+            'weight' => 2, 'allow_adult' => false, 'active' => true, 'media' => UploadedFile::fake()->image('banner.png', 1200, 1000),
         ])->assertSessionHasNoErrors();
         $ad = Ad::sole();
         Storage::disk('public')->assertExists($ad->image_path);

@@ -6,7 +6,7 @@ import AdminLayout from '@/layouts/admin-layout';
 import { ask } from '@/lib/confirm';
 import { mnt } from '@/lib/format';
 import { useT, type TKey } from '@/lib/i18n';
-import { router, useForm } from '@inertiajs/react';
+import { router, useForm, usePage } from '@inertiajs/react';
 import {
     Building2,
     Check,
@@ -415,6 +415,7 @@ function SmallButton({ icon: Icon, label, onClick }: { icon: typeof Eye; label: 
 /** Create or edit a banner, with a live preview of how it will look in the column. */
 function AdForm({ ad, onClose }: { ad: Ad | 'new' | null; onClose: () => void }) {
     const { t } = useT();
+    const limits = usePage<{ videoMaxSeconds: number; videoMaxMb: number }>().props;
     const existing = ad && ad !== 'new' ? ad : null;
     const today = new Date().toISOString().slice(0, 10);
     const form = useForm({
@@ -427,7 +428,7 @@ function AdForm({ ad, onClose }: { ad: Ad | 'new' | null; onClose: () => void })
         weight: 1,
         allow_adult: false as boolean,
         active: true as boolean,
-        image: null as File | null,
+        media: null as File | null,
     });
 
     useEffect(() => {
@@ -443,16 +444,21 @@ function AdForm({ ad, onClose }: { ad: Ad | 'new' | null; onClose: () => void })
             weight: existing?.weight ?? 1,
             allow_adult: existing?.allow_adult ?? false,
             active: existing?.active ?? true,
-            image: null,
+            media: null,
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ad]);
 
-    const preview = useMemo(() => (form.data.image ? URL.createObjectURL(form.data.image) : (existing?.image ?? null)), [form.data.image, existing]);
+    // What the banner shows: the newly chosen file, or what it has now (a video with its still, or a picture).
+    const picked = useMemo(() => (form.data.media ? URL.createObjectURL(form.data.media) : null), [form.data.media]);
+    useEffect(() => () => void (picked && URL.revokeObjectURL(picked)), [picked]);
+    const pickedVideo = !!form.data.media?.type.startsWith('video/');
+    const preview = picked ? (pickedVideo ? null : picked) : (existing?.poster ?? existing?.image ?? null);
+    const previewVideo = picked ? (pickedVideo ? picked : null) : (existing?.video ?? null);
 
     function submit(e: FormEvent) {
         e.preventDefault();
-        form.transform((d) => ({ ...d, ends_on: d.ends_on || null, ...(d.image ? {} : { image: undefined }) }));
+        form.transform((d) => ({ ...d, ends_on: d.ends_on || null, ...(d.media ? {} : { media: undefined }) }));
         const options = { forceFormData: true, preserveScroll: true, onSuccess: onClose };
         if (existing) form.post(route('admin.ads.update', existing.id), options);
         else form.post(route('admin.ads.store'), options);
@@ -532,32 +538,58 @@ function AdForm({ ad, onClose }: { ad: Ad | 'new' | null; onClose: () => void })
                     </div>
 
                     <div className="flex flex-col gap-2">
-                        <p className="text-sm font-semibold">{t('ads.banner')}</p>
+                        <p className="text-sm font-semibold">{t('biz.banner')}</p>
                         <label className="group bg-muted border-border hover:border-primary/50 relative block aspect-[6/5] cursor-pointer overflow-hidden rounded-xl border-2 border-dashed">
-                            {preview ? (
+                            {previewVideo ? (
+                                <video
+                                    src={previewVideo}
+                                    poster={preview ?? undefined}
+                                    muted
+                                    loop
+                                    autoPlay
+                                    playsInline
+                                    className="size-full object-cover"
+                                />
+                            ) : preview ? (
                                 <img src={preview} alt="" className="size-full object-cover" />
                             ) : (
                                 <span className="text-muted-foreground absolute inset-0 flex flex-col items-center justify-center gap-1 text-xs">
-                                    <ImagePlus className="size-6" /> {t('ads.pickImage')}
+                                    <span className="flex gap-1.5">
+                                        <ImagePlus className="size-6" />
+                                        <Film className="size-6" />
+                                    </span>
+                                    {t('biz.pickMedia')}
                                 </span>
                             )}
                             <input
                                 type="file"
-                                accept="image/jpeg,image/png,image/webp"
+                                accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
                                 className="hidden"
-                                onChange={(e) => form.setData('image', e.target.files?.[0] ?? null)}
+                                onChange={(e) => form.setData('media', e.target.files?.[0] ?? null)}
                             />
                         </label>
-                        <p className="text-muted-foreground text-xs">{t('ads.imageHint')}</p>
-                        <InputError message={form.errors.image} />
+                        <p className="text-muted-foreground text-xs">{t('biz.mediaHint', { s: limits.videoMaxSeconds, mb: limits.videoMaxMb })}</p>
+                        <InputError message={form.errors.media} />
                         <p className="text-muted-foreground mt-2 text-xs font-semibold">{t('ads.preview')}</p>
-                        <div className="bg-card border-border overflow-hidden rounded-2xl border">
-                            <div className="bg-muted aspect-[6/5]">{preview && <img src={preview} alt="" className="size-full object-cover" />}</div>
-                            <div className="p-2.5">
-                                <p className="line-clamp-2 text-xs font-bold">{form.data.title || t('ads.headline')}</p>
-                                <p className="text-muted-foreground truncate text-[10px]">{form.data.advertiser || t('ads.advertiser')}</p>
-                            </div>
-                        </div>
+                        <Banner
+                            preview
+                            ad={{
+                                id: existing?.id ?? 0,
+                                advertiser: form.data.advertiser || t('ads.advertiser'),
+                                title: form.data.title || t('ads.headline'),
+                                body: form.data.body || null,
+                                image: preview,
+                                video: previewVideo,
+                                href: form.data.url,
+                                domain: (() => {
+                                    try {
+                                        return new URL(form.data.url).hostname.replace(/^www\./, '');
+                                    } catch {
+                                        return '';
+                                    }
+                                })(),
+                            }}
+                        />
                     </div>
 
                     <div className="flex justify-end gap-2 md:col-span-2">
@@ -566,7 +598,7 @@ function AdForm({ ad, onClose }: { ad: Ad | 'new' | null; onClose: () => void })
                         </button>
                         <button
                             type="submit"
-                            disabled={form.processing || (!existing && !form.data.image)}
+                            disabled={form.processing || (!existing && !form.data.media)}
                             className="bg-primary text-primary-foreground disabled:bg-muted disabled:text-muted-foreground h-10 rounded-full px-5 text-sm font-bold transition hover:brightness-110"
                         >
                             {t('pe.save')}
