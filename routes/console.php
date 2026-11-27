@@ -39,6 +39,9 @@ Artisan::command('subscriptions:remind', function () {
 
 Schedule::command('subscriptions:remind')->dailyAt('10:00');
 
+// Every media file copied to the backup bucket, nightly (only what's new). Does nothing until BACKUP_BUCKET is set.
+Schedule::command('media:backup')->dailyAt('03:30')->withoutOverlapping(720);
+
 // Auto-renew: pay the next month from the fan's wallet in the last day before access ends.
 Artisan::command('subscriptions:renew', function (Renewals $renewals) {
     $r = $renewals->run();

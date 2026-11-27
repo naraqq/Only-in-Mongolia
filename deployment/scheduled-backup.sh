@@ -2,7 +2,8 @@
 # Run by the backup timers (see install-backup-timers.sh).
 #   bash deployment/scheduled-backup.sh           nightly: online database dump, no downtime
 #   bash deployment/scheduled-backup.sh --full    weekly: database + uploads + Caddy state (writers pause briefly)
-# Then prunes old backups and, if BACKUP_RSYNC_TARGET is set in .env.docker, copies them off this server.
+# Then prunes old backups and copies them off this server: the newest dump to the backup bucket when BACKUP_BUCKET
+# is set, and everything by rsync when BACKUP_RSYNC_TARGET is (both from .env.docker).
 set -Eeuo pipefail
 umask 077
 
@@ -27,6 +28,21 @@ fi
 # Prune: database dumps are files, full snapshots are folders. Never touch an unfinished snapshot.
 find "$BACKUPS" -mindepth 1 -maxdepth 1 -type f -name '*.sql.gz' -mtime +"$keep_days" -delete
 find "$BACKUPS" -mindepth 1 -maxdepth 1 -type d ! -name '.snapshot.*' -mtime +"$keep_full_days" -exec rm -rf -- {} +
+
+# Off-site copy to the backup bucket (BACKUP_BUCKET, the same one media:backup copies media files to): the newest
+# database dump, through the app container (which has the bucket's keys). Old ones there go after the same days.
+bucket=$(setting BACKUP_BUCKET)
+if [[ -n "$bucket" ]]; then
+    newest=$(find "$BACKUPS" -mindepth 1 -maxdepth 2 -type f -name '*.sql.gz' ! -path '*/.snapshot.*' -printf '%T@ %p\n' | sort -n | tail -n 1 | cut -d ' ' -f 2-)
+    if [[ -n "$newest" ]]; then
+        source "$ROOT/deployment/common.sh"
+        init_docker
+        read_state
+        name=$(basename -- "$(dirname -- "$newest")")-$(basename -- "$newest")
+        [[ "$(dirname -- "$newest")" == "$BACKUPS" ]] && name=$(basename -- "$newest")
+        compose "$CURRENT" exec -T app php artisan backup:store "database/$name" --keep-days="$keep_full_days" < "$newest"
+    fi
+fi
 
 # Off-site copy (e.g. BACKUP_RSYNC_TARGET=backup@storage.example.com:only-in-mongolia/). Uses this account's SSH key.
 if [[ -n "$target" ]]; then

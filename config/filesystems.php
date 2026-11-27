@@ -72,6 +72,20 @@ return [
             'throw' => true,
         ],
 
+        // Backups (App\Console\Commands\MediaBackup, backup:store): a second private bucket, ideally in another account
+        // or provider, holding a copy of every media file and the database backups. Same R2 keys unless set.
+        'backup' => [
+            'driver' => 's3',
+            'key' => env('BACKUP_ACCESS_KEY_ID', env('R2_ACCESS_KEY_ID')),
+            'secret' => env('BACKUP_SECRET_ACCESS_KEY', env('R2_SECRET_ACCESS_KEY')),
+            'region' => env('BACKUP_REGION', 'auto'),
+            'bucket' => env('BACKUP_BUCKET'),
+            'endpoint' => env('BACKUP_ENDPOINT', env('R2_ENDPOINT')),
+            'use_path_style_endpoint' => true,
+            'visibility' => 'private',
+            'throw' => true,
+        ],
+
     ],
 
     /*

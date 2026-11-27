@@ -89,6 +89,12 @@ sudo bash deployment/install-backup-timers.sh
 
 This installs two systemd timers (Mongolian time): an online database dump every night at 03:30, and a full snapshot (database, uploads, Caddy state; writers pause briefly) every Sunday at 04:00. Old backups are pruned after `BACKUP_KEEP_DAYS` (default 14) and full snapshots after `BACKUP_KEEP_FULL_DAYS` (default 56). Set `BACKUP_RSYNC_TARGET` in `.env.docker` (for example `backup@storage.example.com:only-in-mongolia/`) to copy every finished backup off this server with the deploying account's SSH key. The timers run as the deploying account, which must reach Docker without a password prompt. Check runs with `journalctl -u only-in-mongolia-backup-db -u only-in-mongolia-backup-full`.
 
+With media on R2, photos and videos aren't in these snapshots. Set `BACKUP_BUCKET` (a second private bucket; better in another Cloudflare account or provider, with its own `BACKUP_ACCESS_KEY_ID`, `BACKUP_SECRET_ACCESS_KEY` and `BACKUP_ENDPOINT`, so one leaked key can't delete both copies) and:
+- the scheduler copies every new or changed media file there each night at 03:30 (`php artisan media:backup`; `--dry-run` shows what it would copy). Files deleted from the media bucket stay in the backup for 30 days (`--keep-deleted`), so a mistaken delete can be undone;
+- each backup timer run also stores its newest database dump there under `database/`, pruned after `BACKUP_KEEP_FULL_DAYS`.
+
+To restore media: `php artisan media:backup --restore` copies back every file the media bucket is missing. To restore the database: download the dump from `database/` in the backup bucket and load it as described above.
+
 Store backups encrypted off-server. The archives contain sensitive records and TLS material. Keep the application key, environment file, release state, and tagged images protected. Verify recovery on a separate host or project. Run `gzip -t database.sql.gz` and `tar -tzf storage.tar.gz`. Import SQL into an empty recovery database using `gzip -dc database.sql.gz | mysql --defaults-extra-file=/private/recovery-client.cnf recovery_db`. Extract into a private staging directory and restore uploads and Caddy state into new volumes before switching traffic. Review writes since the backup before promoting any recovered data.
 
 ## Roll back
