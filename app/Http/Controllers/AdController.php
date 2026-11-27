@@ -49,13 +49,13 @@ class AdController extends Controller
         $ids = collect($request->validate(['ids' => ['required', 'array', 'max:10'], 'ids.*' => ['integer']])['ids'])->unique();
         $key = 'ads_seen.'.now()->toDateString();
         $seen = $request->session()->get($key, []);
-        $new = Ad::whereIn('id', $ids->diff($seen))->pluck('id')->all();
+        $new = Ad::whereIn('id', $ids->diff($seen))->where('review_status', Ad::APPROVED)->pluck('id')->all();
         Ad::tally($new, 'impressions');
         $request->session()->put($key, [...$seen, ...$new]);
 
         // Every time it was seen today (for the daily limit), not only the first.
         $shown = $request->session()->get(self::shownKey(), []);
-        foreach (Ad::whereIn('id', $ids)->pluck('id') as $id) {
+        foreach (Ad::whereIn('id', $ids)->where('review_status', Ad::APPROVED)->pluck('id') as $id) {
             $shown[$id] = ($shown[$id] ?? 0) + 1;
         }
         $request->session()->put(self::shownKey(), $shown);
@@ -63,9 +63,13 @@ class AdController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /** A click: count it, then go to the advertiser (with our tags on the link). */
+    /**
+     * A click: count it, then go to the advertiser (with our tags on the link). Only for banners an admin approved:
+     * otherwise anyone could submit a campaign and use this address to send people to any site under our name.
+     */
     public function go(Ad $ad): RedirectResponse
     {
+        abort_unless($ad->review_status === Ad::APPROVED, 404);
         Ad::tally([$ad->id], 'clicks');
 
         return redirect()->away($ad->trackedUrl());

@@ -34,12 +34,17 @@ class Ffmpeg
     public function probe(string $file): array
     {
         $run = Process::timeout(120)->run([
-            config('media.ffprobe'), '-v', 'error', '-print_format', 'json', '-show_format', '-show_streams', $file,
+            config('media.ffprobe'), '-v', 'error', '-protocol_whitelist', 'file', '-print_format', 'json', '-show_format', '-show_streams', $file,
         ]);
         if (! $run->successful()) {
             throw new RuntimeException('ffprobe failed: '.trim($run->errorOutput()));
         }
         $info = json_decode($run->output(), true) ?: [];
+        // Only the containers uploads may be (MP4/MOV, WebM). Anything else, e.g. a playlist dressed up as a video
+        // that would make ffmpeg read other files on this server into the output, is refused before it's decoded.
+        if (self::demuxer((string) ($info['format']['format_name'] ?? '')) === null) {
+            throw new RuntimeException('Not an MP4, MOV or WebM video.');
+        }
         $streams = collect($info['streams'] ?? []);
         $video = $streams->firstWhere('codec_type', 'video');
         $audio = $streams->firstWhere('codec_type', 'audio');
@@ -86,7 +91,7 @@ class Ffmpeg
         $last = '';
         foreach ($attempts as $filters) {
             $run = Process::timeout((int) config('media.timeout'))->run([
-                config('media.ffmpeg'), '-hide_banner', '-nostdin', '-y', '-i', $in,
+                config('media.ffmpeg'), '-hide_banner', '-nostdin', '-y', ...self::input($probe), '-i', $in,
                 '-map', '0:v:0', '-map', '0:a:0?', '-map_metadata', '-1', '-map_chapters', '-1',
                 '-vf', $filters, '-fpsmax', '60',
                 '-c:v', 'libx264', '-preset', 'veryfast', '-crf', (string) config('media.video_crf'),
@@ -102,6 +107,32 @@ class Ffmpeg
             $last = trim(substr($run->errorOutput(), -800));
         }
         throw new RuntimeException('ffmpeg conversion failed: '.$last);
+    }
+
+    /**
+     * How to open an uploaded file: as exactly the container it was found to be, from the file itself only (no
+     * other files or network addresses it might name).
+     *
+     * @return list<string>
+     */
+    public static function input(array $probe): array
+    {
+        $demuxer = self::demuxer((string) ($probe['format'] ?? ''));
+        if ($demuxer === null) {
+            throw new RuntimeException('Not an MP4, MOV or WebM video.');
+        }
+
+        return ['-protocol_whitelist', 'file', '-f', $demuxer];
+    }
+
+    /** ffmpeg's demuxer for an accepted container (ffprobe's format_name), or null for anything else. */
+    public static function demuxer(string $formatName): ?string
+    {
+        return match (true) {
+            str_contains($formatName, 'mov') || str_contains($formatName, 'mp4') => 'mov',
+            str_contains($formatName, 'matroska') || str_contains($formatName, 'webm') => 'matroska',
+            default => null,
+        };
     }
 
     /** One frame at $seconds, scaled so its longer side is at most $side, as a JPEG. */

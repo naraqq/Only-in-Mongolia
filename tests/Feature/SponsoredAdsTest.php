@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Media\Ffmpeg;
 use App\Models\Ad;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -84,6 +85,27 @@ class SponsoredAdsTest extends TestCase
         $this->assertStringContainsString('utm_medium=banner', $to);
         $this->assertStringContainsString("utm_campaign=ad-{$ad->id}", $to);
         $this->assertSame(1, (int) DB::table('ad_stats')->where('ad_id', $ad->id)->value('clicks'));
+    }
+
+    public function test_banners_that_were_never_approved_cannot_be_used_as_a_redirect_or_counted(): void
+    {
+        foreach ([Ad::UNPAID, Ad::PENDING, Ad::REJECTED] as $status) {
+            $ad = $this->ad(['review_status' => $status, 'url' => 'https://phishing.example']);
+            $this->get("/ads/{$ad->id}/go")->assertNotFound();
+            $this->postJson('/ads/views', ['ids' => [$ad->id]])->assertOk();
+        }
+        $this->assertSame(0, DB::table('ad_stats')->count());
+    }
+
+    public function test_only_mp4_mov_and_webm_containers_are_opened_and_only_from_the_file_itself(): void
+    {
+        $this->assertSame('mov', Ffmpeg::demuxer('mov,mp4,m4a,3gp,3g2,mj2'));
+        $this->assertSame('matroska', Ffmpeg::demuxer('matroska,webm'));
+        $this->assertNull(Ffmpeg::demuxer('hls'));
+        $this->assertNull(Ffmpeg::demuxer('avi'));
+        $this->assertSame(['-protocol_whitelist', 'file', '-f', 'mov'], Ffmpeg::input(['format' => 'mov,mp4,m4a,3gp,3g2,mj2']));
+        $this->expectException(\RuntimeException::class);
+        Ffmpeg::input(['format' => 'hls']);
     }
 
     public function test_admins_create_pause_and_report_on_banners_and_others_cannot(): void
